@@ -1,0 +1,17 @@
+# Никогда не коммитить дампы с устройства — в них лежат токены аккаунта
+snapshots/
+settings.xml
+*.ldb
+*.log
+leveldb/
+MANIFEST-*
+
+# Скриншоты личного экрана
+*.png
+*.jpg
+*.jpeg
+
+Thumbs.db
+.DS_Store
+*.tmp
+__pycache__/
