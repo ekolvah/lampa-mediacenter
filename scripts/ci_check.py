@@ -65,6 +65,17 @@ _PLACEHOLDER = re.compile(r"(?i)redacted|example|changeme|xxxx|your[-_]?")
 # diff-е он был виден рядом с тем, что разрешает.
 _ALLOW_MARKER = "secret-ok"
 
+# Не переиспользуют _DEVICE_SECRET_PATTERNS: там `[?&]` перед uid и обрыв email-паттерна
+# на `@` — намеренная узость, чтобы не самосработать на упоминании параметра в доках
+# (см. комментарий выше). Для маскировки живого текста (tools/screen.py) нужно обратное —
+# поймать значение без URL-обвязки и погасить его целиком, включая домен email.
+_REDACT_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"token=[0-9A-Za-z][0-9A-Za-z._~-]{7,}"),
+    re.compile(r"account_email=[^&\s\"'<>\[\]`]*(?:@|%40)[^&\s\"'<>\[\]`]*"),
+    re.compile(r"uid=[0-9A-Za-z]{5,}"),
+    re.compile(r"(?i)\b(?:pass|password|passwd)\s*[=:]\s*[\"']?\S{4,}"),
+)
+
 
 def _run(cmd: list[str]) -> None:
     if subprocess.run(cmd).returncode != 0:
@@ -135,6 +146,17 @@ def scan_device_secrets(files: Iterable[str]) -> list[str]:
                 if match and not _PLACEHOLDER.search(match.group(0)):
                     findings.append(f"{name}:{lineno}: {label} — {match.group(0)[:60]}")
     return findings
+
+
+def redact_secrets(text: str) -> str:
+    """Замаскировать секреты проекта в произвольном тексте, не только в файлах на диске.
+
+    Нужно инструментам вроде tools/screen.py: их вывод идёт прямиком в контекст
+    агента, минуя git и гейт `secrets` (тот сканирует только индексируемые файлы).
+    """
+    for pattern in _REDACT_PATTERNS:
+        text = pattern.sub("<redacted>", text)
+    return text
 
 
 _ALLOWED_REMOTE = "github.com/ekolvah/lampa-mediacenter"
