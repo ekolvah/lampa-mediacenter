@@ -1,0 +1,58 @@
+# Конфигурация инструментов качества. Пакетом репозиторий не является — нет
+# [project]/[build-system], здесь только настройки ruff и mypy, которые читает
+# scripts/ci_check.py. Что и зачем проверяется — docs/quality-gates.md.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = [
+    ".git",
+    ".venv",
+    ".claude",
+    "__pycache__",
+    # Выгрузки с устройства — чужой формат, не наш код.
+    "snapshots",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",        # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "UP",       # pyupgrade
+    "B",        # bugbear
+    "SIM",      # flake8-simplify
+    "BLE",      # никаких `except Exception:` без причины — глушение аномалий
+    "TRY400",   # logging.error вместо logging.exception в except
+    "ERA001",   # закомментированный код — не документация
+    "C901",     # цикломатическая сложность
+    "PLR0912",  # слишком много ветвлений
+    "PLR0915",  # слишком много инструкций
+    "D100",     # у модуля должен быть docstring: скрипт без него агент не поймёт
+    "D104",
+    "D419",     # пустой docstring хуже отсутствующего
+    "ARG001",   # неиспользуемый аргумент функции — след недоделанной правки
+    "ARG002",
+]
+ignore = [
+    # Длину строк держит форматтер; жёсткий предел мешает URL'ам и adb-командам в docstring'ах.
+    "E501",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true

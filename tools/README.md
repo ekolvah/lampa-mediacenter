@@ -12,9 +12,9 @@ Lampa — это веб-приложение в WebView внутри APK `top.ro
 ### Подготовка (один раз за сессию)
 
 ```bash
-MSYS_NO_PATHCONV=1 adb -s <DEVICE_IP>:5555 shell "cat /proc/net/unix | grep devtools"
+MSYS_NO_PATHCONV=1 adb -s 192.168.10.5:5555 shell "cat /proc/net/unix | grep devtools"
 # -> @webview_devtools_remote_<pid>
-MSYS_NO_PATHCONV=1 adb -s <DEVICE_IP>:5555 forward tcp:9222 localabstract:webview_devtools_remote_<pid>
+MSYS_NO_PATHCONV=1 adb -s 192.168.10.5:5555 forward tcp:9222 localabstract:webview_devtools_remote_<pid>
 curl -s http://127.0.0.1:9222/json     # проверить, что таргет lampa.mx виден
 ```
 
@@ -50,5 +50,5 @@ echo "window.location.reload(); 'ok'" | python tools/cdp.py
 ### Осторожно
 
 Это полноценное выполнение кода в приложении — те же правила, что для любой правки
-конфигурации: сначала снапшот по конвенции конвенции снапшотов,
+конфигурации: сначала снапшот по конвенции [../docs/snapshots-convention.md](../docs/snapshots-convention.md),
 одно изменение за раз, проверка после каждого.

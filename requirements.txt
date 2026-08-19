@@ -1,0 +1,2 @@
+# Runtime-зависимости инструментов из tools/.
+websocket-client==1.9.0

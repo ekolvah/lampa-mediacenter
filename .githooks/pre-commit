@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Гейты перед коммитом. Хуки включаются явно:
+#     git config core.hooksPath .githooks
+# Remote у репозитория нет, поэтому CI-сервера тоже нет — это единственный
+# автоматический барьер, см. docs/quality-gates.md.
+set -u
+
+# Репозиторно-локальное окружение git (GIT_DIR/GIT_INDEX_FILE и пр.) хук наследует;
+# для дочернего `git ls-files` внутри ci_check.py оно только источник сюрпризов.
+if ! GIT_LOCAL_ENV_VARS=$(git rev-parse --local-env-vars); then
+    echo "pre-commit: git rev-parse --local-env-vars не сработал — окружение неизвестно" >&2
+    exit 2
+fi
+for name in $GIT_LOCAL_ENV_VARS; do
+    unset "$name"
+done
+
+# Интерпретатор пробуется (`-c ''`), а не выводится из кода возврата гейта: иначе
+# красный гейт был бы истолкован как «не тот питон» и перезапущен под следующим.
+PY=""
+for candidate in ".venv/Scripts/python" ".venv/bin/python" "py -3.12" "python"; do
+    # Без кавычек намеренно: "py -3.12" — команда вместе с аргументом.
+    # shellcheck disable=SC2086
+    if $candidate -c "" 2>/dev/null; then
+        PY="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PY" ]; then
+    echo "pre-commit: не найден Python (пробовал .venv, py -3.12, python)" >&2
+    exit 1
+fi
+
+# shellcheck disable=SC2086
+$PY scripts/ci_check.py || exit $?

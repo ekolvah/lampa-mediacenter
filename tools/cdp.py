@@ -3,46 +3,53 @@
 Использование: python cdp.py <файл-с-js>   (или JS из stdin)
 Требует заранее: adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>
 """
+
 import io
 import json
 import sys
 import urllib.request
+from pathlib import Path
+from typing import Any
 
 import websocket
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 
-def page_target():
+def page_target() -> str:
     targets = json.load(urllib.request.urlopen("http://127.0.0.1:9222/json"))
     for t in targets:
         if t.get("type") == "page" and "lampa.mx" in t.get("url", ""):
-            return t["webSocketDebuggerUrl"]
+            return str(t["webSocketDebuggerUrl"])
     raise SystemExit("страница lampa.mx не найдена среди DevTools-таргетов")
 
 
-def evaluate(js):
+def evaluate(js: str) -> dict[str, Any]:
     ws = websocket.create_connection(page_target(), timeout=20)
     try:
-        ws.send(json.dumps({
-            "id": 1,
-            "method": "Runtime.evaluate",
-            "params": {
-                "expression": js,
-                "returnByValue": True,
-                "awaitPromise": True,
-            },
-        }))
+        ws.send(
+            json.dumps(
+                {
+                    "id": 1,
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": js,
+                        "returnByValue": True,
+                        "awaitPromise": True,
+                    },
+                }
+            )
+        )
         while True:
             msg = json.loads(ws.recv())
             if msg.get("id") == 1:
-                return msg
+                return dict(msg)
     finally:
         ws.close()
 
 
 if __name__ == "__main__":
-    js = io.open(sys.argv[1], encoding="utf-8").read() if len(sys.argv) > 1 else sys.stdin.read()
+    js = Path(sys.argv[1]).read_text(encoding="utf-8") if len(sys.argv) > 1 else sys.stdin.read()
     res = evaluate(js)
     if "error" in res:
         print("CDP ERROR:", json.dumps(res["error"], ensure_ascii=False))
