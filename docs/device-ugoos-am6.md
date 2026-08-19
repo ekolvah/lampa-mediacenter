@@ -76,6 +76,10 @@ MSYS_NO_PATHCONV=1 adb pull /sdcard/shot.png ./shot.png
 
 ## Навигация в UI приставки без пульта (через adb)
 
+Штатный путь — [../tools/README.md](../tools/README.md) (`tools/ui.py`): весь
+сценарий нажатий одним вызовом, с самопроверкой результата вместо скриншота.
+Ниже — сырые keyevent на fallback-случай (разовое нажатие, отладка нового маршрута):
+
 ```bash
 adb shell input keyevent KEYCODE_DPAD_UP
 adb shell input keyevent KEYCODE_DPAD_DOWN
