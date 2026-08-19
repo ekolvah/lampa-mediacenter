@@ -215,6 +215,14 @@ def check_mypy() -> None:
     _run([sys.executable, "-m", "mypy", *modules])
 
 
+def check_pytest() -> None:
+    print("==> pytest")
+    if not Path("tests").is_dir():
+        print("  каталога tests/ нет — проверка неприменима")
+        return
+    _run([sys.executable, "-m", "pytest", "-q", "tests"])
+
+
 _SNAPSHOT_DIR_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}_[^/]+$")
 
 
@@ -289,6 +297,7 @@ CHECKS: dict[str, Callable[[], None]] = {
     "format": check_format,
     "lint": check_lint,
     "mypy": check_mypy,
+    "pytest": check_pytest,
     "snapshots": check_snapshots,
     "links": check_links,
 }
