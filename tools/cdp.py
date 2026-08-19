@@ -68,6 +68,11 @@ def evaluate_on(ws: websocket.WebSocket, request_id: int, js: str) -> dict[str, 
             return dict(msg)
 
 
+def setup_stdout_utf8() -> None:
+    """Переключить stdout на UTF-8 — консоль Windows иначе падает на кириллице."""
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
+
 def evaluate(js: str) -> dict[str, Any]:
     ws = open_connection()
     try:
@@ -125,7 +130,7 @@ def run_batch(pairs: list[tuple[str, str]]) -> int:
 def main() -> None:
     # Только тут, не на уровне модуля: импорт cdp.py тестами не должен подменять
     # sys.stdout процесса — pytest сам управляет захватом вывода.
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    setup_stdout_utf8()
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
