@@ -1,15 +1,22 @@
 (function () {
   'use strict';
 
-  // Фильтр качества («Смотреть → Торренты → Фильтр») применяется только внутри
+  // Фильтр раздач («Смотреть → Торренты → Фильтр») применяется только внутри
   // экрана одного фильма — на карточках в списках (Главная/Избранное/подборки)
-  // не видно, что у фильма вообще нет раздач нужного качества. Плагин докидывает
-  // на такие карточки метку и лёгкое затемнение.
+  // не видно, что под текущий фильтр у фильма не проходит ни одна раздача.
+  // Плагин докидывает на такие карточки метку и лёгкое затемнение.
   //
   // Источник раздач — Lampa.Parser.get, тот же метод, которым пользуется штатный
   // экран «Торренты» (см. src/components/torrents.js в зеркале движка): это даёт
   // тот же бэкенд (jackett/prowlarr/torrserver — какой у пользователя настроен) и
   // тот же формат ответа без необходимости повторять сборку запроса вручную.
+  //
+  // Вердикт обязан совпадать с тем, что реально покажет экран «Торренты», поэтому
+  // ниже воспроизведена не только проверка качества, а вся функция filtred():
+  // движок требует прохождения ВСЕХ активных измерений фильтра сразу
+  // (`return nopass ? false : passed`), а не только качества. Проверять одно
+  // качество нельзя: раздача 2160p, отсеянная по языку, давала бы «раздачи есть»
+  // там, где штатный экран показывает пусто.
   //
   // Раздачи запрашиваются только по глобальному фильтру torrents_filter — если у
   // конкретного фильма выставлен персональный оверрайд (torrents_filter_data),
@@ -18,27 +25,237 @@
   // «Торренты» для сериала. Оверрайды — редкий кейс, глобальный фильтр покрывает
   // основной сценарий.
 
-  var CACHE_KEY = 'torrent_quality_badge_cache';
+  var CACHE_KEY = 'torrent_filter_badge_cache';
   var CACHE_MAX_ENTRIES = 500;
   var CACHE_TTL_MS = 6 * 60 * 60 * 1000;
   var MAX_CONCURRENT = 2;
 
-  // Регекспы продублированы байт-в-байт из filtred() в src/components/torrents.js
-  // (сверено с живым app.min.js устройства), включая квирк [$] — внутри класса
-  // символов это буквальный доллар, а не якорь конца строки. Не выпрямляем: цель —
-  // совпадать с тем, что реально покажет штатный экран "Торренты", а не с тем, что
-  // "правильно" по regex.
-  var QUALITY_TESTS = {
-    '4k': /(4k|uhd)[ |\]|,|$]|2160[pр]|ultrahd/,
-    '1080p': /fullhd|1080[pр]/,
-    '720p': /720[pр]/
-  };
-
   var QUALITY_LABELS = { '4k': '4K', '1080p': '1080p', '720p': '720p' };
+
+  // Соответствие «метка языка в фильтре → код», как в src/components/torrents/lang.js.
+  // Порядок не важен: движок берёт код по индексу метки, здесь — по самой метке,
+  // результат тот же, а от расхождения в порядке список не ломается.
+  var LANGS = [
+    { t: 'filter_lang_ru', c: 'ru' }, { t: 'filter_lang_uk', c: 'uk' }, { t: 'filter_lang_en', c: 'en' },
+    { t: 'filter_lang_be', c: 'be' }, { t: 'filter_lang_zh', c: 'zh|cn' }, { t: 'filter_lang_ja', c: 'ja' },
+    { t: 'filter_lang_ko', c: 'ko' }, { t: 'filter_lang_af', c: 'af' }, { t: 'filter_lang_sq', c: 'sq' },
+    { t: 'filter_lang_ar', c: 'ar' }, { t: 'filter_lang_az', c: 'az' }, { t: 'filter_lang_hy', c: 'hy' },
+    { t: 'filter_lang_ba', c: 'ba' }, { t: 'filter_lang_bg', c: 'bg' }, { t: 'filter_lang_bn', c: 'bn' },
+    { t: 'filter_lang_bs', c: 'bs' }, { t: 'filter_lang_ca', c: 'ca' }, { t: 'filter_lang_ce', c: 'ce' },
+    { t: 'filter_lang_cs', c: 'cs' }, { t: 'filter_lang_da', c: 'da' }, { t: 'filter_lang_ka', c: 'ka' },
+    { t: 'filter_lang_de', c: 'de' }, { t: 'filter_lang_el', c: 'el' }, { t: 'filter_lang_es', c: 'es' },
+    { t: 'filter_lang_et', c: 'et' }, { t: 'filter_lang_fa', c: 'fa' }, { t: 'filter_lang_fi', c: 'fi' },
+    { t: 'filter_lang_fr', c: 'fr' }, { t: 'filter_lang_ga', c: 'ga' }, { t: 'filter_lang_gl', c: 'gl' },
+    { t: 'filter_lang_gn', c: 'gn' }, { t: 'filter_lang_he', c: 'he' }, { t: 'filter_lang_hi', c: 'hi' },
+    { t: 'filter_lang_hr', c: 'hr' }, { t: 'filter_lang_hu', c: 'hu' }, { t: 'filter_lang_id', c: 'id' },
+    { t: 'filter_lang_is', c: 'is' }, { t: 'filter_lang_it', c: 'it' }, { t: 'filter_lang_kk', c: 'kk' },
+    { t: 'filter_lang_ks', c: 'ks' }, { t: 'filter_lang_ku', c: 'ku' }, { t: 'filter_lang_ky', c: 'ky' },
+    { t: 'filter_lang_lt', c: 'lt' }, { t: 'filter_lang_lv', c: 'lv' }, { t: 'filter_lang_mi', c: 'mi' },
+    { t: 'filter_lang_mk', c: 'mk' }, { t: 'filter_lang_mn', c: 'mn' }, { t: 'filter_lang_mt', c: 'mt' },
+    { t: 'filter_lang_no', c: 'no|nb|nn' }, { t: 'filter_lang_ne', c: 'ne' }, { t: 'filter_lang_nl', c: 'nl' },
+    { t: 'filter_lang_pa', c: 'pa' }, { t: 'filter_lang_pl', c: 'pl' }, { t: 'filter_lang_ps', c: 'ps' },
+    { t: 'filter_lang_pt', c: 'pt' }, { t: 'filter_lang_ro', c: 'ro' }, { t: 'filter_lang_si', c: 'si' },
+    { t: 'filter_lang_sk', c: 'sk' }, { t: 'filter_lang_sl', c: 'sl' }, { t: 'filter_lang_sm', c: 'sm' },
+    { t: 'filter_lang_so', c: 'so' }, { t: 'filter_lang_sr', c: 'sr' }, { t: 'filter_lang_sv', c: 'sv' },
+    { t: 'filter_lang_sw', c: 'sw' }, { t: 'filter_lang_ta', c: 'ta' }, { t: 'filter_lang_tg', c: 'tg' },
+    { t: 'filter_lang_th', c: 'th' }, { t: 'filter_lang_tk', c: 'tk' }, { t: 'filter_lang_tr', c: 'tr' },
+    { t: 'filter_lang_tt', c: 'tt' }, { t: 'filter_lang_ur', c: 'ur' }, { t: 'filter_lang_uz', c: 'uz' },
+    { t: 'filter_lang_vi', c: 'vi' }, { t: 'filter_lang_yi', c: 'yi' }
+  ];
+
+  function tr(key) {
+    return Lampa.Lang.translate(key);
+  }
+
+  function langCode(label) {
+    for (var i = 0; i < LANGS.length; i++) {
+      if (tr(LANGS[i].t) === label) return LANGS[i].c;
+    }
+    // Движок при неизвестной метке считает измерение пройденным (c === undefined
+    // → `else any = true`) — повторяем это, а не «ничего не подошло».
+    return null;
+  }
+
+  // Первые четыре позиции filter_items.voice в движке — фиксированные категории,
+  // остальные подставляются динамически из найденных раздач.
+  function voiceCategory(label) {
+    var cats = [
+      'torrent_parser_voice_dubbing',
+      'torrent_parser_voice_polyphonic',
+      'torrent_parser_voice_two',
+      'torrent_parser_voice_amateur'
+    ];
+    for (var i = 0; i < cats.length; i++) {
+      if (tr(cats[i]) === label) return i + 1;
+    }
+    return -1;
+  }
+
+  function yearItems() {
+    var out = [tr('torrent_parser_any_two')];
+    var y = new Date().getFullYear();
+    var i = 20;
+    while (i--) out.push(y - (19 - i) + '');
+    return out;
+  }
 
   function toArray(v) {
     if (v === undefined || v === null || v === '') return [];
     return Array.isArray(v) ? v : [v];
+  }
+
+  // Порт filtred() из src/components/torrents.js — регекспы скопированы байт-в-байт
+  // (сверено с живым app.min.js устройства), включая квирк [$] внутри класса
+  // символов: там это буквальный доллар, а не якорь конца строки. Не выпрямляем —
+  // цель совпадать с тем, что реально покажет штатный экран, а не с тем, что
+  // «правильно» по regex.
+  function passesFilter(element, filter) {
+    var passed = false;
+    var nopass = false;
+    var title = (element.Title || '').toLowerCase();
+    var tracker = element.Tracker || '';
+
+    function test(search, test_index) {
+      if (test_index) return title.indexOf(search) >= 0;
+      return new RegExp(search).test(title);
+    }
+
+    function check(search, invert) {
+      if (test(search)) {
+        if (invert) nopass = true;
+        else passed = true;
+      } else {
+        if (invert) passed = true;
+        else nopass = true;
+      }
+    }
+
+    function includes(type, arr) {
+      if (!arr.length) return;
+
+      var any = false;
+
+      arr.forEach(function (a) {
+        if (type == 'quality') {
+          if (a == '4k' && test('(4k|uhd)[ |\\]|,|$]|2160[pр]|ultrahd')) any = true;
+          if (a == '1080p' && test('fullhd|1080[pр]')) any = true;
+          if (a == '720p' && test('720[pр]')) any = true;
+        }
+        if (type == 'voice') {
+          var p = voiceCategory(a);
+          var n = element.info && element.info.voices
+            ? element.info.voices.map(function (v) { return v.toLowerCase(); })
+            : [];
+
+          if (p == 1) {
+            if (test('дублирован|дубляж|  apple| dub| d[,| |$]|[,|\\s]дб[,|\\s|$]')) any = true;
+          } else if (p == 2) {
+            if (test('многоголос| p[,| |$]|[,|\\s](лм|пм)[,|\\s|$]')) any = true;
+          } else if (p == 3) {
+            if (test('двухголос|двуголос| l2[,| |$]|[,|\\s](лд|пд)[,|\\s|$]')) any = true;
+          } else if (p == 4) {
+            if (test('любитель|авторский| l1[,| |$]|[,|\\s](ло|ап)[,|\\s|$]')) any = true;
+          } else if (test(a.toLowerCase(), true)) any = true;
+          else if (n.length && n.indexOf(a.toLowerCase()) >= 0) any = true;
+        }
+        if (type == 'lang') {
+          var c = langCode(a);
+
+          if (c) {
+            if (element.languages) {
+              if (element.languages.find(function (l) { return l.toLowerCase().slice(0, 2) == c; })) any = true;
+            } else if (title.indexOf(c) >= 0) any = true;
+          } else any = true;
+        }
+        if (type == 'tracker') {
+          if (tracker.split(',').find(function (t) { return t.trim().toLowerCase() == a.toLowerCase(); })) any = true;
+        }
+      });
+
+      if (any) passed = true;
+      else nopass = true;
+    }
+
+    includes('quality', toArray(filter.quality));
+    includes('voice', toArray(filter.voice));
+    includes('tracker', toArray(filter.tracker));
+    includes('lang', toArray(filter.lang));
+
+    if (filter.hdr) check('[\\[| ]hdr[10| |\\]|,|$]', filter.hdr !== 1);
+
+    if (filter.dv == 0) check(tr('torrent_parser_no_choice'), filter.dv !== 1);
+    else if (filter.dv == 1) check('dolby vision');
+    else if (filter.dv == 2) check('dolby vision tv');
+    else if (filter.dv == 3) check('dolby vision', filter.dv !== 0);
+
+    if (filter.sub) check(' sub|[,|\\s]ст[,|\\s|$]', filter.sub !== 1);
+
+    if (filter.year) check(yearItems()[filter.year]);
+
+    if (filter._3d) {
+      check(' стереопара|interlace|anaglyph|анаглиф|bd3d|over\\-?under|side\\-?by\\-?side|' +
+        '[\\-\\[\\(| ]((half|h)?ou|(half|h)?sbs|lrq?|abq?|ba|rl|3d[\\- ]video)([ |\\]\\),]|$)',
+      filter._3d !== 1);
+    }
+
+    return nopass ? false : passed;
+  }
+
+  function anyResultPasses(results, filter) {
+    for (var i = 0; i < results.length; i++) {
+      if (passesFilter(results[i], filter)) return true;
+    }
+    return false;
+  }
+
+  // Активен ли фильтр вообще — та же проверка, что filter_any в движке.
+  function filterActive(filter) {
+    for (var k in filter) {
+      var v = filter[k];
+      if (!v) continue;
+      if (Array.isArray(v)) {
+        if (v.length) return true;
+      } else return true;
+    }
+    return false;
+  }
+
+  // Измерения, которые нельзя воспроизвести один-в-один, потому что движок
+  // считает их через TitleParser, наружу не выставленный: season опирается на
+  // element.general.seasons, нестандартные голоса — на element.info.voices.
+  // В таких случаях вердикт не выносим вообще: молчание лучше ложной метки.
+  function reproducible(filter) {
+    if (toArray(filter.season).length) return false;
+
+    var voices = toArray(filter.voice);
+    for (var i = 0; i < voices.length; i++) {
+      if (voiceCategory(voices[i]) === -1) return false;
+    }
+    return true;
+  }
+
+  function filterSignature(filter) {
+    return JSON.stringify([
+      toArray(filter.quality).slice().sort(),
+      toArray(filter.voice).slice().sort(),
+      toArray(filter.tracker).slice().sort(),
+      toArray(filter.lang).slice().sort(),
+      filter.hdr, filter.dv, filter.sub, filter.year, filter._3d
+    ]);
+  }
+
+  function badgeLabel(filter) {
+    var quality = toArray(filter.quality);
+    var others = toArray(filter.voice).length || toArray(filter.tracker).length ||
+      toArray(filter.lang).length || filter.hdr || filter.dv || filter.sub ||
+      filter.year || filter._3d;
+
+    // Пока сужен только по качеству — говорим, какого именно не хватает.
+    // Как только в фильтре есть что-то ещё, метка «нет 4K» врала бы про причину.
+    if (quality.length && !others) {
+      return 'нет ' + quality.map(function (q) { return QUALITY_LABELS[q] || q; }).join('/');
+    }
+    return 'нет раздач';
   }
 
   var PROCESSED_FALLBACK_MAX = 2000;
@@ -95,18 +312,7 @@
     return combos[Lampa.Storage.field('parse_lang')] || title;
   }
 
-  function qualityMatches(results, qualities) {
-    for (var i = 0; i < results.length; i++) {
-      var title = (results[i].Title || '').toLowerCase();
-      for (var j = 0; j < qualities.length; j++) {
-        var re = QUALITY_TESTS[qualities[j]];
-        if (re && re.test(title)) return true;
-      }
-    }
-    return false;
-  }
-
-  function applyBadge(item, miss, qualityLabel) {
+  function applyBadge(item, miss, label) {
     var root = item.render ? item.render(true) : null;
     if (!root) return;
 
@@ -121,7 +327,7 @@
     marker.className = 'card__marker card__marker--quality-miss';
 
     var span = document.createElement('span');
-    span.textContent = 'нет ' + qualityLabel;
+    span.textContent = label;
 
     marker.appendChild(span);
     view.appendChild(marker);
@@ -142,24 +348,23 @@
           movie: task.movie,
           from_search: false,
           clarification: false,
-          global: true,
           other: false
         },
-        function (key) {
+        function (key, filter) {
           return function (data) {
-            finishTask(key, ((data && data.Results) || []));
+            finishTask(key, ((data && data.Results) || []), filter);
           };
-        }(task.key),
-        function (key) {
+        }(task.key, task.filter),
+        function (key, filter) {
           return function () {
-            finishTask(key, null);
+            finishTask(key, null, filter);
           };
-        }(task.key)
+        }(task.key, task.filter)
       );
     }
   }
 
-  function finishTask(key, results) {
+  function finishTask(key, results, filter) {
     var callbacks = inFlight[key] || [];
     delete inFlight[key];
     active--;
@@ -171,7 +376,7 @@
     // повторный запрос не пойдёт, это осознанный компромисс ради нагрузки на
     // общий джекетт-агрегатор.
     if (results !== null) {
-      var miss = !qualityMatches(results, key.split(':')[2].split(','));
+      var miss = !anyResultPasses(results, filter);
 
       var cache = Lampa.Storage.cache(CACHE_KEY, CACHE_MAX_ENTRIES, {});
       cache[key] = { ts: Date.now(), miss: miss };
@@ -185,11 +390,8 @@
     pump();
   }
 
-  function enqueue(item, movie, quality) {
-    var key = movie.id + ':' + movieTypeFlag(movie) + ':' + quality.slice().sort().join(',');
-    var label = quality.map(function (q) {
-      return QUALITY_LABELS[q] || q;
-    }).join('/');
+  function enqueue(item, movie, filter, signature, label) {
+    var key = movie.id + ':' + movieTypeFlag(movie) + ':' + signature;
 
     var cache = Lampa.Storage.cache(CACHE_KEY, CACHE_MAX_ENTRIES, {});
     var cached = cache[key];
@@ -212,7 +414,7 @@
       }
     ];
 
-    queue.push({ key: key, movie: movie });
+    queue.push({ key: key, movie: movie, filter: filter });
     pump();
   }
 
@@ -220,21 +422,19 @@
     if (!e.items || !e.items.length) return;
 
     var filter = Lampa.Storage.get('torrents_filter', {});
-    // Только распознанные значения — если в фильтре окажется значение без своего
-    // regex в QUALITY_TESTS, qualityMatches() для него всегда вернёт false, и без
-    // этого фильтра карточка была бы помечена как "нет раздач" независимо от
-    // реальных результатов.
-    var quality = toArray(filter.quality).filter(function (q) {
-      return Object.prototype.hasOwnProperty.call(QUALITY_TESTS, q);
-    });
-    if (!quality.length) return;
+
+    if (!filterActive(filter)) return;
+    if (!reproducible(filter)) return;
+
+    var signature = filterSignature(filter);
+    var label = badgeLabel(filter);
 
     e.items.forEach(function (item) {
       if (alreadyProcessed(item)) return;
       if (!item.data || !item.data.id) return;
 
       markProcessed(item);
-      enqueue(item, item.data, quality);
+      enqueue(item, item.data, filter, signature, label);
     });
   }
 
