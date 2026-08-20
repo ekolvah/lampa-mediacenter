@@ -16,6 +16,9 @@
   как получить с него данные через Smart TV API.
 - [docs/4k-hdr-setup.md](docs/4k-hdr-setup.md) — что уже настроено, что проверено
   на реальном устройстве, и общие best-practice рекомендации по TorrServe/HDR/звуку.
+- [docs/jacred-on-ugoos.md](docs/jacred-on-ugoos.md) — свой парсер торрентов
+  (JacRed в Debian-chroot) на приставке вместо публичного `jac.red`: что
+  развёрнуто, как запускать после перезагрузки, как обновлять базу и откатить.
 - [docs/lampa-config-review.md](docs/lampa-config-review.md) — аудит реальной
   конфигурации Lampa (плагины, парсер, плеер), план рекомендаций (пока не применён).
 - [docs/snapshots-convention.md](docs/snapshots-convention.md) — конвенция бэкапа/отката перед
