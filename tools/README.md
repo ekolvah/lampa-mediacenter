@@ -142,3 +142,18 @@ python tools/screen.py lampa                        # DOM Lampa: контрол�
 
 `screencap` остаётся штатным способом для действительно визуальных вопросов (HDR,
 цветность, артефакты рендера, вёрстка) — правило в [../CLAUDE.md](../CLAUDE.md).
+
+## `chroot-debian.sh` / `jacred-start.sh` — свой парсер торрентов на приставке
+
+Два шелл-скрипта для устройства, а не для машины разработчика: первый входит в
+Debian-chroot в `/data/debian`, второй поднимает внутри него JacRed. Обслуживают
+установку, описанную в [../docs/jacred-on-ugoos.md](../docs/jacred-on-ugoos.md), —
+там же раскладка на устройство, запуск после перезагрузки и откат.
+
+```bash
+adb shell su -c '/system/bin/sh /data/local/tmp/chroot-debian.sh /root/jacred-start.sh'
+adb shell su -c '/system/bin/sh /data/local/tmp/chroot-debian.sh -c "dotnet --info"'
+```
+
+Оба идемпотентны: повторный вход в chroot не плодит монтирования, повторный
+старт не поднимает второй экземпляр JacRed.
