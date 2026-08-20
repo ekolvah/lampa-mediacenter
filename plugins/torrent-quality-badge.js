@@ -29,6 +29,8 @@
   var CACHE_MAX_ENTRIES = 500;
   var CACHE_TTL_MS = 6 * 60 * 60 * 1000;
   var MAX_CONCURRENT = 2;
+  // Сколько ждём, пока Lampa достроит внутренний DOM карточки (см. waitForView).
+  var VIEW_WAIT_MS = 60 * 1000;
 
   var QUALITY_LABELS = { '4k': '4K', '1080p': '1080p', '720p': '720p' };
 
@@ -312,17 +314,7 @@
     return combos[Lampa.Storage.field('parse_lang')] || title;
   }
 
-  function applyBadge(item, miss, label) {
-    var root = item.render ? item.render(true) : null;
-    if (!root) return;
-
-    root.classList.toggle('card--disabled', !!miss);
-
-    if (!miss || root.querySelector('.card__marker--quality-miss')) return;
-
-    var view = root.querySelector('.card__view');
-    if (!view) return;
-
+  function buildMarker(label) {
     var marker = document.createElement('div');
     marker.className = 'card__marker card__marker--quality-miss';
 
@@ -330,7 +322,58 @@
     span.textContent = label;
 
     marker.appendChild(span);
-    view.appendChild(marker);
+    return marker;
+  }
+
+  // Затемнение и подпись ставятся только вместе. Затемнить, не подписав, — худшее
+  // из состояний: карточка выглядит приглушённой без единого объяснения, почему.
+  function markMiss(root, view, label) {
+    if (root.querySelector('.card__marker--quality-miss')) return;
+    view.appendChild(buildMarker(label));
+    root.classList.add('card--disabled');
+  }
+
+  // Вердикт из кэша применяется синхронно прямо в обработчике 'line', когда
+  // Lampa ещё не построила внутренний DOM карточки: card__view появляется позже.
+  // Раньше плагин в этом месте молча выходил — и на прогретом кэше не подписывал
+  // вообще ни одной карточки, только затемнял их. Ждём появления card__view.
+  function waitForView(root, label) {
+    if (typeof MutationObserver === 'undefined') return;
+    if (root.torrent_badge_waiting) return;
+    root.torrent_badge_waiting = true;
+
+    var timer = null;
+
+    var observer = new MutationObserver(function () {
+      var view = root.querySelector('.card__view');
+      if (!view) return;
+      stop();
+      markMiss(root, view, label);
+    });
+
+    function stop() {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+      root.torrent_badge_waiting = false;
+    }
+
+    observer.observe(root, { childList: true, subtree: true });
+    timer = setTimeout(stop, VIEW_WAIT_MS);
+  }
+
+  function applyBadge(item, miss, label) {
+    var root = item.render ? item.render(true) : null;
+    if (!root) return;
+
+    if (!miss) {
+      root.classList.remove('card--disabled');
+      return;
+    }
+
+    var view = root.querySelector('.card__view');
+
+    if (view) markMiss(root, view, label);
+    else waitForView(root, label);
   }
 
   var queue = [];
