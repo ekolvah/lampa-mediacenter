@@ -284,11 +284,24 @@
   function injectStyle() {
     if (document.getElementById('torrent-quality-badge-style')) return;
 
+    // Классы намеренно свои, а не штатные card__marker / card--disabled: их
+    // Lampa считает своими и переписывает (см. комментарий у markMiss), поэтому
+    // вид штатного маркера воспроизводится здесь целиком.
     var style = document.createElement('style');
     style.id = 'torrent-quality-badge-style';
     style.textContent =
-      '.card__marker--quality-miss::before{background-color:#ff8a3d;}' +
-      '.card__marker--quality-miss>span{max-width:9.5em;}';
+      '.card__quality-badge{position:absolute;left:.4em;bottom:.4em;' +
+      'background:rgba(0,0,0,.5);border-radius:1em;padding:.2em .6em .2em .2em;' +
+      'display:flex;align-items:center;z-index:1;}' +
+      '.card__quality-badge::before{content:"";display:block;width:1em;height:1em;' +
+      'border-radius:100%;background-color:#ff8a3d;margin-right:.4em;flex-shrink:0;}' +
+      '.card__quality-badge>span{font-size:.8em;overflow:hidden;max-width:9.5em;' +
+      'text-overflow:ellipsis;white-space:nowrap;}' +
+      // Левый нижний угол — место штатного маркера закладок («Смотрю»,
+      // «Просмотрено»); он есть только у карточек в закладках. Если он уже
+      // отрисован, наш поднимается над ним.
+      '.card__marker~.card__quality-badge{bottom:2.6em;}' +
+      '.card--quality-miss .card__view{opacity:.5;}';
     document.head.appendChild(style);
   }
 
@@ -316,7 +329,7 @@
 
   function buildMarker(label) {
     var marker = document.createElement('div');
-    marker.className = 'card__marker card__marker--quality-miss';
+    marker.className = 'card__quality-badge';
 
     var span = document.createElement('span');
     span.textContent = label;
@@ -325,18 +338,23 @@
     return marker;
   }
 
-  // Затемнение и подпись ставятся только вместе. Затемнить, не подписав, — худшее
-  // из состояний: карточка выглядит приглушённой без единого объяснения, почему.
+  // Ни card__marker, ни card--disabled использовать нельзя, хотя визуально они
+  // ровно то, что нужно. Lampa считает эти узлы и классы своими: onFavorite
+  // ищет в карточке любой .card__marker и, если фильм не в закладках, делает
+  // marker.remove() — наша подпись исчезала через ~250 мс после отрисовки.
+  // card--disabled точно так же принадлежит методу карточки disable().
+  // Затемнение и подпись ставятся только вместе: затемнить, не подписав, — худшее
+  // из состояний, карточка выглядит приглушённой без единого объяснения, почему.
   function markMiss(root, view, label) {
-    if (root.querySelector('.card__marker--quality-miss')) return;
+    if (root.querySelector('.card__quality-badge')) return;
     view.appendChild(buildMarker(label));
-    root.classList.add('card--disabled');
+    root.classList.add('card--quality-miss');
   }
 
   // Вердикт из кэша применяется синхронно прямо в обработчике 'line', когда
   // Lampa ещё не построила внутренний DOM карточки: card__view появляется позже.
-  // Раньше плагин в этом месте молча выходил — и на прогретом кэше не подписывал
-  // вообще ни одной карточки, только затемнял их. Ждём появления card__view.
+  // Молча выйти здесь нельзя — на прогретом кэше без этого не подписалась бы
+  // ни одна карточка. Ждём появления card__view.
   function waitForView(root, label) {
     if (typeof MutationObserver === 'undefined') return;
     if (root.torrent_badge_waiting) return;
@@ -366,7 +384,7 @@
     if (!root) return;
 
     if (!miss) {
-      root.classList.remove('card--disabled');
+      root.classList.remove('card--quality-miss');
       return;
     }
 
