@@ -23,6 +23,11 @@
   var CACHE_TTL_MS = 6 * 60 * 60 * 1000;
   var MAX_CONCURRENT = 2;
 
+  // Регекспы продублированы байт-в-байт из filtred() в src/components/torrents.js
+  // (сверено с живым app.min.js устройства), включая квирк [$] — внутри класса
+  // символов это буквальный доллар, а не якорь конца строки. Не выпрямляем: цель —
+  // совпадать с тем, что реально покажет штатный экран "Торренты", а не с тем, что
+  // "правильно" по regex.
   var QUALITY_TESTS = {
     '4k': /(4k|uhd)[ |\]|,|$]|2160[pр]|ultrahd/,
     '1080p': /fullhd|1080[pр]/,
@@ -36,6 +41,8 @@
     return Array.isArray(v) ? v : [v];
   }
 
+  var PROCESSED_FALLBACK_MAX = 2000;
+
   var processed = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
   var processedFallback = [];
 
@@ -45,8 +52,14 @@
   }
 
   function markProcessed(item) {
-    if (processed) processed.add(item);
-    else processedFallback.push(item);
+    if (processed) {
+      processed.add(item);
+      return;
+    }
+    // Без WeakSet (старый движок) держим границу размера, чтобы список не рос
+    // бесконечно за время долгой сессии медиацентра.
+    if (processedFallback.length >= PROCESSED_FALLBACK_MAX) processedFallback.shift();
+    processedFallback.push(item);
   }
 
   function injectStyle() {
@@ -67,8 +80,8 @@
 
   function buildSearch(movie) {
     var year = ((movie.first_air_date || movie.release_date || '0000') + '').slice(0, 4);
-    var title = movie.title || '';
-    var original = movie.original_title || '';
+    var title = movie.title || movie.name || '';
+    var original = movie.original_title || movie.original_name || '';
     var combos = {
       df: original,
       df_year: original + ' ' + year,
@@ -151,6 +164,12 @@
     delete inFlight[key];
     active--;
 
+    // При ошибке (results === null) карточка намеренно остаётся без пометки —
+    // нет достаточных оснований показать её ни как "есть раздачи", ни как "нет":
+    // ложный "нет раздач" от временного сбоя парсера хуже, чем молчание. Из
+    // processed[] она при этом не убирается: до следующего показа этого списка
+    // повторный запрос не пойдёт, это осознанный компромисс ради нагрузки на
+    // общий джекетт-агрегатор.
     if (results !== null) {
       var miss = !qualityMatches(results, key.split(':')[2].split(','));
 
@@ -201,7 +220,13 @@
     if (!e.items || !e.items.length) return;
 
     var filter = Lampa.Storage.get('torrents_filter', {});
-    var quality = toArray(filter.quality);
+    // Только распознанные значения — если в фильтре окажется значение без своего
+    // regex в QUALITY_TESTS, qualityMatches() для него всегда вернёт false, и без
+    // этого фильтра карточка была бы помечена как "нет раздач" независимо от
+    // реальных результатов.
+    var quality = toArray(filter.quality).filter(function (q) {
+      return Object.prototype.hasOwnProperty.call(QUALITY_TESTS, q);
+    });
     if (!quality.length) return;
 
     e.items.forEach(function (item) {
