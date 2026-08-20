@@ -33,8 +33,11 @@ Lampa настроена на этот адрес: `jackett_url` = `http://127.0
 
 ## Запуск
 
-Автозапуска при загрузке приставки нет — после перезагрузки JacRed надо поднять
-руками:
+После загрузки приставки JacRed поднимается сам: скрипт лежит в
+`/system/su.d/99jacred`, SuperSU выполняет содержимое этого каталога при
+загрузке. Никаких действий с ноутбука не требуется.
+
+Поднять вручную (например, после ручной остановки):
 
 ```bash
 adb shell su -c '/system/bin/sh /data/local/tmp/chroot-debian.sh /root/jacred-start.sh'
@@ -43,20 +46,36 @@ adb shell su -c '/system/bin/sh /data/local/tmp/chroot-debian.sh /root/jacred-st
 Скрипт идемпотентен: если процесс уже жив, печатает `already running pid=…` и
 выходит; если упал на старте — печатает хвост `run.log` и возвращает `1`.
 
-Почему не автозапуск: штатные точки входа Android 9 (`su.d`, `init.d`) на этой
-прошивке отсутствуют, а всё остальное требует записи в `/system` — это сломало бы
-главное свойство установки (см. «Откат»). Пока лучше ручной запуск, чем правка
-системного раздела.
+### Если после перезагрузки поиск не работает
+
+Смотреть сюда, в порядке убывания вероятности:
+
+```bash
+adb shell su -c 'cat /data/local/tmp/jacred-boot.log'   # что сделал boot-хук
+adb logcat -d -s su.d jacred-boot                       # выполнил ли SuperSU хук вообще
+adb shell su -c 'pidof JacRed'                          # жив ли процесс
+```
+
+Хук пишет в оба места на каждом шаге и не молчит при отказе: если
+`/data/local/tmp/chroot-debian.sh` или `/data/debian` не появились за пять минут
+после загрузки, в лог уходит `GIVING UP` с причиной.
 
 ## Скрипты
 
-Оба лежат в [../tools/](../tools/) и раскладываются на устройство так:
+Все три лежат в [../tools/](../tools/) и раскладываются на устройство так:
 
 ```bash
 adb push tools/chroot-debian.sh /data/local/tmp/chroot-debian.sh
 adb push tools/jacred-start.sh  /data/local/tmp/jacred-start.sh
+adb push tools/jacred-boot.sh   /data/local/tmp/jacred-boot.sh
 adb shell su -c 'cp /data/local/tmp/jacred-start.sh /data/debian/root/ &&
                  chmod 755 /data/debian/root/jacred-start.sh /data/local/tmp/chroot-debian.sh'
+# автозапуск: единственная запись в /system
+adb shell su -c 'mount -o rw,remount / &&
+                 mkdir -p /system/su.d &&
+                 cp /data/local/tmp/jacred-boot.sh /system/su.d/99jacred &&
+                 chmod 0700 /system/su.d /system/su.d/99jacred &&
+                 mount -o ro,remount /'
 ```
 
 `jacred-start.sh` кладётся ещё и внутрь chroot (`/data/debian/root/`), потому что
@@ -86,11 +105,21 @@ User-Agent (на дефолтный UA `curl` — `403`), и под расшир
 
 ```bash
 adb shell su -c 'rm -rf /data/debian'
+adb shell su -c 'mount -o rw,remount / && rm -rf /system/su.d && mount -o ro,remount /'
 ```
 
-Системные разделы не тронуты, ничего кроме этого каталога удалять не нужно.
-Отдельно вернуть в Lampa прежний адрес парсера (`jackett_url` → `Jac.red`) —
-через приложение или `cdp.py`.
+Первая команда убирает саму установку, вторая — автозапуск. Отдельно вернуть в
+Lampa прежний адрес парсера (`jackett_url` → `Jac.red`) — через приложение или
+`cdp.py`.
+
+Про `/system`: это единственное, что установка пишет за пределами
+`/data/debian`, — один каталог с одним скриптом внутри, ничего существующего не
+изменяется. Сделано осознанно, ради автозапуска: без него после каждой
+перезагрузки поиск торрентов молча переставал работать. Точка входа выбрана не
+наугад — `strings /system/xbin/su` на устройстве содержит
+`for i in $(ls /system/su.d/); do log -p i -t su.d Running /system/su.d/$i; ...`,
+то есть SuperSU 2.82 выполняет этот каталог сам. `init.d` на прошивке нет,
+systemless-режима SuperSU (`/su`) — тоже.
 
 ## Ограничения платформы
 
