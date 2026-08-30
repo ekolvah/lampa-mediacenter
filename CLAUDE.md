@@ -19,6 +19,10 @@
 - [docs/jacred-on-ugoos.md](docs/jacred-on-ugoos.md) — свой парсер торрентов
   (JacRed в Debian-chroot) на приставке вместо публичного `jac.red`: что
   развёрнуто, как запускать после перезагрузки, как обновлять базу и откатить.
+- [docs/torrserver-tuning.md](docs/torrserver-tuning.md) — текущая настройка
+  TorrServer (кэш, лимит соединений, порт пиров) и обязательный метод её
+  изменения через API (`get` → правка → `set` полным объектом — частичный
+  вызов молча обнуляет остальные поля); статус пробива порта для NAT'ed пиров.
 - [docs/lampa-config-review.md](docs/lampa-config-review.md) — аудит реальной
   конфигурации Lampa (плагины, парсер, плеер), план рекомендаций (пока не применён).
 - [docs/snapshots-convention.md](docs/snapshots-convention.md) — конвенция бэкапа/отката перед
