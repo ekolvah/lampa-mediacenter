@@ -1,0 +1,12 @@
+{
+  "_comment": "Эталон настроек TorrServer на Ugoos AM6: единственный версионируемый ответ на вопрос «как должно быть». Снапшоты в git не идут, поэтому до этого файла такого ответа не существовало — и испорченный before/ одного снапшота смог стать эталоном для трёх следующих. Обоснование каждого значения — таблица в docs/torrserver-tuning.md; гейт check_torrserver следит, чтобы файл и таблица не разъехались. Полей, которых здесь нет, мы не касаемся: за них никто не отвечал экспериментом, и verify их игнорирует.",
+  "ConnectionsLimit": 100,
+  "CacheSize": 209715200,
+  "PreloadCache": 16,
+  "ReaderReadAHead": 95,
+  "PeersListenPort": 42100,
+  "RetrackersMode": 1,
+  "DisableUPNP": false,
+  "DisableDHT": false,
+  "DisablePEX": false
+}

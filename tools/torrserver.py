@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -189,6 +190,74 @@ def apply_changes(
     return actual
 
 
+_ROOT = Path(__file__).resolve().parent.parent
+EXPECTED_PATH = _ROOT / "config" / "torrserver-expected.json"
+DOC_PATH = _ROOT / "docs" / "torrserver-tuning.md"
+
+
+def load_expected() -> dict[str, Any]:
+    """Эталон из config/torrserver-expected.json без служебных ключей."""
+    raw: dict[str, Any] = json.loads(EXPECTED_PATH.read_text(encoding="utf-8"))
+    return {k: v for k, v in raw.items() if not k.startswith("_")}
+
+
+def verify_expected(actual: dict[str, Any], expected: dict[str, Any]) -> list[str]:
+    """Сверить снятые с сервера настройки с эталоном; вернуть список расхождений.
+
+    Проверяются только поля из эталона: всё остальное — дефолты, за которые никто не
+    отвечал экспериментом (docs/torrserver-tuning.md), и жаловаться на них значило бы
+    приучать оператора игнорировать вывод.
+    """
+    problems: list[str] = []
+    for name, want in expected.items():
+        if name not in actual:
+            problems.append(f"{name}: в эталоне {want!r}, а сервер такого поля не отдал")
+        elif actual[name] != want:
+            problems.append(f"{name}: ожидалось {want!r}, на устройстве {actual[name]!r}")
+    return problems
+
+
+# Строка таблицы «Текущее состояние» из docs/torrserver-tuning.md: в первой ячейке одно
+# или несколько имён полей в бэктиках, во второй — значение жирным (`**100**`) либо общее
+# для всех перечисленных полей (`все \`false\``).
+_DOC_ROW = re.compile(r"^\|([^|]+)\|([^|]+)\|")
+_DOC_NAME = re.compile(r"`([A-Za-z][A-Za-z0-9]*)`")
+_DOC_VALUE = re.compile(r"\*\*([A-Za-z0-9]+)\*\*|все\s+`([A-Za-z0-9]+)`")
+
+
+def _doc_scalar(raw: str) -> Any:
+    if raw in ("true", "false"):
+        return raw == "true"
+    return int(raw)
+
+
+def parse_doc_table(text: str) -> dict[str, Any]:
+    """Вытащить пары поле→значение из markdown-таблицы состояния.
+
+    Нужно гейту check_torrserver: дока и эталон обязаны говорить одно и то же, иначе
+    оператор читает 95 там, где на устройстве 5 — ровно так инцидент 30.08 и прожил
+    четыре часа незамеченным.
+    """
+    parsed: dict[str, Any] = {}
+    for line in text.splitlines():
+        row = _DOC_ROW.match(line.strip())
+        if not row:
+            continue
+        names = _DOC_NAME.findall(row.group(1))
+        value = _DOC_VALUE.search(row.group(2))
+        if not names or not value:
+            continue
+        raw = value.group(1) or value.group(2)
+        try:
+            scalar = _doc_scalar(raw)
+        except ValueError:
+            # Значение не скалярное (например, диапазон или пояснение) — сверять нечего.
+            continue
+        for name in names:
+            parsed[name] = scalar
+    return parsed
+
+
 def _adb(serial: str | None, *args: str) -> None:
     cmd = ["adb"]
     if serial:
@@ -230,6 +299,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--serial", help="serial устройства для adb, если их несколько")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("get", help="напечатать текущие настройки")
+    sub.add_parser("verify", help="сверить устройство с config/torrserver-expected.json")
     setter = sub.add_parser("set", help="изменить поля с проверкой постусловия")
     setter.add_argument("assignment", nargs="+", metavar="Поле=значение")
     setter.add_argument(
@@ -243,6 +313,17 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "get":
             print(json.dumps(transport.get(), ensure_ascii=False, indent=2))
+            return 0
+
+        if args.command == "verify":
+            expected = load_expected()
+            problems = verify_expected(transport.get(), expected)
+            if problems:
+                print("устройство разошлось с эталоном:", file=sys.stderr)
+                for problem in problems:
+                    print(f"  {problem}", file=sys.stderr)
+                return 1
+            print(f"совпадает с эталоном ({len(expected)} полей)")
             return 0
 
         current = transport.get()
