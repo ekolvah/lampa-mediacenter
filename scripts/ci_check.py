@@ -19,12 +19,16 @@ from collections.abc import Callable, Iterable
 from pathlib import Path, PurePosixPath
 
 
-def _force_utf8_output() -> None:
+def force_utf8_output() -> None:
     """Русские сообщения гейта на cp1252-консоли Windows иначе роняют сам гейт.
 
     Падение с UnicodeEncodeError неотличимо для оператора от «проверка сломалась»,
     а пропущенным при этом оказывается содержательный вердикт. Выполняется при
     импорте: скрипт зовут и напрямую, и из PostToolUse-хука.
+
+    Публичная, потому что ровно та же ловушка ждёт любой инструмент с русским
+    выводом: tools/torrserver.py на ней ронял успешный путь с exit=1, что для
+    оператора неотличимо от неудавшейся записи настроек.
     """
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
@@ -32,7 +36,7 @@ def _force_utf8_output() -> None:
             reconfigure(encoding="utf-8", errors="replace")
 
 
-_force_utf8_output()
+force_utf8_output()
 
 _EXCLUDE_DIRS = {".git", ".venv", ".claude", "__pycache__", ".mypy_cache", ".ruff_cache"}
 
