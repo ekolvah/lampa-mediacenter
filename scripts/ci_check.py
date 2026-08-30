@@ -284,6 +284,41 @@ def check_snapshots() -> None:
         sys.exit(1)
 
 
+def check_torrserver() -> None:
+    """Эталон настроек TorrServer и таблица в доке обязаны говорить одно и то же.
+
+    Устройство здесь не опрашивается — приставка доступна не всегда, а гейт, умеющий
+    тихо скипаться, даёт ложное зелёное. Живая сверка — отдельная явная команда
+    `python tools/torrserver.py verify`, её вывод кладётся в NOTES.md снапшота.
+
+    Что закрывает именно эта проверка: расхождение доки с эталоном. Инцидент 30.08
+    прожил четыре часа ровно потому, что дока утверждала одно, устройство содержало
+    другое, и ничто не сводило эти два утверждения вместе.
+    """
+    print("==> TorrServer: эталон против таблицы в доке")
+    sys.path.insert(0, str(Path("tools").resolve()))
+    from torrserver import DOC_PATH, load_expected, parse_doc_table
+
+    expected = load_expected()
+    documented = parse_doc_table(DOC_PATH.read_text(encoding="utf-8"))
+
+    problems: list[str] = []
+    for name, value in sorted(expected.items()):
+        if name not in documented:
+            problems.append(f"{name}={value!r} есть в эталоне, но не в таблице docs/")
+        elif documented[name] != value:
+            problems.append(f"{name}: в эталоне {value!r}, в таблице docs/ {documented[name]!r}")
+    for name, value in sorted(documented.items()):
+        if name not in expected:
+            problems.append(f"{name}={value!r} есть в таблице docs/, но не в эталоне")
+    if problems:
+        print("config/torrserver-expected.json разошёлся с docs/torrserver-tuning.md:")
+        for problem in problems:
+            print(f"  {problem}")
+        sys.exit(1)
+    print(f"  сверено полей: {len(expected)}")
+
+
 _MD_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
 
@@ -325,6 +360,7 @@ CHECKS: dict[str, Callable[[], None]] = {
     "mypy": check_mypy,
     "pytest": check_pytest,
     "snapshots": check_snapshots,
+    "torrserver": check_torrserver,
     "links": check_links,
 }
 

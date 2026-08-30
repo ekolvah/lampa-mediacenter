@@ -19,6 +19,8 @@ from torrserver import (  # noqa: E402
     apply_changes,
     diff_settings,
     parse_assignment,
+    parse_doc_table,
+    verify_expected,
 )
 
 # Урезанный, но настоящий по форме объект: скалярные поля разных типов плюс вложенный
@@ -158,3 +160,52 @@ def test_diff_settings_walks_nested_objects() -> None:
     before = {"A": 1, "TMDBSettings": {"APIURL": "https://x", "APIKey": ""}}
     after = {"A": 1, "TMDBSettings": {"APIURL": "", "APIKey": ""}}
     assert diff_settings(before, after) == {"TMDBSettings.APIURL": ("https://x", "")}
+
+
+def test_verify_detects_drift() -> None:
+    """Расхождение живого устройства с эталоном обязано быть видимым."""
+    fake = FakeTorrServer()
+    fake._settings["ReaderReadAHead"] = 5
+    problems = verify_expected(fake.get(), {"ReaderReadAHead": 95, "CacheSize": 209715200})
+    assert len(problems) == 1
+    assert "ReaderReadAHead" in problems[0]
+    assert "95" in problems[0] and "5" in problems[0]
+
+
+def test_verify_ignores_unmanaged_fields() -> None:
+    """Поля вне эталона — не наша зона ответственности, ложных тревог быть не должно."""
+    fake = FakeTorrServer()
+    assert verify_expected(fake.get(), {"ReaderReadAHead": 95}) == []
+
+
+def test_verify_reports_missing_field() -> None:
+    """Поле есть в эталоне, но не в ответе сервера — тоже расхождение, а не тишина."""
+    problems = verify_expected({"CacheSize": 1}, {"EnableIPv6": False})
+    assert len(problems) == 1
+    assert "EnableIPv6" in problems[0]
+
+
+_DOC_TABLE = """
+| Параметр | Значение | Зачем |
+| --- | --- | --- |
+| `ConnectionsLimit` | **100** | было 25 — упор подтверждён логом. |
+| `CacheSize` | **209715200** (200 МБ) | было 64 МБ. |
+| `DisableUPNP`/`DisableDHT`/`DisablePEX` | все `false` | дефолты MatriX. |
+
+Как менялось — снапшоты `2026-08-22_torrserver-cache-size`.
+"""
+
+
+def test_parse_doc_table_reads_bold_and_shared_values() -> None:
+    assert parse_doc_table(_DOC_TABLE) == {
+        "ConnectionsLimit": 100,
+        "CacheSize": 209715200,
+        "DisableUPNP": False,
+        "DisableDHT": False,
+        "DisablePEX": False,
+    }
+
+
+def test_parse_doc_table_stops_at_table_end() -> None:
+    """Строка про снапшоты содержит бэктики, но параметром не является."""
+    assert "2026-08-22_torrserver-cache-size" not in parse_doc_table(_DOC_TABLE)
