@@ -23,6 +23,7 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .idea/
+.playwright-mcp/
 
 # Локальные разрешения агента — машинное, не проектное
 .claude/settings.local.json
