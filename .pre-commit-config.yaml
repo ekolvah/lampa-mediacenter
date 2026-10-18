@@ -57,3 +57,43 @@ repos:
         pass_filenames: false
         files: (^|/)(test_[^/]*|[^/]*_test)\.py$
         stages: [manual]
+  # Проверки scripts/ci_check.py, которых нет в базовом наборе выше (обоснование каждой —
+  # docs/quality-gates.md). Дефолтный detect-secrets токен внутри URL не видит, поэтому
+  # `secrets` и `remote` (снапшоты с живыми кредами в индексе) обязаны идти до push.
+  - repo: local
+    hooks:
+      - id: ci-check-remote
+        name: ci_check remote
+        entry: python scripts/ci_check.py --only remote
+        language: unsupported
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+      - id: ci-check-secrets
+        name: ci_check secrets
+        entry: python scripts/ci_check.py --only secrets
+        language: unsupported
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+      - id: ci-check-snapshots
+        name: ci_check snapshots
+        entry: python scripts/ci_check.py --only snapshots
+        language: unsupported
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+      - id: ci-check-torrserver
+        name: ci_check torrserver
+        entry: python scripts/ci_check.py --only torrserver
+        language: unsupported
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+      - id: ci-check-links
+        name: ci_check links
+        entry: python scripts/ci_check.py --only links
+        language: unsupported
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
