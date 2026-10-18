@@ -1,0 +1,29 @@
+# agent-process:managed
+# Rendered by the agent-process installer (init.py); rerun it instead of editing this file.
+name: task-readings
+
+on:
+  # A merged task PR's readings become its row of `task-readings.csv` on the branch
+  # `task-readings`, from this repository's own Grafana stack; a dispatch re-records a PR.
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Merged PR number to record
+        required: true
+        type: number
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  task-readings:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged
+    uses: ekolvah/agent-process-distribution/.github/workflows/reusable-task-readings.yml@v3.28.0
+    with:
+      pr: ${{ github.event.pull_request.number || inputs.pr }}
+      grafana_url: ${{ vars.GRAFANA_URL }}
+    secrets:
+      grafana_service_account_token: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}
