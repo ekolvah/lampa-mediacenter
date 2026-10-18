@@ -6,53 +6,57 @@
 ## Как запускать
 
 ```bash
-py -3.12 scripts/ci_check.py                 # весь набор
-py -3.12 scripts/ci_check.py --only secrets  # одна проверка
+pre-commit run --hook-stage manual --all-files   # весь набор — ровно то, что идёт на push и в CI
+py -3.12 scripts/ci_check.py --only secrets      # одна проверка проекта
 ```
 
-Зависимости инструментов (закреплённые версии):
+Определение «зелёного» одно — стадия `manual` в [../.pre-commit-config.yaml](../.pre-commit-config.yaml).
+Её же запускает `agent-process / quality` на каждом PR (через
+[../.github/agent-process-quality.json](../.github/agent-process-quality.json)), а локально —
+хук pre-push. `main` защищён ruleset'ом, поэтому PR без зелёной проверки не мержится.
+
+Зависимости (закреплённые версии; ruff/mypy/pylint/pip-audit pre-commit ставит сам по ревизиям
+из конфига):
 
 ```bash
-py -3.12 -m pip install -r requirements-dev.txt   # ruff, mypy, detect-secrets
+py -3.12 -m pip install -r requirements-dev.txt   # pre-commit, detect-secrets, pytest
 py -3.12 -m pip install -r requirements.txt       # websocket-client для tools/cdp.py
+pre-commit install --hook-type pre-push           # один раз на клон
 ```
 
-Включить хук перед коммитом (один раз на клон):
-
-```bash
-git config core.hooksPath .githooks
-```
-
-Remote у репозитория нет — значит, нет и CI-сервера. `.githooks/pre-commit` вместе с
-PostToolUse-хуком агента и есть весь автоматический барьер; см. «Почему нет GitHub
-Actions» ниже.
+На Windows нужен UTF-8 режим питона (`PYTHONUTF8=1` в переменных пользователя): без него
+pytest-плагины, читающие `pyproject.toml` в кодировке платформы, падают на кириллице, а
+detect-secrets молча пропускает такие файлы.
 
 ## Что проверяется
 
-Реестр — `CHECKS` в [../scripts/ci_check.py](../scripts/ci_check.py); список ниже
-описывает его, а не дублирует. Порядок = порядок прогона: первым идёт то, что дороже
-всего стоит при пропуске.
+Общий набор — хуки `.pre-commit-config.yaml`, проверки проекта — реестр `CHECKS` в
+[../scripts/ci_check.py](../scripts/ci_check.py), который конфиг зовёт одним хуком `ci-check`.
+Таблица описывает их, а не дублирует.
 
-| Проверка | Чем закрыта | Что ловит |
+| Проверка | Где | Что ловит |
 | --- | --- | --- |
-| `remote` | адрес remote + индекс git | Push не в тот репозиторий; отслеживаемый файл под `snapshots/`, то есть живые креды устройства на пути к публичному GitHub |
-| `secrets` | шаблоны проекта + detect-secrets | Токен/uid/почта аккаунта в URL, пароль в открытом виде — в доках, скриптах, конфигах |
-| `format` | `ruff format --check` | Расхождение форматирования |
-| `lint` | `ruff check` | pyflakes/bugbear/isort/pyupgrade, сложность (C901, PLR0912/0915), закомментированный код (ERA001), голый `except` (BLE), модуль без docstring (D100) |
-| `mypy` | strict-ish (`disallow_untyped_defs`) | Непроаннотированные функции и несоответствие типов |
-| `pytest` | `tests/*` | Логика без устройства (разбор batch-формата и форматирование результата в `tools/cdp.py`, разбор uiautomator dump и форматирование DOM-данных в `tools/screen.py`), проверяемая не вручную на живой приставке |
-| `snapshots` | структура `snapshots/*` | Снапшот без `NOTES.md` (через месяц не восстановить, что и зачем меняли) или без `before/` (откатывать нечем) |
-| `links` | относительные ссылки в markdown | Ссылка в никуда: агент уходит читать несуществующий файл и молча теряет контекст |
+| `remote` | `ci_check` | Push не в тот репозиторий; отслеживаемый файл под `snapshots/`, то есть живые креды устройства на пути к публичному GitHub |
+| `secrets` | `ci_check` | Токен/uid/почта аккаунта в URL, пароль в открытом виде — в доках, скриптах, конфигах; плюс detect-secrets в UTF-8 режиме |
+| `snapshots` | `ci_check` | Снапшот без `NOTES.md` (через месяц не восстановить, что и зачем меняли) или без `before/` (откатывать нечем). В CI каталога нет — проверка явно печатает, что неприменима |
+| `torrserver` | `ci_check` | Эталон `config/torrserver-expected.json` разошёлся с таблицей в доке |
+| `links` | `ci_check` | Ссылка в никуда: агент уходит читать несуществующий файл и молча теряет контекст. Ссылка в `snapshots/` тоже битая — каталога нет в git, на GitHub её цели нет |
+| `ruff-check`, `ruff-format` | pre-commit | pyflakes/bugbear/isort/pyupgrade, сложность (C901, PLR0911–0915), закомментированный код (ERA001), голый `except` (BLE), модуль без docstring (D100); расхождение форматирования |
+| `mypy` | pre-commit | Непроаннотированные функции и несоответствие типов |
+| `pylint` | pre-commit | Только размер модуля (больше 1000 строк) |
+| `detect-secrets` | pre-commit | Ключи общего вида (AWS, приватные ключи, JWT) |
+| `pip-audit` | pre-commit | Известные уязвимости в `requirements*.txt` |
+| `pytest` | pre-commit | Логика без устройства (`tools/cdp.py`, `tools/screen.py`, `tools/ui.py`, `tools/torrserver.py`), проверяемая не вручную на живой приставке |
 
-Правила линтера и типов живут в [../pyproject.toml](../pyproject.toml) с пояснением
-у каждой нетривиальной строки.
+Правила линтера и типов живут только в [../pyproject.toml](../pyproject.toml), с пояснением
+у каждой нетривиальной строки; хуки ruff/mypy идут без аргументов, чтобы набора не стало два.
 
 Рядом, но не гейтом — [../.gitattributes](../.gitattributes): у пользователя
 `core.autocrlf=true`, и без явного `binary` git при следующем checkout переписал бы
 переводы строк в файлах снапшота, которые счёл текстовыми (`settings.xml`, LevelDB-овские
 `CURRENT`/`LOG`). Восстановленный снапшот перестал бы быть тем, что сняли, — LevelDB
-читает `CURRENT`/`MANIFEST` байт в байт. Там же `eol=lf` для `.githooks/*`: CRLF в строке
-shebang даёт «bad interpreter», то есть хук молча перестаёт срабатывать.
+читает `CURRENT`/`MANIFEST` байт в байт. Там же `eol=lf` для `*.sh`: CRLF в строке
+shebang даёт «bad interpreter», то есть скрипт на приставке молча перестаёт запускаться.
 
 ## Секреты: что здесь на самом деле опасно
 
@@ -85,26 +89,24 @@ shebang даёт «bad interpreter», то есть хук молча перес
 
 ## Обратная связь агенту сразу после правки
 
-`.claude/settings.json` вешает PostToolUse-хук на `Edit|Write`:
-[../scripts/claude_hook.py](../scripts/claude_hook.py) прогоняет по одному только что
-записанному файлу ruff и сканер секретов и возвращает код 2 — единственный, который
-Claude Code отдаёт модели как блокирующее замечание. Второго определения качества хук
-не заводит: шаблоны он импортирует из `ci_check.py`, правила ruff берёт из
-`pyproject.toml`.
+Два хука на `Edit|Write`, каждый со своим: edit-time lint плагина agent-process гоняет по
+правленому файлу хуки стадии `pre-commit` (ruff, mypy, pylint, detect-secrets), а
+[../scripts/claude_hook.py](../scripts/claude_hook.py) из `.claude/settings.json` — сканер
+секретов проекта, которого в общем наборе нет. Находка — код 2, единственный, который
+Claude Code отдаёт модели как блокирующее замечание. Шаблоны хук импортирует из
+`ci_check.py`, второго их определения нет.
 
-Там же — deny-list на действия, которые нечем откатить: `git push`/`git remote add`
-(разглашение, см. выше), `git reset --hard`, `git clean -fd`, `git branch -D`,
+В `.claude/settings.json` же — deny-list на действия, которые нечем откатить: `git push --force`,
+`git remote add`/`set-url` (разглашение, см. выше), `git reset --hard`, `git clean -fd`, `git branch -D`,
 `git commit --no-verify` и деструктивные adb-команды на приставке (`pm uninstall`,
 `pm clear`, `rm`). Это не замена внимательности, а страховка от опечатки в одну букву.
 
 ## Почему набор именно такой
 
 Из репозитория `kinozal_scraper` сюда перенесена схема, а не содержимое:
-единственный реестр проверок, который гоняют и хук, и человек; отказ вместо тихого
+одно определение «зелёного», которое гоняют и хук, и CI, и человек; отказ вместо тихого
 пропуска при пустом наборе файлов; комментарий-«почему» у каждой нетривиальной строки
 конфига. Не перенесено то, чему здесь нет предмета:
 
-- **GitHub Actions** — нет remote, гонять негде. Если remote появится (после чистки
-  истории), `ci.yml` сводится к вызовам `python scripts/ci_check.py --only <имя>`.
-- **pip-audit / pip-compile / import-linter** — две зависимости и один модуль без
-  внутренних слоёв; аудит и контракты импортов здесь охраняли бы пустоту.
+- **pip-compile / import-linter** — две зависимости и один модуль без
+  внутренних слоёв; контракты импортов здесь охраняли бы пустоту.

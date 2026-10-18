@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Единственный реестр проверок качества этого репозитория.
+"""Проверки качества, специфичные для этого репозитория.
 
-    py -3.12 scripts/ci_check.py            # весь набор (и хук pre-commit)
+    py -3.12 scripts/ci_check.py            # весь реестр
     py -3.12 scripts/ci_check.py --only X   # одна проверка по имени
 
-Реестр CHECKS ниже — единственный источник правды: и `.githooks/pre-commit`, и
-ручной прогон агента идут через него, поэтому локальный набор не может разъехаться
-с тем, что считается «зелёным». Что закрывает каждая проверка — docs/quality-gates.md.
+Общий набор (ruff, mypy, pytest, pylint, pip-audit) живёт в `.pre-commit-config.yaml`
+и идёт оттуда; здесь — то, чего в общем наборе нет: шаблоны секретов проекта,
+снапшоты в индексе, конвенция снапшотов, эталон TorrServer, ссылки в доках.
+`.pre-commit-config.yaml` зовёт этот скрипт одним хуком, поэтому «зелёное» определено
+в одном месте — стадией `manual` там. Что закрывает каждая проверка — docs/quality-gates.md.
 """
 
 from __future__ import annotations
@@ -113,14 +115,6 @@ def _excluded(name: str) -> bool:
     return bool(_EXCLUDE_DIRS & set(PurePosixPath(name).parts))
 
 
-def _python_files() -> list[str]:
-    return [
-        name
-        for name in _repo_files()
-        if name.endswith(".py") and not _excluded(name) and Path(name).is_file()
-    ]
-
-
 def _scannable_files() -> list[str]:
     return [
         name
@@ -220,33 +214,6 @@ def check_secrets() -> None:
     # UnicodeDecodeError — на Windows (cp1251) это тихо выкинуло бы из скана все файлы
     # с кириллицей, то есть почти весь репозиторий.
     _run([sys.executable, "-X", "utf8", "-m", "detect_secrets.pre_commit_hook", *targets])
-
-
-def check_format() -> None:
-    print("==> ruff format")
-    _run([sys.executable, "-m", "ruff", "format", "--check", "."])
-
-
-def check_lint() -> None:
-    print("==> ruff check")
-    _run([sys.executable, "-m", "ruff", "check", "."])
-
-
-def check_mypy() -> None:
-    print("==> mypy")
-    modules = _python_files()
-    if not modules:
-        print("не найдено ни одного .py — так быть не может, гейт не видит даже себя")
-        sys.exit(1)
-    _run([sys.executable, "-m", "mypy", *modules])
-
-
-def check_pytest() -> None:
-    print("==> pytest")
-    if not Path("tests").is_dir():
-        print("  каталога tests/ нет — проверка неприменима")
-        return
-    _run([sys.executable, "-m", "pytest", "-q", "tests"])
 
 
 _SNAPSHOT_DIR_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}_[^/]+$")
@@ -351,14 +318,10 @@ def check_links() -> None:
 
 
 # Реестр — единственный источник правды о наборе проверок. Порядок = порядок прогона:
-# сначала то, что дороже всего стоит при пропуске (разглашение), потом код и документы.
+# сначала то, что дороже всего стоит при пропуске (разглашение), потом документы.
 CHECKS: dict[str, Callable[[], None]] = {
     "remote": check_remote,
     "secrets": check_secrets,
-    "format": check_format,
-    "lint": check_lint,
-    "mypy": check_mypy,
-    "pytest": check_pytest,
     "snapshots": check_snapshots,
     "torrserver": check_torrserver,
     "links": check_links,

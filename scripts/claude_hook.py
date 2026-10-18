@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 """PostToolUse-хук Claude Code: проверяет ровно тот файл, который агент только что записал.
 
-Смысл — сократить петлю обратной связи: полный `scripts/ci_check.py` агент запускает
-перед коммитом, а тут дешёвая часть, осмысленная для одного файла, срабатывает сразу
-после правки. Код возврата 2 — единственный, который Claude Code отдаёт модели как
+Смысл — сократить петлю обратной связи: полный набор идёт на pre-push и в CI, а тут
+сканер секретов проекта срабатывает сразу после правки. ruff/mypy на правленом файле
+гоняет edit-time lint плагина agent-process, здесь их не повторяем. Код возврата 2 — единственный, который Claude Code отдаёт модели как
 блокирующее замечание (stdout при 0 она не видит), поэтому находка = exit 2.
 
-Хук не подменяет гейт: набор шаблонов секретов и правила ruff берутся из ci_check.py
-и pyproject.toml, второго определения качества здесь нет.
+Хук не подменяет гейт: шаблоны секретов берутся из ci_check.py, второго определения
+качества здесь нет.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -56,19 +55,6 @@ def _relative(path: Path) -> str:
         return path.as_posix()
 
 
-def _ruff(args: list[str], name: str) -> list[str]:
-    proc = subprocess.run(
-        [sys.executable, "-m", "ruff", *args, name],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    if proc.returncode == 0:
-        return []
-    return [(proc.stdout + proc.stderr).strip()]
-
-
 def main() -> int:
     target = _target(_payload())
     if target is None:
@@ -78,17 +64,16 @@ def main() -> int:
         # Выгрузки устройства — не наш код и легально содержат креды (см. ci_check).
         return 0
 
-    problems: list[str] = []
-    if name.endswith(".py"):
-        problems += _ruff(["format", "--check"], name)
-        problems += _ruff(["check"], name)
-    problems += scan_device_secrets([name])
+    problems = scan_device_secrets([name])
 
     if problems:
         print(f"Файл {name} не проходит гейты:", file=sys.stderr)
         for problem in problems:
             print(problem, file=sys.stderr)
-        print("Полный набор: py -3.12 scripts/ci_check.py (docs/quality-gates.md)", file=sys.stderr)
+        print(
+            "Полный набор: pre-commit run --hook-stage manual --all-files (docs/quality-gates.md)",
+            file=sys.stderr,
+        )
         return 2
     return 0
 
