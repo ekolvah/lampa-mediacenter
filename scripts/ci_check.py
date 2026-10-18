@@ -142,7 +142,9 @@ def scan_device_secrets(files: Iterable[str]) -> list[str]:
             for label, pattern in _DEVICE_SECRET_PATTERNS:
                 match = pattern.search(line)
                 if match and not _PLACEHOLDER.search(match.group(0)):
-                    findings.append(f"{name}:{lineno}: {label} — {match.group(0)[:60]}")
+                    # Само значение не печатаем: вывод уходит в публичный лог CI и в
+                    # контекст агента (claude_hook), а путь и строка его и так находят.
+                    findings.append(f"{name}:{lineno}: {label}")
     return findings
 
 
