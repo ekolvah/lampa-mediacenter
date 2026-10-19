@@ -65,10 +65,11 @@
 
 ## Гейты качества
 
-Перед коммитом — `py -3.12 scripts/ci_check.py` (весь набор; одна проверка —
-`--only <имя>`). Этот скрипт и есть определение «зелёного»: и `.githooks/pre-commit`,
-и правки агента идут через него. Подробности и обоснование каждой проверки —
-[docs/quality-gates.md](docs/quality-gates.md).
+Определение «зелёного» одно — стадия `manual` в `.pre-commit-config.yaml`:
+`pre-commit run --hook-stage manual --all-files`. Её гоняют хук pre-push и проверка
+`agent-process / quality` на каждом PR; проверки проекта (секреты в URL, снапшоты в
+индексе, эталон TorrServer, ссылки) — `scripts/ci_check.py`, одна — `--only <имя>`.
+Подробности и обоснование каждой проверки — [docs/quality-gates.md](docs/quality-gates.md).
 
 Секреты: снапшоты содержат живой токен аккаунта и креды TorrServer, поэтому
 `snapshots/` выведен из git через `.gitignore`, а гейт `remote` краснеет, если
