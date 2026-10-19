@@ -33,19 +33,18 @@ detect-secrets молча пропускает такие файлы.
 Общий набор — хуки `.pre-commit-config.yaml`, проверки проекта — реестр `CHECKS` в
 [../scripts/ci_check.py](../scripts/ci_check.py), который конфиг зовёт одним хуком `ci-check`.
 Таблица описывает их, а не дублирует. Все строки идут в стадии `manual` (push и CI);
-ruff, mypy, pylint и detect-secrets ещё и в стадии `pre-commit`, то есть на правленом файле.
+ruff, mypy и pylint ещё и в стадии `pre-commit`, то есть на правленом файле.
 
 | Проверка | Источник | Что ловит |
 | --- | --- | --- |
 | `remote` | `ci_check` | Push не в тот репозиторий; отслеживаемый файл под `snapshots/`, то есть живые креды устройства на пути к публичному GitHub |
-| `secrets` | `ci_check` | Токен/uid/почта аккаунта в URL, пароль в открытом виде — в доках, скриптах, конфигах; плюс detect-secrets в UTF-8 режиме |
+| `secrets` | `ci_check` | Токен/uid/почта аккаунта в URL, пароль в открытом виде — в доках, скриптах, конфигах; плюс detect-secrets в UTF-8 режиме (ключи общего вида: AWS, приватные ключи, JWT) |
 | `snapshots` | `ci_check` | Снапшот без `NOTES.md` (через месяц не восстановить, что и зачем меняли) или без `before/` (откатывать нечем). В CI каталога нет — проверка явно печатает, что неприменима |
 | `torrserver` | `ci_check` | Эталон `config/torrserver-expected.json` разошёлся с таблицей в доке |
 | `links` | `ci_check` | Ссылка в никуда: агент уходит читать несуществующий файл и молча теряет контекст. Ссылка в `snapshots/` тоже битая — каталога нет в git, на GitHub её цели нет |
 | `ruff-check`, `ruff-format` | хук | pyflakes/bugbear/isort/pyupgrade, сложность (C901, PLR0911–0915), закомментированный код (ERA001), голый `except` (BLE), модуль без docstring (D100); расхождение форматирования |
 | `mypy` | хук | Непроаннотированные функции и несоответствие типов |
 | `pylint` | хук | Только размер модуля (больше 1000 строк) |
-| `detect-secrets` | хук | Ключи общего вида (AWS, приватные ключи, JWT) |
 | `pip-audit` | хук | Известные уязвимости в `requirements*.txt` |
 | `pytest` | хук | Логика без устройства (`tools/cdp.py`, `tools/screen.py`, `tools/ui.py`, `tools/torrserver.py`), проверяемая не вручную на живой приставке |
 
@@ -91,7 +90,7 @@ shebang даёт «bad interpreter», то есть скрипт на прист
 ## Обратная связь агенту сразу после правки
 
 Два хука на `Edit|Write`, каждый со своим: edit-time lint плагина agent-process гоняет по
-правленому файлу хуки стадии `pre-commit` (ruff, mypy, pylint, detect-secrets), а
+правленому файлу хуки стадии `pre-commit` (ruff, mypy, pylint), а
 [../scripts/claude_hook.py](../scripts/claude_hook.py) из `.claude/settings.json` — сканер
 секретов проекта, которого в общем наборе нет. Находка — код 2, единственный, который
 Claude Code отдаёт модели как блокирующее замечание. Шаблоны хук импортирует из

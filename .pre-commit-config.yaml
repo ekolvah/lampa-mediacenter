@@ -30,11 +30,6 @@ repos:
       - id: pylint
         args: [--disable=all, --enable=too-many-lines, --max-module-lines=1000]
         stages: [pre-commit, manual]
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
-    hooks:
-      - id: detect-secrets
-        stages: [pre-commit, manual]
   - repo: https://github.com/pypa/pip-audit
     rev: v2.10.0
     hooks:
@@ -57,9 +52,9 @@ repos:
         pass_filenames: false
         files: (^|/)(test_[^/]*|[^/]*_test)\.py$
         stages: [manual]
-      # Проверки проекта, которых в базовом наборе нет (docs/quality-gates.md). ci_check
-      # повторно зовёт detect-secrets с `-X utf8`: хук выше без UTF-8 режима на Windows
-      # молча пропускает файлы с кириллицей, а секрет обязан ловиться до push.
+      # Проверки проекта, которых в базовом наборе нет (docs/quality-gates.md). detect-secrets
+      # тоже здесь, а не своим хуком: ci_check зовёт его с `-X utf8`, а хук без UTF-8 режима
+      # на Windows молча пропускает файлы с кириллицей.
       - id: ci-check
         name: ci_check (секреты, снапшоты, TorrServer, ссылки)
         entry: python scripts/ci_check.py
