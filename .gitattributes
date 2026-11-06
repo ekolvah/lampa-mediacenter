@@ -1,3 +1,2 @@
-# Хуки и shell-скрипты запускаются в bash: CRLF ломает shebang.
-.githooks/* text eol=lf
+# Shell-скрипты запускаются в sh: CRLF ломает shebang.
 *.sh text eol=lf

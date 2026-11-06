@@ -16,7 +16,7 @@
 |---|---|
 | [tools/cdp.py](tools/cdp.py) | Выполнение JS в контексте Lampa через DevTools WebView — штатный способ править настройки из CLI |
 | [tools/README.md](tools/README.md) | Как поднять DevTools-мост до приставки и пользоваться `cdp.py` |
-| [scripts/ci_check.py](scripts/ci_check.py) | Гейты качества: секреты, ruff, mypy, структура снапшотов, ссылки в доках |
+| [scripts/ci_check.py](scripts/ci_check.py) | Проверки проекта: секреты в URL, снапшоты в индексе, эталон TorrServer, ссылки в доках (общий набор — `.pre-commit-config.yaml`) |
 | [scripts/audio_state.py](scripts/audio_state.py) | Снимок аудио-тракта приставки: что реально уходит на HDMI прямо сейчас |
 | [scripts/claude_hook.py](scripts/claude_hook.py) | PostToolUse-хук: не даёт агенту записать секрет устройства в файл |
 

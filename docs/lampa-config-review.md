@@ -5,7 +5,7 @@
 `app_webview/Local Storage/leveldb`, распаршен вручную т.к. значения сжаты Snappy).
 
 Документ описывает **текущее состояние**. История правок — в
-[../snapshots/](../snapshots/), сюда не дублируется.
+`snapshots/` (только на рабочей машине, в git не попадает — [snapshots-convention.md](snapshots-convention.md)), сюда не дублируется.
 
 ## Как снималось (для повторного использования агентом)
 
@@ -37,7 +37,7 @@ TorrServe на приставке** — см. отдельный раздел н
 **Источник каталога:** `source=KP` — каталог Кинопоиска от плагина `kp_source`, чтобы
 на Главной были русские фильмы вперемежку со штатными рядами (штатный `tmdb` даёт только
 западную выдачу). Установка и проверка —
-[../snapshots/2026-08-19_install-kp-source/NOTES.md](../snapshots/2026-08-19_install-kp-source/NOTES.md).
+`snapshots/2026-08-19_install-kp-source/NOTES.md`.
 
 **Фильтр раздач:** `torrents_filter.quality = ["4k","1080p"]`, `torrents_sort=popular`
 (сортировка по популярности — разумный дефолт, чтобы не попадать на раздачи без сидов). ✅
@@ -119,7 +119,7 @@ am_create_activity  org.videolan.vlc/.gui.video.VideoPlayerActivity
 
 У каждой записи в списке `plugins` проставлено человекочитаемое `name` — на вкладке
 «Расширения» видно, какой плагин за что отвечает, а не голый URL
-([../snapshots/2026-08-19_plugin-names-and-rating/NOTES.md](../snapshots/2026-08-19_plugin-names-and-rating/NOTES.md)).
+(`snapshots/2026-08-19_plugin-names-and-rating/NOTES.md`).
 ⚠️ URL двух записей записаны с заглавной `H` (`Https://…`) — при правке списка сохранять
 как есть, иначе движок сочтёт это другим плагином.
 
@@ -208,8 +208,8 @@ Tracks.js, Transcoding video, TMDB Proxy, «Алпак Онлайн», попу�
 вызова, поэтому ряды от плагинов на их главной не появляются вообще.
 
 Оба варианта прогнаны на устройстве (загрузка через `tools/cdp.py`, без записи в конфиг).
-Протоколы прогонов со скриншотами — [../snapshots/2026-08-19_try-surs/NOTES.md](../snapshots/2026-08-19_try-surs/NOTES.md)
-и [../snapshots/2026-08-19_try-kp-source/NOTES.md](../snapshots/2026-08-19_try-kp-source/NOTES.md).
+Протоколы прогонов со скриншотами — `snapshots/2026-08-19_try-surs/NOTES.md`
+и `snapshots/2026-08-19_try-kp-source/NOTES.md`.
 
 ### Вариант 1 — SURS: ряды на главную, источник остаётся TMDB
 
@@ -315,7 +315,7 @@ Lampa.Storage.set('source', 'KP');   // плагин только регистр
 ```
 
 Протокол установки и проверок —
-[../snapshots/2026-08-19_install-kp-source/NOTES.md](../snapshots/2026-08-19_install-kp-source/NOTES.md).
+`snapshots/2026-08-19_install-kp-source/NOTES.md`.
 
 После — перезагрузить страницу и проверить: главная грузится, русские ряды на месте,
 подборки `p.js` в левом меню живы, карточка фильма открывается, торрент-поиск через Jac.red
