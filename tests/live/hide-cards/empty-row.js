@@ -3,8 +3,7 @@
   var line = HC.owned();
   var guard = 10;
   while (HC.cards(line).length && guard--) {
-    var item = HC.cards(line).find(function (it) { return it.render(true) === line.last; }) || HC.cards(line)[0];
-    await HC.hide(line, item);
+    await HC.hide(line, HC.focusedCard(line));
   }
   HC.check(line.render(true).isConnected, 'ряд «' + line.data.title + '» пропал с экрана');
   HC.check(line.render(true).querySelector('.items-line__title'), 'у ряда нет заголовка');

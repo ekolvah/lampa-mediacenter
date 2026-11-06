@@ -3,7 +3,7 @@
   // фокус на соседней карточке этого ряда.
   var line = HC.owned();
   var before = HC.cards(line).length;
-  var item = HC.cards(line).find(function (it) { return it.render(true) === line.last; }) || HC.cards(line)[0];
+  var item = HC.focusedCard(line);
   HC.check(line.data.results.length > before, 'в ряду «' + line.data.title + '» нет запаса результатов для добора');
   await HC.hide(line, item);
   HC.check(HC.cards(line).length === before, 'карточек было ' + before + ', стало ' + HC.cards(line).length);

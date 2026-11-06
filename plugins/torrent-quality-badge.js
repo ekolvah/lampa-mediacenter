@@ -407,14 +407,6 @@
       Array.isArray(line.data.results) && typeof line.emit === 'function');
   }
 
-  function cardCount(line) {
-    var n = 0;
-    line.items.forEach(function (it) {
-      if (line.data.results.indexOf(it.data) >= 0) n++;
-    });
-    return n;
-  }
-
   // Снимает карточку из ряда целиком: из items, из data.results (иначе onScroll
   // нарисует её снова) и из DOM. «Ещё» и MoreFirst — тоже элементы items, но их
   // data нет в results: их не трогаем. line.last — DOM-элемент под фокусом.
@@ -437,10 +429,11 @@
   function removeMisses(line, pending) {
     var focused = Lampa.Controller.own(line) ? line.last : null;
 
+    // more.js ставит «Ещё», меряя её по items[items.length - 1]: на опустевшем ряду
+    // это TypeError. Прокрутка до удаления даёт ряду поставить её, пока карточки
+    // есть (если результаты уже все нарисованы), иначе ничего не меняет.
+    line.emit('scroll');
     pending.forEach(function (item) {
-      // more.js ставит «Ещё», меряя её по items[items.length - 1]: на пустом ряду
-      // это TypeError. Даём ряду поставить её, пока последняя карточка ещё есть.
-      if (!line.more && cardCount(line) === 1) line.emit('scroll');
       removeItem(line, item);
     });
 

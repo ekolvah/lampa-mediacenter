@@ -20,6 +20,11 @@ var HC = {
   cards: function (line) {
     return line.items.filter(function (it) { return line.data.results.indexOf(it.data) >= 0; });
   },
+  // Карточка под фокусом ряда, иначе первая.
+  focusedCard: function (line) {
+    var cards = HC.cards(line);
+    return cards.find(function (it) { return it.render(true) === line.last; }) || cards[0];
+  },
   focused: function () { return document.querySelector('.focus'); },
   check: function (ok, msg) { if (!ok) throw new Error(msg); },
   // Скрыть карточку штатным путём плагина и дождаться микрозадачи с добором.

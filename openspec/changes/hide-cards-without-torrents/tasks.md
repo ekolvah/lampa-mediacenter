@@ -29,7 +29,7 @@
 
 ## 5. Verify
 
-- [ ] 5.1 Run `/simplify` and commit its edits; if they touch the plugin, push, snapshot, re-point the plugin URL to the new head sha, re-run `bash tests/live/hide-cards.sh`, then restore the sha from the snapshot
+- [x] 5.1 Run `/simplify` and commit its edits; if they touch the plugin, push, snapshot, re-point the plugin URL to the new head sha, re-run `bash tests/live/hide-cards.sh`, then restore the sha from the snapshot
 - [ ] 5.2 Run `openspec validate --strict --all`
 - [ ] 5.3 Run `pre-commit run --hook-stage manual --all-files`
 

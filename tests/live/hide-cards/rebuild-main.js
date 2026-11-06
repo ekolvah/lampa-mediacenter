@@ -1,7 +1,7 @@
 (async function () {
   // Пересобрать Главную без перезагрузки страницы (кэш плагина тёплый).
+  HC.rows();
   var a = Lampa.Activity.active();
-  HC.check(a.component === 'main', 'ожидалась Главная, активна ' + a.component);
   Lampa.Activity.replace({ url: a.url, title: a.title, component: a.component, source: a.source, page: 1 });
   for (var i = 0; i < 60; i++) {
     await HC.sleep(250);
