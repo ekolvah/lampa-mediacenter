@@ -404,7 +404,8 @@
   // удаление. Это не публичное API — без них только метим серым (§IV).
   function lineSupported(line) {
     return !!(line && Array.isArray(line.items) && line.data &&
-      Array.isArray(line.data.results) && typeof line.emit === 'function');
+      Array.isArray(line.data.results) && typeof line.emit === 'function' &&
+      line.scroll && typeof line.scroll.render === 'function');
   }
 
   // Снимает карточку из ряда целиком: из items, из data.results (иначе onScroll
@@ -460,7 +461,7 @@
     if (!lineSupported(line)) {
       if (line && !line.torrent_badge_warned) {
         line.torrent_badge_warned = true;
-        console.warn('torrent-quality-badge: ряд без items/data.results/emit — карточки метятся серым, а не скрываются');
+        console.warn('torrent-quality-badge: ряд без items/data.results/emit/scroll — карточки метятся серым, а не скрываются');
       }
       applyBadge(item, badgeLabel(Lampa.Storage.get('torrents_filter', {})));
       return;
@@ -600,7 +601,7 @@
 
   // Под Node (tests/js/) — только чистые функции, без старта в несуществующем window.
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { focusTarget: focusTarget };
+    module.exports = { focusTarget: focusTarget, lineSupported: lineSupported };
     return;
   }
 
