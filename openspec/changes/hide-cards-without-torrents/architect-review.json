@@ -1,0 +1,52 @@
+{
+  "verdict": "approve",
+  "round": 3,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Every round-2 finding is closed in the artifacts: live step 5 asserts the premise directly, the intermittent focus loss has a root-cause task plus a 10-run catcher, the device returns to approved code after each check, and the spec claims only screens built from rows, backed by a live observation.",
+  "classes": {
+    "simpler": {
+      "evidence": "Decision 1 rejects display:none. The element would stay in the navigator, and items.length would not change, so items.onScroll would not refill and the 'Ряд всегда полный' scenarios would fail. Alternatives rejects manual createAndAppend (no «Ещё»), the bookmarks component check (dead code: Избранное sends 0 line events), preloading all 20 verdicts (3x Jac.red load) and swapping the plugin through cdp.py (two listeners). No simpler design meets the scenarios.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "Each of the 10 scenarios has an entry in the tasks.md map. 'Фильм без раздач в Избранном' maps to live step 5. Step 5 installs a `line` listener before Избранное opens and, after `DPAD_RIGHT x8`, requires zero `create`/`append` events. That is the premise of Decision 5, and the step no longer depends on a bookmark without releases. 'Раздачи есть' maps to step 1 (a miss:false card stays). The two n/a entries are paths that never reach applyVerdict: the filterActive exit at plugins/torrent-quality-badge.js:489 and results === null at :441.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Group 1 is the test test_plugin_js, which runs `node --test \"tests/js/*.test.js\"` with no shell. On Node 22.14.0 the glob form exits 0 and the directory form exits 1; the planner recorded this in design Наблюдения and I reproduced it in round 1. Task 1.2 expects `ReferenceError: window is not defined`, which I saw when requiring the current plugin. Task 2.1 skips the whole startup block under Node, so the RED fails for the right reason before task 2.1.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "design 'Наблюдения на устройстве' holds cdp.py/ui.py output for each behaviour the design rests on:\n- Activity is 'main' from the first append.\n- Избранное gets 0 line events.\n- The category_full grid (opened from «Ещё» of «Сейчас смотрят сериалы»): over 60 cards, only 10 `destroy` events, 0 `create`/`append`, 0 `.items-line`.\n- emit('scroll') refill: 8→8, 20→19, and real DPAD reaches the appended card.\n- Focus can be set after removal.\n- «Ещё» is not in data.results.\n- Rows shrunk to 3 and to 0, with focus landing on none in 1 of 3 runs, recorded under Risks.\n- Node 22 glob vs directory, and the ubuntu-latest Node version with its source URL.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Live steps 2-4 inject verdicts through applyVerdict. Decision 8 step 1 covers the proof this loses, the queue → applyVerdict wiring: with a warm cache and no test intervention, step 1 reads the plugin's own entries through verdictKey. It requires no rendered card with miss:true and at least one with miss:false. No project-declared input or guard is dropped: the global flag stays truthy (Decision 7).",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Traced each catcher:\n- The pytest hook (.pre-commit-config.yaml:48) runs tests/test_plugin_js.py. The PR quality check reaches it through the 'test' entry of .github/agent-process-quality.json, and the local pre-push hook runs it too.\n- tests/live/hide-cards.sh runs on the branch head (4.2), after a snapshot, a URL switch and a restart. It runs again on the post-/simplify head (5.1, conditional) and on the merge sha (6.2). 4.2 and 5.1 end by restoring the snapshot sha, so the box runs approved code until the merge (Migration and rollback).\n- Task 3.4 looks for the cause of the intermittent focus loss on an emptied row by logging the collection and line.last at collectionFocus, then fixes the named cause and verifies 10 of 10 (§V).\n- Steps 3-4 repeat 10 times on different rows, so a residual 1-in-3 loss escapes with probability about 2%.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Words per spec sentence vs the words its tests assert:\n- R1 (26 words): scoped to 'горизонтальных рядах карточек (Главная и другие экраны, собранные из рядов)'. Steps 1-2 assert it on Главная through the same line-event mechanism every row screen uses. The category grid is excluded in the proposal and backed by the observation.\n- R2 (11): asserted by step 5.\n- R3 (16): its THENs ('снова N карточек', 'добирается следующая … N', 'оставшиеся карточки подряд, за ними «Ещё»', 'заголовком и кнопкой «Ещё», без карточек') are asserted by steps 2, 3, 3 and 4.\n- R4 (10): 'соседний элемент: карточку или кнопку «Ещё»' is asserted by the focusTarget tests plus steps 2 and 4.\nNo unasserted clause remains.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "'## Standard approach' records 'none found' for a ready plugin, naming what was searched (Lampa plugin catalogues, GitHub). It also names the row's own refill path, the Controller focus API, and a unit vs in-browser testing split with URLs, and the design follows them. tests/test_plugin_js.py (Decision 9) exists because check_red and the pytest gate accept only pytest node ids, which a node pre-commit hook would not reach. tests/live/hide-cards.sh (Decision 8, Alternatives jsdom) exists because a standard in-browser runner cannot drive the TV WebView, and cdp.py/ui.py are the project's tools for that.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "card-torrent-filter",
+      "scenario": "Фильтр не активен",
+      "reason": "n/a: ранний выход по `filterActive` до `applyVerdict` не меняется"
+    },
+    {
+      "capability": "card-torrent-filter",
+      "scenario": "Поиск раздач не удался",
+      "reason": "n/a: ветка `results === null` в `finishTask` не вызывает `applyVerdict` и не меняется"
+    }
+  ]
+}
