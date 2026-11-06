@@ -9,17 +9,17 @@
 
 ## 2. Pure function
 
-- [ ] 2.1 Add `focusTarget(index, count)`, export via `module.exports` only when `module` exists, and skip the whole startup block at the end of the file there (design 6); verify `python -m pytest tests/test_plugin_js.py` is green and `node --check plugins/torrent-quality-badge.js` passes
-- [ ] 2.2 Commit
+- [x] 2.1 Add `focusTarget(index, count)`, export via `module.exports` only when `module` exists, and skip the whole startup block at the end of the file there (design 6); verify `python -m pytest tests/test_plugin_js.py` is green and `node --check plugins/torrent-quality-badge.js` passes
+- [x] 2.2 Commit
 
 ## 3. DOM wiring
 
-- [ ] 3.1 Pass `e.line` through `enqueue` to the verdict callback
-- [ ] 3.2 `applyVerdict(line, item, miss)`: `miss` → queue the item for the line's single microtask pass; otherwise nothing (design 4, 7)
-- [ ] 3.3 Removal step — only items whose `data` is in `data.results`; splice `items`/`data.results`, `item.destroy()`, fix `active` and `last` via `focusTarget`, then one `emit('scroll')`, and when the line owns the controller `collectionSet` + `collectionFocus(line.last)` if the focused card was removed (design 1–3)
+- [x] 3.1 Pass `e.line` through `enqueue` to the verdict callback
+- [x] 3.2 `applyVerdict(line, item, miss)`: `miss` → queue the item for the line's single microtask pass; otherwise nothing (design 4, 7)
+- [x] 3.3 Removal step — only items whose `data` is in `data.results`; splice `items`/`data.results`, `item.destroy()`, fix `active` and `last` via `focusTarget`, then one `emit('scroll')`, and when the line owns the controller `collectionSet` + `collectionFocus(line.last)` if the focused card was removed (design 1–3)
 - [ ] 3.4 Locate the cause of focus landing nowhere after the last card of a focused row is removed (design Risks): log the navigator collection and `line.last` at `collectionFocus` across 10 emptied rows on the device via `cdp.py`; fix by the named cause; verify 10 of 10 runs end with focus on «Ещё»
-- [ ] 3.5 Missing `line.items`/`line.data.results`/`line.emit` → `markMiss` and one `console.warn` per line (design Risks, §IV)
-- [ ] 3.6 Turn `window.torrent_quality_badge_plugin` into `{ applyVerdict, verdictKey }` (design 7); commit
+- [x] 3.5 Missing `line.items`/`line.data.results`/`line.emit` → `markMiss` and one `console.warn` per line (design Risks, §IV)
+- [x] 3.6 Turn `window.torrent_quality_badge_plugin` into `{ applyVerdict, verdictKey }` (design 7); commit
 
 ## 4. Live check
 
