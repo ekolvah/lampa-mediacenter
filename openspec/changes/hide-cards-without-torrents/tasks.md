@@ -17,15 +17,15 @@
 - [x] 3.1 Pass `e.line` through `enqueue` to the verdict callback
 - [x] 3.2 `applyVerdict(line, item, miss)`: `miss` → queue the item for the line's single microtask pass; otherwise nothing (design 4, 7)
 - [x] 3.3 Removal step — only items whose `data` is in `data.results`; splice `items`/`data.results`, `item.destroy()`, fix `active` and `last` via `focusTarget`, then one `emit('scroll')`, and when the line owns the controller `collectionSet` + `collectionFocus(line.last)` if the focused card was removed (design 1–3)
-- [ ] 3.4 Locate the cause of focus landing nowhere after the last card of a focused row is removed (design Risks): log the navigator collection and `line.last` at `collectionFocus` across 10 emptied rows on the device via `cdp.py`; fix by the named cause; verify 10 of 10 runs end with focus on «Ещё»
+- [x] 3.4 Locate the cause of focus landing nowhere after the last card of a focused row is removed (design Risks): log the navigator collection and `line.last` at `collectionFocus` across 10 emptied rows on the device via `cdp.py`; fix by the named cause; verify 10 of 10 runs end with focus on «Ещё»
 - [x] 3.5 Missing `line.items`/`line.data.results`/`line.emit` → `markMiss` and one `console.warn` per line (design Risks, §IV)
 - [x] 3.6 Turn `window.torrent_quality_badge_plugin` into `{ applyVerdict, verdictKey }` (design 7); commit
 
 ## 4. Live check
 
-- [ ] 4.1 Write `tests/live/hide-cards.sh` with steps 1–5 of design 8 (`cdp.py` for setup and asserts, `ui.py --keys "DPAD_RIGHT,DPAD_LEFT x2" --expect items_line` for real keys)
+- [x] 4.1 Write `tests/live/hide-cards.sh` with steps 1–5 of design 8 (`cdp.py` for setup and asserts, `ui.py --keys "DPAD_RIGHT,DPAD_LEFT x2" --expect items_line` for real keys)
 - [ ] 4.2 Push the branch; snapshot per `docs/snapshots-convention.md`; switch the plugin URL to `@<branch head sha>` via `cdp.py`; force-stop and restart Lampa; run `bash tests/live/hide-cards.sh`, verify exit 0; then switch the plugin URL back to the sha from the snapshot, force-stop, restart and check by `screencap` that Главная renders (CLAUDE.md, после живого тестирования)
-- [ ] 4.3 Document the JS tests and the live check in `docs/quality-gates.md`; verify `python scripts/ci_check.py --only links`; commit
+- [x] 4.3 Document the JS tests and the live check in `docs/quality-gates.md`; verify `python scripts/ci_check.py --only links`; commit
 
 ## 5. Verify
 
