@@ -4,8 +4,8 @@
 
 ## 1. RED
 
-- [ ] 1.1 Write `tests/js/torrent-quality-badge.test.js` (tests named in the map below) and `tests/test_plugin_js.py::test_plugin_js` (runs `node --test "tests/js/*.test.js"` without a shell, fails with a message when `node` is absent; design 9)
-- [ ] 1.2 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify it fails with `ReferenceError: window is not defined` from requiring the plugin; commit RED with the ticks
+- [x] 1.1 Write `tests/js/torrent-quality-badge.test.js` (tests named in the map below) and `tests/test_plugin_js.py::test_plugin_js` (runs `node --test "tests/js/*.test.js"` without a shell, fails with a message when `node` is absent; design 9)
+- [x] 1.2 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify it fails with `ReferenceError: window is not defined` from requiring the plugin; commit RED with the ticks
 
 ## 2. Pure function
 
