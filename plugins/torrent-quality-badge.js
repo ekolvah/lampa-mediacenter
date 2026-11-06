@@ -452,6 +452,18 @@
     if (focused && focused !== line.last) Lampa.Controller.collectionFocus(line.last || false, html);
   }
 
+  // Исключение внутри микрозадачи иначе пропало бы молча (§IV): ERROR и серая
+  // метка на каждой отложенной карточке — уже снятые отсоединены, им метка не мешает.
+  function flushMisses(line, pending) {
+    try {
+      removeMisses(line, pending);
+    } catch (err) {
+      console.error('torrent-quality-badge: снятие карточек упало — карточки метятся серым', err);
+      var label = badgeLabel(Lampa.Storage.get('torrents_filter', {}));
+      pending.forEach(function (item) { applyBadge(item, label); });
+    }
+  }
+
   // Единая точка входа вердикта: зовут очередь плагина и живая проверка
   // (tests/live/hide-cards.sh). Промахи ряда копятся и снимаются одним проходом
   // в микрозадаче: вердикт из кэша приходит синхронно внутри emit ряда.
@@ -472,7 +484,7 @@
       pending = line.torrent_badge_pending = [];
       Promise.resolve().then(function () {
         line.torrent_badge_pending = null;
-        removeMisses(line, pending);
+        flushMisses(line, pending);
       });
     }
     if (pending.indexOf(item) < 0) pending.push(item);
@@ -601,7 +613,7 @@
 
   // Под Node (tests/js/) — только чистые функции, без старта в несуществующем window.
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { focusTarget: focusTarget, lineSupported: lineSupported };
+    module.exports = { focusTarget: focusTarget, lineSupported: lineSupported, flushMisses: flushMisses };
     return;
   }
 

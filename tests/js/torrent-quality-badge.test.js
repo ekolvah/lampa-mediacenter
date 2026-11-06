@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const path = require('node:path');
 
-const { focusTarget, lineSupported } = require(path.join(__dirname, '..', '..', 'plugins', 'torrent-quality-badge.js'));
+const { focusTarget, lineSupported, flushMisses } = require(path.join(__dirname, '..', '..', 'plugins', 'torrent-quality-badge.js'));
 
 // Индексы — в ряду до удаления: удаляется элемент `index` из `count`.
 test('focusTarget picks next', () => {
@@ -43,4 +43,19 @@ test('lineSupported rejects row missing any member', () => {
     assert.strictEqual(lineSupported(line), false, name);
   }
   assert.strictEqual(lineSupported(null), false, 'null');
+});
+
+// §IV: снятие карточек упало — ERROR в консоль и серая метка на каждой отложенной.
+test('flushMisses falls back to badge on failure', (t) => {
+  global.Lampa = {
+    Storage: { get: (_key, def) => def },
+    Controller: { own() { throw new Error('boom'); } },
+  };
+  t.after(() => { delete global.Lampa; });
+  const errors = t.mock.method(console, 'error', () => {});
+  const badged = [];
+  const item = (name) => ({ render: (js) => { if (js) badged.push(name); return null; } });
+  flushMisses(fullLine(), [item('a'), item('b')]);
+  assert.strictEqual(errors.mock.callCount(), 1);
+  assert.deepStrictEqual(badged, ['a', 'b']);
 });
