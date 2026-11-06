@@ -30,12 +30,12 @@
 ## 5. Verify
 
 - [x] 5.1 Run `/simplify` and commit its edits; if they touch the plugin, push, snapshot, re-point the plugin URL to the new head sha, re-run `bash tests/live/hide-cards.sh`, then restore the sha from the snapshot
-- [ ] 5.2 Run `openspec validate --strict --all`
-- [ ] 5.3 Run `pre-commit run --hook-stage manual --all-files`
+- [x] 5.2 Run `openspec validate --strict --all`
+- [x] 5.3 Run `pre-commit run --hook-stage manual --all-files`
 
 ## 6. Deliver
 
-- [ ] 6.1 `agent-process archive_change hide-cards-without-torrents`, then `gh pr create --title "feat: hide-cards-without-torrents" --body-file <report>`, `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`
+- [x] 6.1 `agent-process archive_change hide-cards-without-torrents`, then `gh pr create --title "feat: hide-cards-without-torrents" --body-file <report>`, `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`
 - [ ] 6.2 After the person merges: snapshot, switch the plugin URL `<sha>` to the merge commit via `cdp.py`, restart Lampa, run `bash tests/live/hide-cards.sh` on the deployed sha; rollback = sha from the snapshot
 
 ## Scenario → test map
