@@ -34,9 +34,10 @@
   через DevTools WebView. Это **штатный способ** менять настройки Lampa из CLI
   (родное `Lampa.Storage`, синхронизация с аккаунтом не ломается). Прямую правку
   LevelDB не делать.
-- [docs/quality-gates.md](docs/quality-gates.md) — автоматические проверки
-  (секреты, ruff, mypy, конвенция снапшотов, ссылки в доках) и почему набор
-  именно такой.
+- [docs/quality-gates.md](docs/quality-gates.md) — автоматические проверки:
+  стадия `manual` в `.pre-commit-config.yaml` (ruff, mypy, pylint, pip-audit,
+  pytest) плюс проверки проекта из `scripts/ci_check.py` (секреты, снапшоты,
+  TorrServer, ссылки в доках), и почему набор именно такой.
 
 ## Правки конфигурации на устройстве — обязательный процесс
 
