@@ -24,7 +24,7 @@
 ## 4. Live check
 
 - [x] 4.1 Write `tests/live/hide-cards.sh` with steps 1–5 of design 8 (`cdp.py` for setup and asserts, `ui.py --keys "DPAD_RIGHT,DPAD_LEFT x2" --expect items_line` for real keys)
-- [ ] 4.2 Push the branch; snapshot per `docs/snapshots-convention.md`; switch the plugin URL to `@<branch head sha>` via `cdp.py`; force-stop and restart Lampa; run `bash tests/live/hide-cards.sh`, verify exit 0; then switch the plugin URL back to the sha from the snapshot, force-stop, restart and check by `screencap` that Главная renders (CLAUDE.md, после живого тестирования)
+- [x] 4.2 Push the branch; snapshot per `docs/snapshots-convention.md`; switch the plugin URL to `@<branch head sha>` via `cdp.py`; force-stop and restart Lampa; run `bash tests/live/hide-cards.sh`, verify exit 0; then switch the plugin URL back to the sha from the snapshot, force-stop, restart and check by `screencap` that Главная renders (CLAUDE.md, после живого тестирования)
 - [x] 4.3 Document the JS tests and the live check in `docs/quality-gates.md`; verify `python scripts/ci_check.py --only links`; commit
 
 ## 5. Verify
