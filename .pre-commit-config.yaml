@@ -50,7 +50,9 @@ repos:
         entry: python -m pytest
         language: unsupported
         pass_filenames: false
-        files: (^|/)(test_[^/]*|[^/]*_test)\.py$
+        # Тесты покрывают tools/ и scripts/, а не только сами test_*.py: фильтр по
+        # именам тестов пропускал бы pytest на push, где менялся только код.
+        always_run: true
         stages: [manual]
       # Проверки проекта, которых в базовом наборе нет (docs/quality-gates.md). detect-secrets
       # тоже здесь, а не своим хуком: ci_check зовёт его с `-X utf8`, а хук без UTF-8 режима
