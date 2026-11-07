@@ -1,12 +1,12 @@
 // Общие помощники живой проверки; cdp.py выполняет каждый шаг как выражение,
-// поэтому шаги склеиваются с этим файлом в hide-cards.sh (см. там же).
+// поэтому шаги склеиваются с tests/live/lib.js и этим файлом (step в tests/live/lib.sh).
 var HC = {
   plugin: function () {
     var p = window.torrent_quality_badge_plugin;
     if (!p || typeof p.applyVerdict !== 'function') throw new Error('на приставке не сборка ветки: нет torrent_quality_badge_plugin.applyVerdict');
     return p;
   },
-  sleep: function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); },
+  sleep: Live.sleep,
   // Опрашивать cond каждые ms, не больше tries раз; истина — дождались.
   until: async function (cond, tries, ms) {
     for (var i = 0; i < tries; i++) {
@@ -76,7 +76,7 @@ var HC = {
     return grid;
   },
   focused: function () { return document.querySelector('.focus'); },
-  check: function (ok, msg) { if (!ok) throw new Error(msg); },
+  check: Live.check,
   // Скрыть карточку штатным путём плагина и дождаться микрозадачи с добором.
   hide: async function (owner, item) {
     HC.plugin().applyVerdict(owner, item, true);

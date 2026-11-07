@@ -11,18 +11,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-UGOOS=${UGOOS:-192.168.10.5:5555}
 DIR=tests/live/hide-cards
-adb_sh() { MSYS_NO_PATHCONV=1 adb -s "$UGOOS" shell "$@"; }
-step() { cat "$DIR/lib.js" "$DIR/$1.js" | python tools/cdp.py; }
-
-restart_lampa() {
-  adb_sh "am force-stop top.rootu.lampa"
-  adb_sh "monkey -p top.rootu.lampa -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1
-  sleep 15
-  pid=$(adb_sh "pidof top.rootu.lampa" | tr -d '\r')
-  MSYS_NO_PATHCONV=1 adb -s "$UGOOS" forward tcp:9222 "localabstract:webview_devtools_remote_$pid"
-}
+source tests/live/lib.sh
 
 grid_steps() {
   echo "== шаг 6: сетка по «Ещё», вердикты применены очередью"

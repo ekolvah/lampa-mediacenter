@@ -15,7 +15,7 @@
 
 ## 3. Live check
 
-- [ ] 3.1 Move `adb_sh`, `step`, `restart_lampa` to `tests/live/lib.sh` and `sleep`, `check` to `tests/live/lib.js` with a new `waitFor` (design 9); verify `bash -n` on both scripts and that `hide-cards.sh` still sources and runs its first step
+- [x] 3.1 Move `adb_sh`, `step`, `restart_lampa` to `tests/live/lib.sh` and `sleep`, `check` to `tests/live/lib.js` with a new `waitFor` (design 9); verify `bash -n` on both scripts and that `hide-cards.sh` still sources and runs its first step
 - [ ] 3.2 Write `tests/live/kp-trailers.sh` and `tests/live/kp-trailers/*.js` with steps 1–3 of design 9, capturing the keys and the select controller name live via `ui.py --expect`
 - [ ] 3.3 Push the branch; run step 1 of design Migration / Rollback; verify `bash tests/live/kp-trailers.sh` exits 0; one `screencap` while the trailer plays to confirm video on screen
 - [ ] 3.4 Update the plugin row in `docs/lampa-config-review.md` (trailers, URL by sha); verify `python scripts/ci_check.py --only links`; commit
