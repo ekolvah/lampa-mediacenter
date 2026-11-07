@@ -1,0 +1,47 @@
+{
+  "verdict": "approve",
+  "round": 3,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Every finding from rounds 1-2 is fixed. The plan follows the engine's own trailer path, relies only on device behaviour that was actually observed, and has a test that fails first for each behaviour change, so every scenario is mapped to a check that runs.",
+  "classes": {
+    "simpler": {
+      "evidence": "Unchanged from round 1. A separate plugin and a hand-rolled request are rejected (decisions 1-2). Running reactions and videos in parallel and caching find are each a few lines. Pinning by sha is required by #43/#42. The vm loading in decision 7 now removes the export refactor, which makes the plugin diff smaller than in round 1. No simpler design meets all six scenarios.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "spec.md has 6 scenarios: Трейлер найден, Сериал, Нет imdb_id, TMDB не нашёл тайтл, Видео не пришли, Запуск трейлера пультом. Each has a map row in tasks.md:37-44. 'Видео не пришли' maps to `empty videos warns with method and id`, which is consistent with the reworded requirement «Пустой ответ видео». The remote-control scenario is mapped to the live steps and marked manual, not in CI.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Task 1.1 loads the plugin with vm.runInNewContext, a fresh context per test (design 7). Task 1.2 names the six tests expected to fail, each on its own assertion: `videos and reactions added for found movie` (result.videos undefined), `tv match requests videos and reactions as tv` (no videos call; reactions method movie), `empty videos warns with method and id`, `missing tmdb.videos warns, reactions only`, `find error warns with imdb_id, card opens` (no warning today; the error callback at plugins/kp-reactions-fix.js:37-39 is silent), and `find requested with cache life` (no 5th argument). The three tests for unchanged behaviour (`oncomplite called once`, `no imdb_id completes without tmdb calls`, `no find match completes without videos`) should pass at RED as regression guards, and they match the current code paths. Every behaviour change in tasks 2.1-2.2 now has a test written first.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Observation 7 is now on record. The device's `videos()` takes only `(params, oncomplite)`, and `tmdb.videos({method:'movie', id:999999999}, ok, err)` called ok with {\"results\":[]}, not err. This matches lampa-source tmdb.js:766-787 and status.js. Decision 6 now warns on the empty result the engine actually returns. A partial failure (one language fails) gives a non-empty list with no warning, but the tmdb card degrades the same way, so the spec's 'same list' sentence still holds. Observation 6 is corrected: needclick is also removed on error, and hidden noplayed is the signal that playback started (youtube.js:143-153, 184-189). Decision 4's cache argument cites observation 7. reactionsGet always calls back (cub.js:584-590), so the counter of two always completes. The find onerror is reachable (tmdb.js:316). Earlier items 1-3 and 6 are unchanged and observed.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Decision 3 replaces the reactions `method` from KP `movie.type` with the type of the find match. The failure it fixes is stated, and the 'Сериал' test checks both calls. Decision 8 and Migration replace @main with the final PR head sha. Their failure modes are listed: code after merge equals the squash, the commit stays reachable through refs/pull/<N>/head, and the rollback sha fbad1a9 plus the reason @main cannot be restored. The `__reactions_patched` guard is kept, and a fresh vm context per test keeps it from leaking between tests.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Every named catcher now has a step that reaches it. Unit tests: the `test` gate on every PR head. A /simplify edit to the plugin: task 4.1 repeats 3.3. A corrective push that changes the plugin: task 5.2 repeats 3.3 on the new head before wait_for_pr. A self-update of app.min.js: Risks now credits only the person (the missing button or running the script by hand), with no gate claimed. Re-pin to the merge sha: handed to the person in the final message (task 5.3, Migration 2). Rollback: Migration 3, using the recorded sha.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Words per spec sentence vs words the tests assert. Req 1 s1 ~20/~20 (unit test plus live step 1). Req 1 s2 ~15/~15 (tmdb.videos passed through unchanged). Req 1 s3 4/4. Req «Пустой ответ видео» ~15/~15 (`empty videos warns with method and id` asserts the card opens, the warning and the type/id). Req 3 ~11/~11 (live steps 2-3). Every word is covered.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "Unchanged and convincing. `## Standard approach` cites the engine path (trailers.js, app.min.js) and a search across five candidate plugins, each rejected for a concrete reason, and the design reuses tmdb.videos. The only new script, tests/live/kp-trailers.sh plus the shared tests/live/lib.*, is a new scenario in the project's existing cdp.py/ui.py live harness (precedent: hide-cards.sh), not a new tool. Decision 9 names the scenario it proves.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "kp-card-trailers",
+      "scenario": "Запуск трейлера пультом",
+      "reason": "Needs the device, the remote and YouTube playback. It is proved only by tests/live/kp-trailers.sh steps 2-3 (plus one screencap), run by hand in tasks 3.3/5.2, not in the CI quality gate."
+    }
+  ]
+}
