@@ -22,13 +22,13 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Run `/simplify` and commit its edits; if they touch the plugin or live scripts, push and repeat 3.3 on the new head
-- [ ] 4.2 Run `openspec validate --strict --all`
-- [ ] 4.3 Run `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`
+- [x] 4.1 Run `/simplify` and commit its edits; if they touch the plugin or live scripts, push and repeat 3.3 on the new head
+- [x] 4.2 Run `openspec validate --strict --all`
+- [x] 4.3 Run `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`
 
 ## 5. Deliver
 
-- [ ] 5.1 `agent-process archive_change kp-card-trailers`, then `gh pr create --title "feat: kp-card-trailers" --body-file <report>`, `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`
+- [x] 5.1 `agent-process archive_change kp-card-trailers`, then `gh pr create --title "feat: kp-card-trailers" --body-file <report>`, `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`
 - [ ] 5.2 After every corrective push that changes `plugins/kp-reactions-fix.js`, repeat 3.3 on the new head before `wait_for_pr` (design Migration / Rollback, step 1)
 - [ ] 5.3 In the final message, give the person the optional re-pin to `@<merge sha>` and the rollback sha (design Migration / Rollback, steps 2–3)
 
