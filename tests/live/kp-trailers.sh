@@ -15,6 +15,9 @@ source tests/live/lib.sh
 echo "== рестарт Lampa"
 restart_lampa
 
+echo "== шаг 0: KP-карточка без imdb_id находит трейлеры поиском по названию"
+step open-card-no-imdb
+
 echo "== шаг 1: в KP-карточке есть «Трейлеры»"
 step open-card
 
