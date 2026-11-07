@@ -21,10 +21,9 @@
     return cleanTitle(str.toLowerCase().replace(/[\-\u2010-\u2015\u2E3A\u2E3B\uFE58\uFE63\uFF0D]+/g, '-').replace(/ё/g, 'е'));
   }
 
-  function titleSet(a, b) {
-    var set = {};
-    [a, b].forEach(function (t) { if (typeof t === 'string' && t) set[normalizeTitle(t)] = true; });
-    return set;
+  // Нормализованные непустые названия.
+  function titles(a, b) {
+    return [a, b].filter(function (t) { return typeof t === 'string' && t; }).map(normalizeTitle);
   }
 
   function patch() {
@@ -63,51 +62,58 @@
 
     // Поиск тайтла по названию: тип из карточки, год строгий; с годом — первый
     // результат с совпадающим названием, без года — только единственный.
-    function searchByTitle(result, movie, oncomplite) {
-      var method = movie.type === 'tv' ? 'tv' : 'movie';
-      var year = ((method === 'tv' ? movie.first_air_date : movie.release_date) || '').slice(0, 4);
-      var yearKey = method === 'tv' ? 'first_air_date_year' : 'primary_release_year';
+    function searchByTitle(movie, cb) {
+      var tv = movie.type === 'tv';
+      var method = tv ? 'tv' : 'movie';
+      var year = ((tv ? movie.first_air_date : movie.release_date) || '').slice(0, 4);
       var url = 'search/' + method + '?query=' + encodeURIComponent(movie.title || movie.original_title || '');
-      if (year) url += '&' + yearKey + '=' + year;
+      if (year) url += (tv ? '&first_air_date_year=' : '&primary_release_year=') + year;
 
       function fail(reason) {
         console.warn('kp-reactions-fix: no title match', reason, movie.title, year);
-        oncomplite(result);
+        cb(null);
       }
 
       tmdb.get(url, {}, function (found) {
-        var want = titleSet(movie.title, movie.original_title);
+        var want = titles(movie.title, movie.original_title);
         var matches = ((found && found.results) || []).filter(function (r) {
-          var have = titleSet(r.title || r.name, r.original_title || r.original_name);
-          return Object.keys(have).some(function (t) { return want[t]; });
+          return titles(r.title || r.name, r.original_title || r.original_name).some(function (t) {
+            return want.indexOf(t) !== -1;
+          });
         });
 
         if (!matches.length) return fail('not found');
         if (!year && matches.length > 1) return fail('ambiguous without year');
-        enrich(result, { method: method, id: matches[0].id }, oncomplite);
+        cb({ method: method, id: matches[0].id });
       }, function () {
         fail('search failed');
+      }, { life: WEEK });
+    }
+
+    // TMDB-тайтл карточки: по imdb_id (find), без него или при пустом find — по
+    // названию. cb(null) — тайтла нет, причина уже в console.warn.
+    function resolveTitle(movie, cb) {
+      if (!movie.imdb_id) return searchByTitle(movie, cb);
+
+      tmdb.get('find/' + movie.imdb_id + '?external_source=imdb_id', {}, function (found) {
+        if (found.movie_results && found.movie_results[0]) cb({ method: 'movie', id: found.movie_results[0].id });
+        else if (found.tv_results && found.tv_results[0]) cb({ method: 'tv', id: found.tv_results[0].id });
+        else searchByTitle(movie, cb);
+      }, function () {
+        console.warn('kp-reactions-fix: find failed, no reactions and trailers', movie.imdb_id);
+        cb(null);
       }, { life: WEEK });
     }
 
     KP.full = function (params, oncomplite, onerror) {
       return orgFull.call(KP, params, function (result) {
         var movie = result && result.movie;
-
         if (!movie) return oncomplite(result);
-        if (!movie.imdb_id) return searchByTitle(result, movie, oncomplite);
 
-        tmdb.get('find/' + movie.imdb_id + '?external_source=imdb_id', {}, function (found) {
-          var title = null;
-          if (found.movie_results && found.movie_results[0]) title = { method: 'movie', id: found.movie_results[0].id };
-          else if (found.tv_results && found.tv_results[0]) title = { method: 'tv', id: found.tv_results[0].id };
-
+        resolveTitle(movie, function (title) {
           if (title) enrich(result, title, oncomplite);
-          else searchByTitle(result, movie, oncomplite);
-        }, function () {
-          console.warn('kp-reactions-fix: find failed, no reactions and trailers', movie.imdb_id);
-          oncomplite(result);
-        }, { life: WEEK });
+          else oncomplite(result);
+        });
       }, onerror);
     };
 

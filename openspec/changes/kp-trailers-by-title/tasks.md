@@ -20,7 +20,7 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Run `/simplify` and commit its edits; if they touch the plugin or live scripts, push and repeat 3.2 on the new head
+- [x] 4.1 Run `/simplify` and commit its edits; if they touch the plugin or live scripts, push and repeat 3.2 on the new head
 - [ ] 4.2 Run `openspec validate --strict --all`
 - [ ] 4.3 Run `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`
 

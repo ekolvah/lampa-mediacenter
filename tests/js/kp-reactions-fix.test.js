@@ -73,6 +73,15 @@ const LIFE_TV = { id: 318582, name: 'Жизнь заново', original_name: '�
 
 const q = (title) => encodeURIComponent(title);
 
+// Исход «тайтла нет»: одно предупреждение со всеми needles, без видео и реакций, карточка открыта.
+function assertWarnedNoTrailers(c, ...needles) {
+  assert.strictEqual(c.warn.length, 1);
+  assert.ok(needles.every((n) => c.warn[0].includes(n)), JSON.stringify(c.warn));
+  assert.strictEqual(c.videos.length + c.reactions.length, 0);
+  assert.strictEqual(c.done.length, 1);
+  assert.strictEqual(c.done[0].videos, undefined);
+}
+
 test('videos and reactions added for found movie', () => {
   const c = load();
   assert.deepStrictEqual(c.done[0].videos, VIDEOS);
@@ -148,28 +157,17 @@ test('no year single match searches without year', () => {
 test('no year ambiguous title warns, no videos', () => {
   const c = load({ movie: Object.assign({}, BEAST, { release_date: '' }), search: { results: [BEAST_2026, BEAST_2022] } });
   assert.deepStrictEqual(c.get.map((g) => g.url), ['search/movie?query=' + q('Зверь')]);
-  assert.strictEqual(c.warn.length, 1);
-  assert.ok(c.warn[0].includes('Зверь'), JSON.stringify(c.warn));
-  assert.strictEqual(c.videos.length + c.reactions.length, 0);
-  assert.strictEqual(c.done.length, 1);
-  assert.strictEqual(c.done[0].videos, undefined);
+  assertWarnedNoTrailers(c, 'Зверь');
 });
 
 test('no title match warns with title and year', () => {
   const c = load({ movie: FOREST, search: { results: [WITCH_FOREST] } });
-  assert.strictEqual(c.warn.length, 1);
-  assert.ok(c.warn[0].includes('Лес') && c.warn[0].includes('2026'), JSON.stringify(c.warn));
-  assert.strictEqual(c.videos.length + c.reactions.length, 0);
-  assert.strictEqual(c.done.length, 1);
-  assert.strictEqual(c.done[0].videos, undefined);
+  assertWarnedNoTrailers(c, 'Лес', '2026');
 });
 
 test('search error warns with title and year, card opens', () => {
   const c = load({ movie: FOREST, search: 'error' });
-  assert.strictEqual(c.warn.length, 1);
-  assert.ok(c.warn[0].includes('Лес') && c.warn[0].includes('2026'), JSON.stringify(c.warn));
-  assert.strictEqual(c.videos.length + c.reactions.length, 0);
-  assert.strictEqual(c.done.length, 1);
+  assertWarnedNoTrailers(c, 'Лес', '2026');
 });
 
 test('empty videos warns with method and id', () => {

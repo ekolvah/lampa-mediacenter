@@ -3,7 +3,7 @@
   // (change kp-trailers-by-title, design 9) и карточка показывает «Трейлеры».
   var ID = 'KP_5512124';
   var full = await new Promise(function (ok, fail) {
-    Lampa.Api.sources.KP.full({ id: ID, method: 'movie', card: { id: ID, source: 'KP' }, source: 'KP' }, ok, function () {
+    Lampa.Api.sources.KP.full(kpCard(ID), ok, function () {
       fail(new Error('KP.full ' + ID + ' вернул ошибку'));
     });
   });
