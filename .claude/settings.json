@@ -1,4 +1,7 @@
 {
+  "env": {
+    "OTEL_RESOURCE_ATTRIBUTES": "vcs.repository.name=ekolvah/lampa-mediacenter,vcs.repository.url.full=https://github.com/ekolvah/lampa-mediacenter"
+  },
   "permissions": {
     "deny": [
       "Bash(git remote add:*)",
