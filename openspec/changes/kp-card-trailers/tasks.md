@@ -4,8 +4,8 @@
 
 ## 1. RED
 
-- [ ] 1.1 Write `tests/js/kp-reactions-fix.test.js`: load `plugins/kp-reactions-fix.js` via `vm.runInNewContext` in a fresh context per test with in-memory doubles of `KP`, `tmdb`, `cub` (design 7); tests named in the map below, plus `missing tmdb.videos warns, reactions only`, `find requested with cache life` and `find error warns with imdb_id, card opens` (design 4, 6)
-- [ ] 1.2 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify the failing tests and their assertions are exactly: `videos and reactions added for found movie` (`result.videos` undefined), `tv match requests videos and reactions as tv` (no `videos` call; reactions method `movie`), `empty videos warns with method and id` (no warning), `missing tmdb.videos warns, reactions only` (no warning), `find requested with cache life` (no cache argument), `find error warns with imdb_id, card opens` (no warning); and that `oncomplite called once`, `no imdb_id completes without tmdb calls`, `no find match completes without videos` pass (behaviour kept); commit RED with the ticks
+- [x] 1.1 Write `tests/js/kp-reactions-fix.test.js`: load `plugins/kp-reactions-fix.js` via `vm.runInNewContext` in a fresh context per test with in-memory doubles of `KP`, `tmdb`, `cub` (design 7); tests named in the map below, plus `missing tmdb.videos warns, reactions only`, `find requested with cache life` and `find error warns with imdb_id, card opens` (design 4, 6)
+- [x] 1.2 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify the failing tests and their assertions are exactly: `videos and reactions added for found movie` (`result.videos` undefined), `tv match requests videos and reactions as tv` (no `videos` call; reactions method `movie`), `empty videos warns with method and id` (no warning), `missing tmdb.videos warns, reactions only` (no warning), `find requested with cache life` (no cache argument), `find error warns with imdb_id, card opens` (no warning); and that `oncomplite called once`, `no imdb_id completes without tmdb calls`, `no find match completes without videos` pass (behaviour kept); commit RED with the ticks
 
 ## 2. Plugin
 
