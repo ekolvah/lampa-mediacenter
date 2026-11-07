@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Живая проверка скрытия карточек без раздач (plugins/torrent-quality-badge.js).
-# Шаги — design.md решение 8 change'а hide-cards-without-torrents; код выхода — итог:
-# JS-шаг бросает исключение -> cdp.py выходит с 1 -> set -e.
+# Шаги 1-5 — ряды (change hide-cards-without-torrents), 6-10 — сетка категории
+# (change hide-cards-in-category-grid, design.md решение 8). `hide-cards.sh grid` —
+# только рестарт и шаги сетки. Код выхода — итог: JS-шаг бросает исключение ->
+# cdp.py выходит с 1 -> set -e.
 #
 # Требует: ADB к приставке (UGOOS, по умолчанию 192.168.10.5:5555), плагин на
 # приставке с applyVerdict (сборка ветки или main после мержа), тёплый кэш плагина
@@ -22,8 +24,35 @@ restart_lampa() {
   MSYS_NO_PATHCONV=1 adb -s "$UGOOS" forward tcp:9222 "localabstract:webview_devtools_remote_$pid"
 }
 
+grid_steps() {
+  echo "== шаг 6: сетка по «Ещё», вердикты применены очередью"
+  step grid-open
+  # Холодный кэш сетки: шаг ждёт очередь до 15 с, cdp.py держит запрос до 20 с.
+  step warm-cache || step warm-cache || step warm-cache
+
+  echo "== шаг 7: в сетке скрыта карточка под фокусом"
+  step hide-focused
+  python tools/ui.py --keys "DPAD_RIGHT,DPAD_LEFT" --expect content
+  step focus-in-row
+
+  echo "== шаг 8: неполная сетка догружает страницу"
+  step grid-refill
+
+  echo "== шаг 9: все карточки скрыты — сетка не пустеет"
+  step grid-hide-all
+
+  echo "== шаг 10: сетка Избранного не трогается"
+  step grid-favorite
+}
+
 echo "== рестарт Lampa"
 restart_lampa
+
+if [ "${1:-}" = grid ]; then
+  grid_steps
+  echo "OK: hide-cards grid"
+  exit 0
+fi
 
 echo "== шаг 1: вердикты из кэша применены очередью"
 step warm-cache
@@ -47,5 +76,7 @@ echo "== шаг 5: Избранное не шлёт событий ряда"
 step bookmarks-open
 python tools/ui.py --keys "DPAD_RIGHT x8"
 step bookmarks-check
+
+grid_steps
 
 echo "OK: hide-cards"

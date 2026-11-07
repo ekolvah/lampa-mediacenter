@@ -22,9 +22,9 @@
 
 ## 4. Live check
 
-- [ ] 4.1 `tests/live/hide-cards/lib.js`: `HC.owner()` and owner-agnostic `HC.cards`/`HC.focusedCard`; make `warm-cache.js`, `hide-focused.js`, `focus-in-row.js` use it; add `grid-open.js`, `grid-refill.js`, `grid-hide-all.js`, `grid-favorite.js` and steps 6–10 plus the `grid` argument to `tests/live/hide-cards.sh` (design 8)
+- [x] 4.1 `tests/live/hide-cards/lib.js`: `HC.owner()` and owner-agnostic `HC.cards`/`HC.focusedCard`; make `warm-cache.js`, `hide-focused.js`, `focus-in-row.js` use it; add `grid-open.js`, `grid-refill.js`, `grid-hide-all.js`, `grid-favorite.js` and steps 6–10 plus the `grid` argument to `tests/live/hide-cards.sh` (design 8)
 - [ ] 4.2 Push the branch; snapshot per `docs/snapshots-convention.md`; switch the plugin URL to `@<branch head sha>` via `cdp.py`; force-stop and restart Lampa; run `bash tests/live/hide-cards.sh`, verify exit 0; switch the URL back to the sha from the snapshot, force-stop, restart and check by `screencap` that Главная renders (CLAUDE.md, после живого тестирования)
-- [ ] 4.3 `docs/quality-gates.md`: the live check covers rows and the category grid, `grid` runs only the grid; verify `python scripts/ci_check.py --only links`; commit
+- [x] 4.3 `docs/quality-gates.md`: the live check covers rows and the category grid, `grid` runs only the grid; verify `python scripts/ci_check.py --only links`; commit
 
 ## 5. Verify
 
