@@ -62,7 +62,8 @@ var HC = {
   // Открыть сетку по «Ещё» первого ряда Главной, где она есть, и дождаться её фокуса.
   openGrid: async function () {
     var more = null;
-    HC.rows().some(function (line) { more = line.render(true).querySelector('.card-more'); return !!more; });
+    // Кнопка «Ещё» в заголовке ряда есть сразу; карточка-«Ещё» — только когда ряд дорисован.
+    HC.rows().some(function (line) { more = line.render(true).querySelector('.items-line__more, .card-more'); return !!more; });
     HC.check(more, 'на Главной нет кнопки «Ещё»');
     HC.enter(more);
     await HC.until(function () {

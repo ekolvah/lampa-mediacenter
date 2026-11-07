@@ -259,6 +259,19 @@ test('grid pass moves last and active to neighbour', (t) => {
   assert.deepStrictEqual(calls.focus, [next.render(true), prev.render(true)]);
 });
 
+// collectionSet снимает фокус навигатора (наблюдение на приставке, design.md):
+// фокус возвращается и когда карточка под ним не снималась.
+test('grid pass refocuses kept card after collectionSet', (t) => {
+  const calls = lampa(t, { own: true });
+  const grid = fullGrid({ count: 14 });
+  const kept = grid.items[0];
+  grid.last = kept.render(true);
+  grid.active = 0;
+  flushMisses(grid, [grid.items[5]]);
+  assert.strictEqual(grid.last, kept.render(true));
+  assert.deepStrictEqual(calls.focus, [kept.render(true)]);
+});
+
 test('grid pass keeps last card grey', (t) => {
   lampa(t, { filter: { quality: ['4k'] } });
   const grid = fullGrid({ count: 2 });

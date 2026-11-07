@@ -10,10 +10,11 @@
   }
   HC.check(grid.object.page > page, 'скрыто ' + i + ' карточек, а следующая страница не запрошена');
   var visible = 0;
+  // Видна — пересекает экран: при 720 px вторая строка видна частично (design.md).
   await HC.until(function () {
     visible = HC.cards(grid).filter(function (it) {
       var r = it.render(true).getBoundingClientRect();
-      return it.render(true).isConnected && r.top >= 0 && r.bottom <= window.innerHeight;
+      return it.render(true).isConnected && r.bottom > 0 && r.top < window.innerHeight;
     }).length;
     return !HC.short(grid) && visible >= 12;
   }, 25, 200);

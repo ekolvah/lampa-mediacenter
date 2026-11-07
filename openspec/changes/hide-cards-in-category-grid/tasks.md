@@ -49,7 +49,7 @@
 | Фильм без раздач в Избранном | live step 5 |
 | Сетка Избранного | live step 10 |
 | Скрывается карточка под фокусом | `row pass moves focus to neighbour`, `focusTarget picks next`, `focusTarget falls back to previous`, `focusTarget none in empty row`; live steps 2, 4 |
-| Скрывается карточка под фокусом в сетке | `grid pass moves last and active to neighbour`; live step 7 |
+| Скрывается карточка под фокусом в сетке | `grid pass moves last and active to neighbour`, `grid pass refocuses kept card after collectionSet`; live steps 7, 9 |
 | Видимая часть неполна | `gridShortage counts from active row start`, `gridShortage false with two full rows`, `grid refill feeds loaded then loadNext`, `grid refill waits out loadNext guard`; live step 8 |
 | Предел автодогрузки | `grid refill stops at auto page limit` |
 | Все карточки загруженных страниц без раздач | `grid pass keeps last card grey`, `grid held card resubmitted on next append`; live step 9 |

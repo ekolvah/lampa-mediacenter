@@ -64,6 +64,14 @@ object, {module: … 'Pagination'})`, класс — `src/interaction/items/cate
   `page 1 → 1`, `next_wait` не встал, возраст сборки 35 мс. Через 6 с сетка так и стоит:
   `items 10`, видно 10, `page 1`. Повторный `emit('loadNext')` позже: `page 2`, `items
   16`, видно 12, в `loaded` 3 куска.
+- Живая проверка ветки, шаг 9 (скрыть все, догрузка страниц): фокус пропал, хотя
+  карточка под ним (`last`, индекс 0) не снималась — `removeMisses` звал
+  `collectionSet` без `collectionFocus`. Прямо на сетке: `collectionFocus(last)` →
+  `.focus` на 0; `collectionSet(html)` → `.focus` нет; снова `collectionFocus(last)` →
+  на 0. Отсюда: после `collectionSet` фокус возвращается всегда, когда владелец им
+  владел (тест `grid pass refocuses kept card after collectionSet`).
+- Видимая область при 720 px: карточка сетки 387 px, целиком влезает одна строка,
+  вторая — частично; «видно 12» — карточки, пересекающие экран.
 
 ## Decisions
 

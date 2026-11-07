@@ -564,9 +564,11 @@
 
     if (!Lampa.Controller.own(owner)) return;
 
+    // collectionSet снимает фокус навигатора — возвращаем его, даже если карточка
+    // под ним осталась прежней.
     var html = owner.scroll.render(true);
     Lampa.Controller.collectionSet(html);
-    if (focused && focused !== owner.last) Lampa.Controller.collectionFocus(owner.last || false, html);
+    if (focused) Lampa.Controller.collectionFocus(owner.last || false, html);
   }
 
   // Серая метка «не проверено» вместо скрытия.
