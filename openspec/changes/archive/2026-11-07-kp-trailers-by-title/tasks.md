@@ -15,18 +15,18 @@
 ## 3. Live check and docs
 
 - [x] 3.1 Move the card opener of `open-card.js` into `openCard(id)` in new `tests/live/kp-trailers/lib.js`; add `tests/live/kp-trailers/open-card-no-imdb.js` and call it in `tests/live/kp-trailers.sh` after `restart_lampa`, before step 1 (design 9); verify `bash -n tests/live/kp-trailers.sh`; commit
-- [ ] 3.2 Ask the person whether the TV is free and ADB is on; push the branch; run step 1 of design Migration / Rollback (snapshot, re-pin plugin URL to the branch head sha); verify `bash tests/live/kp-trailers.sh` exits 0
+- [x] 3.2 Ask the person whether the TV is free and ADB is on; push the branch; run step 1 of design Migration / Rollback (snapshot, re-pin plugin URL to the branch head sha); verify `bash tests/live/kp-trailers.sh` exits 0
 - [x] 3.3 In `docs/lampa-config-review.md:132` replace «У карточек без `imdb_id` трейлеров нет» with the title search (year when present, single match without it) and its warnings; verify `python scripts/ci_check.py --only links`; commit separately (docs only)
 
 ## 4. Verify
 
 - [x] 4.1 Run `/simplify` and commit its edits; if they touch the plugin or live scripts, push and repeat 3.2 on the new head
-- [ ] 4.2 Run `openspec validate --strict --all`
-- [ ] 4.3 Run `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`
+- [x] 4.2 Run `openspec validate --strict --all`
+- [x] 4.3 Run `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`
 
 ## 5. Deliver
 
-- [ ] 5.1 `agent-process archive_change kp-trailers-by-title`, then `gh pr create --title "feat: kp-trailers-by-title" --body-file <report>` (report references #47 and #48 as plain references), `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`
+- [x] 5.1 `agent-process archive_change kp-trailers-by-title`, then `gh pr create --title "feat: kp-trailers-by-title" --body-file <report>` (report references #47 and #48 as plain references), `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`
 - [ ] 5.2 After every corrective push that changes `plugins/kp-reactions-fix.js`, repeat 3.2 on the new head before `wait_for_pr`
 - [ ] 5.3 In the final message, give the person the optional re-pin to `@<merge sha>` and the rollback URL from the snapshot (design Migration / Rollback, steps 2–3)
 
