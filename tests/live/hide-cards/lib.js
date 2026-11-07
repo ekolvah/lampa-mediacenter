@@ -7,14 +7,8 @@ var HC = {
     return p;
   },
   sleep: Live.sleep,
-  // Опрашивать cond каждые ms, не больше tries раз; истина — дождались.
-  until: async function (cond, tries, ms) {
-    for (var i = 0; i < tries; i++) {
-      if (cond()) return true;
-      await HC.sleep(ms);
-    }
-    return !!cond();
-  },
+  // Ждать cond до tries * ms; истина — дождались.
+  until: function (cond, tries, ms) { return Live.waitFor(cond, tries * ms); },
   // Дождаться активного компонента (до 10 с).
   activeIs: function (component) {
     return HC.until(function () { return Lampa.Activity.active().component === component; }, 40, 250);

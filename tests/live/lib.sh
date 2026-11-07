@@ -1,6 +1,7 @@
 # Общие помощники живых проверок; подключается через `source` из tests/live/*.sh.
 # Вызывающий задаёт DIR — каталог JS-шагов своего сценария.
 
+: "${DIR:?задайте DIR до source tests/live/lib.sh}"
 UGOOS=${UGOOS:-192.168.10.5:5555}
 adb_sh() { MSYS_NO_PATHCONV=1 adb -s "$UGOOS" shell "$@"; }
 
