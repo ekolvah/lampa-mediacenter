@@ -460,7 +460,13 @@
     } catch (err) {
       console.error('torrent-quality-badge: снятие карточек упало — карточки метятся серым', err);
       var label = badgeLabel(Lampa.Storage.get('torrents_filter', {}));
-      pending.forEach(function (item) { applyBadge(item, label); });
+      pending.forEach(function (item) {
+        try {
+          applyBadge(item, label);
+        } catch (badgeErr) {
+          console.error('torrent-quality-badge: серая метка не встала на карточку', badgeErr);
+        }
+      });
     }
   }
 

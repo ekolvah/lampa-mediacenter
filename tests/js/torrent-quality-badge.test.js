@@ -59,3 +59,19 @@ test('flushMisses falls back to badge on failure', (t) => {
   assert.strictEqual(errors.mock.callCount(), 1);
   assert.deepStrictEqual(badged, ['a', 'b']);
 });
+
+// Метка на уже уничтоженной карточке бросает — остальные всё равно метятся, каждый сбой в ERROR.
+test('flushMisses badges rest when one badge throws', (t) => {
+  global.Lampa = {
+    Storage: { get: (_key, def) => def },
+    Controller: { own() { throw new Error('boom'); } },
+  };
+  t.after(() => { delete global.Lampa; });
+  const errors = t.mock.method(console, 'error', () => {});
+  const badged = [];
+  const destroyed = { render() { throw new Error('destroyed'); } };
+  const alive = { render: (js) => { if (js) badged.push('b'); return null; } };
+  flushMisses(fullLine(), [destroyed, alive]);
+  assert.strictEqual(errors.mock.callCount(), 2);
+  assert.deepStrictEqual(badged, ['b']);
+});
