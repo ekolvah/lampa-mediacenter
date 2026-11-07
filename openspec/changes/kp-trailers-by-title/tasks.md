@@ -4,8 +4,8 @@
 
 ## 1. RED
 
-- [ ] 1.1 In `tests/js/kp-reactions-fix.test.js` make the `tmdb.get` double answer by URL prefix (`find/` / `search/`) and record URL and cache (design 8); card fixtures copy the KP fields from the table in proposal **Why**, search answers copy the TMDB results listed there; write the tests in the map below; rename the two old tests as design 8 says; add the single-request assertion to `find error warns with imdb_id, card opens` (design 6)
-- [ ] 1.2 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify the failing tests are exactly the map's tests for the scenarios of requirement «Поиск тайтла по названию» plus `no imdb_id searches by title and year` and `empty find falls back to title search`, and all other tests pass; commit RED with the ticks
+- [x] 1.1 In `tests/js/kp-reactions-fix.test.js` make the `tmdb.get` double answer by URL prefix (`find/` / `search/`) and record URL and cache (design 8); card fixtures copy the KP fields from the table in proposal **Why**, search answers copy the TMDB results listed there; write the tests in the map below; rename the two old tests as design 8 says; add the single-request assertion to `find error warns with imdb_id, card opens` (design 6)
+- [x] 1.2 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify the failing tests are exactly the map's tests for the scenarios of requirement «Поиск тайтла по названию» plus `no imdb_id searches by title and year` and `empty find falls back to title search`, and all other tests pass; commit RED with the ticks
 
 ## 2. Plugin
 
