@@ -1,7 +1,7 @@
 # kp-card-trailers Specification
 
 ## Purpose
-TBD - created by archiving change kp-card-trailers. Update Purpose after archive.
+Плагин `kp-reactions-fix.js` даёт карточкам источника `KP` трейлеры и реакции того же TMDB-тайтла, что у карточки источника `tmdb`, не подставляя чужой тайтл и не ломая открытие карточки.
 
 ## Requirements
 
