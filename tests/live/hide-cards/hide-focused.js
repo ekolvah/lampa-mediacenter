@@ -1,15 +1,16 @@
 (async function () {
-  // Шаг 2: скрыть карточку под фокусом — карточек в ряду столько же (добор),
-  // фокус на соседней карточке этого ряда.
-  var line = HC.owned();
-  var before = HC.cards(line).length;
-  var item = HC.focusedCard(line);
-  HC.check(line.data.results.length > before, 'в ряду «' + line.data.title + '» нет запаса результатов для добора');
-  await HC.hide(line, item);
-  HC.check(HC.cards(line).length === before, 'карточек было ' + before + ', стало ' + HC.cards(line).length);
-  HC.check(line.items.indexOf(item) < 0 && !item.render(true).isConnected, 'скрытая карточка осталась в ряду');
+  // Шаги 2 и 7: скрыть карточку под фокусом — фокус на соседней карточке того же
+  // владельца. В ряду карточек столько же (добор из results); в сетке добор — шаг 8.
+  var owner = HC.owner();
+  var isGrid = owner === HC.grid();
+  var before = HC.cards(owner).length;
+  var item = HC.focusedCard(owner);
+  HC.check(isGrid || owner.data.results.length > before, 'в ряду «' + HC.title(owner) + '» нет запаса результатов для добора');
+  await HC.hide(owner, item);
+  HC.check(isGrid || HC.cards(owner).length === before, 'карточек было ' + before + ', стало ' + HC.cards(owner).length);
+  HC.check(owner.items.indexOf(item) < 0 && !item.render(true).isConnected, 'скрытая карточка осталась в «' + HC.title(owner) + '»');
   var f = HC.focused();
-  HC.check(f && line.render(true).contains(f), 'фокус не в ряду «' + line.data.title + '»');
-  window.__hc_row = line;
+  HC.check(f && owner.render(true).contains(f), 'фокус не в «' + HC.title(owner) + '»');
+  window.__hc_row = owner;
   return 'ok: ' + before + ' карточек, фокус на ' + f.className;
 })()

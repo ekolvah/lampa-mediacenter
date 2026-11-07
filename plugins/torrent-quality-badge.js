@@ -4,9 +4,11 @@
   // Фильтр раздач («Смотреть → Торренты → Фильтр») применяется только внутри
   // экрана одного фильма — на карточках в списках (Главная/Избранное/подборки)
   // не видно, что под текущий фильтр у фильма не проходит ни одна раздача.
-  // Плагин убирает такие карточки из горизонтальных рядов, и ряд добирает на их
-  // место следующие из своих результатов (см. removeMisses). Если внутренности
-  // ряда не те, что ожидаются, карточка вместо этого метится серым с подписью.
+  // Плагин убирает такие карточки из горизонтальных рядов и из сетки категории
+  // (category_full, «Ещё»); ряд добирает на их место следующие из своих
+  // результатов, сетка — следующие страницы (см. removeMisses, refill). Если
+  // внутренности ряда или сетки не те, что ожидаются, карточка вместо этого
+  // метится серым с подписью.
   //
   // Источник раздач — Lampa.Parser.get, тот же метод, которым пользуется штатный
   // экран «Торренты» (см. src/components/torrents.js в зеркале движка): это даёт
@@ -33,6 +35,10 @@
   var MAX_CONCURRENT = 2;
   // Сколько ждём, пока Lampa достроит внутренний DOM карточки (см. waitForView).
   var VIEW_WAIT_MS = 60 * 1000;
+  // Сетка категории: сколько страниц догружать без прокрутки (предел запросов к
+  // парсеру) и сколько строк видно на экране приставки (design #42, решения 5–6).
+  var GRID_AUTO_PAGES = 3;
+  var GRID_ROWS = 2;
 
   var QUALITY_LABELS = { '4k': '4K', '1080p': '1080p', '720p': '720p' };
 
@@ -408,61 +414,194 @@
       line.scroll && typeof line.scroll.render === 'function');
   }
 
-  // Снимает карточку из ряда целиком: из items, из data.results (иначе onScroll
-  // нарисует её снова) и из DOM. «Ещё» и MoreFirst — тоже элементы items, но их
-  // data нет в results: их не трогаем. line.last — DOM-элемент под фокусом.
-  function removeItem(line, item) {
-    var index = line.items.indexOf(item);
-    var result = line.data.results.indexOf(item.data);
-    if (index < 0 || result < 0) return;
-
-    var render = item.render(true);
-    if (line.last === render) {
-      var target = focusTarget(index, line.items.length);
-      line.last = target >= 0 ? line.items[target].render(true) : false;
-    }
-
-    line.items.splice(index, 1);
-    line.data.results.splice(result, 1);
-    item.destroy();
+  // Поля сетки категории (src/interaction/items/category/module/items.js, next.js
+  // в lampa-source), на которых держатся снятие и добор. Тоже не публичное API.
+  function gridSupported(grid) {
+    return !!(grid && Array.isArray(grid.items) && grid.pages && typeof grid.pages === 'object' &&
+      Array.isArray(grid.loaded) && typeof grid.emit === 'function' &&
+      grid.scroll && typeof grid.scroll.render === 'function' &&
+      grid.object && typeof grid.object.page === 'number' &&
+      typeof grid.total_pages === 'number' && typeof grid.builded_time === 'number' &&
+      grid.params && grid.params.items && typeof grid.params.items.cols === 'number');
   }
 
-  function removeMisses(line, pending) {
-    var focused = Lampa.Controller.own(line) ? line.last : null;
+  // Видимая часть сетки неполна: от начала строки с active до конца сетки
+  // меньше GRID_ROWS полных строк.
+  function gridShortage(count, active, cols) {
+    return count - (active - active % cols) < cols * GRID_ROWS;
+  }
 
+  // Сетка не должна опустеть: Next выбрасывает ответ следующей страницы, если
+  // items пуст. Последняя из снимаемых остаётся серой, пока не придут новые
+  // карточки: тогда gridAppend снова подаёт её на снятие.
+  function holdLast(grid, pending) {
+    if (pending.length < grid.items.length) return pending;
+    var cards = pending.filter(function (item) { return grid.items.indexOf(item) >= 0; });
+    if (!cards.length || cards.length < grid.items.length) return pending;
+
+    var held = cards[cards.length - 1];
+    greyOut(held);
+    grid.torrent_badge_held = held;
+    return pending.filter(function (item) { return item !== held; });
+  }
+
+  // Добор сетки по состоянию «не хватает», а не по событию: подать ожидающие
+  // куски из loaded, иначе догрузить страницу (не больше GRID_AUTO_PAGES без
+  // прокрутки). Пока не прошла защита loadNext (1000 мс после сборки) — один
+  // таймер на её конец. Пришедшая страница вызовет refill снова (gridAppend).
+  function refill(grid) {
+    var cols = grid.params.items.cols;
+    var short = function () { return gridShortage(grid.items.length, grid.active, cols); };
+
+    while (short() && grid.loaded.length) {
+      var queued = grid.loaded.length;
+      grid.emit('scroll');
+      if (grid.loaded.length >= queued) break;
+    }
+
+    if (!short() || !grid.items.length || grid.next_wait) return;
+    if (grid.object.page >= grid.total_pages) return;
+
+    var auto = grid.torrent_badge_auto || 0;
+    if (auto >= GRID_AUTO_PAGES) return;
+
+    var page = grid.object.page;
+    grid.emit('loadNext');
+    if (grid.object.page !== page) {
+      grid.torrent_badge_auto = auto + 1;
+      return;
+    }
+
+    var wait = grid.builded_time + 1001 - Date.now();
+    if (wait <= 0) {
+      if (!grid.torrent_badge_stalled) {
+        grid.torrent_badge_stalled = true;
+        console.warn('torrent-quality-badge: loadNext не догрузил страницу — сетка остаётся неполной');
+      }
+      return;
+    }
+    if (grid.torrent_badge_timer) return;
+    grid.torrent_badge_timer = setTimeout(function () {
+      grid.torrent_badge_timer = null;
+      if (!grid.destroyed && document.body.contains(grid.scroll.render(true))) refill(grid);
+    }, wait);
+  }
+
+  // Вид владельца карточек: что он умеет и как из него снимать. Ставится на входе
+  // (onLineEvent — ряд, onActivity — сетка) и хранится на владельце.
+  var LINE = {
+    supported: lineSupported,
     // more.js ставит «Ещё», меряя её по items[items.length - 1]: на опустевшем ряду
     // это TypeError. Прокрутка до удаления даёт ряду поставить её, пока карточки
     // есть (если результаты уже все нарисованы), иначе ничего не меняет.
-    line.emit('scroll');
-    pending.forEach(function (item) {
-      removeItem(line, item);
-    });
-
-    var last = line.items.map(function (it) { return it.render(true); }).indexOf(line.last);
-    line.active = last >= 0 ? last : Math.max(0, Math.min(line.active, line.items.length - 1));
-
+    before: function (line, pending) {
+      line.emit('scroll');
+      return pending;
+    },
+    // Из data.results — иначе onScroll нарисует карточку снова. «Ещё» и MoreFirst
+    // — тоже элементы items, но их data нет в results: их не трогаем.
+    detach: function (line, item) {
+      var result = line.data.results.indexOf(item.data);
+      if (result < 0) return false;
+      line.data.results.splice(result, 1);
+      return true;
+    },
     // Добор — штатный путь ряда: onScroll дорисует из results до своего окна,
     // поставит «Ещё», когда они кончатся, и введёт новое в навигатор.
-    line.emit('scroll');
+    refill: function (line) {
+      line.emit('scroll');
+    }
+  };
 
-    if (!Lampa.Controller.own(line)) return;
+  var GRID = {
+    supported: gridSupported,
+    before: holdLast,
+    // Из pages[*].items — иначе onPageView вернёт карточку в DOM.
+    detach: function (grid, item) {
+      for (var p in grid.pages) {
+        var index = grid.pages[p].items.indexOf(item);
+        if (index >= 0) {
+          grid.pages[p].items.splice(index, 1);
+          return true;
+        }
+      }
+      return false;
+    },
+    // scroll — навигатор и видимость постеров, как после прокрутки сетки.
+    refill: function (grid) {
+      grid.emit('scroll');
+      refill(grid);
+    }
+  };
 
-    var html = line.scroll.render(true);
+  // Снимает карточку целиком: из items, из хранилища вида (kind.detach) и из DOM.
+  // owner.last — DOM-элемент под фокусом.
+  function removeItem(owner, kind, item) {
+    var index = owner.items.indexOf(item);
+    if (index < 0 || !kind.detach(owner, item)) return;
+
+    var render = item.render(true);
+    if (owner.last === render) {
+      var target = focusTarget(index, owner.items.length);
+      owner.last = target >= 0 ? owner.items[target].render(true) : false;
+    }
+
+    owner.items.splice(index, 1);
+    item.destroy();
+  }
+
+  function removeMisses(owner, kind, pending) {
+    var focused = Lampa.Controller.own(owner) ? owner.last : null;
+
+    kind.before(owner, pending).forEach(function (item) {
+      removeItem(owner, kind, item);
+    });
+
+    var last = owner.items.map(function (it) { return it.render(true); }).indexOf(owner.last);
+    owner.active = last >= 0 ? last : Math.max(0, Math.min(owner.active, owner.items.length - 1));
+
+    kind.refill(owner);
+
+    if (!Lampa.Controller.own(owner)) return;
+
+    // collectionSet снимает фокус навигатора — возвращаем его, даже если карточка
+    // под ним осталась прежней.
+    var html = owner.scroll.render(true);
     Lampa.Controller.collectionSet(html);
-    if (focused && focused !== line.last) Lampa.Controller.collectionFocus(line.last || false, html);
+    if (focused) Lampa.Controller.collectionFocus(owner.last || false, html);
+  }
+
+  // Серая метка «не проверено» вместо скрытия.
+  function greyOut(item) {
+    applyBadge(item, badgeLabel(Lampa.Storage.get('torrents_filter', {})));
+  }
+
+  // Копит item в owner[field] до конца текущей задачи и отдаёт пачку fn одной
+  // микрозадачей: вердикты из кэша и карточки сетки приходят синхронно подряд.
+  function batchOnOwner(owner, field, item, fn) {
+    var batch = owner[field];
+    if (!batch) {
+      batch = owner[field] = [];
+      Promise.resolve().then(function () {
+        owner[field] = null;
+        fn(batch);
+      }).catch(function (err) {
+        console.error('torrent-quality-badge: пачка карточек не обработана', err);
+      });
+    }
+    if (batch.indexOf(item) < 0) batch.push(item);
   }
 
   // Исключение внутри микрозадачи иначе пропало бы молча (§IV): ERROR и серая
   // метка на каждой отложенной карточке — уже снятые отсоединены, им метка не мешает.
-  function flushMisses(line, pending) {
+  function flushMisses(owner, pending) {
     try {
-      removeMisses(line, pending);
+      removeMisses(owner, owner.torrent_badge_kind, pending);
     } catch (err) {
       console.error('torrent-quality-badge: снятие карточек упало — карточки метятся серым', err);
-      var label = badgeLabel(Lampa.Storage.get('torrents_filter', {}));
       pending.forEach(function (item) {
         try {
-          applyBadge(item, label);
+          greyOut(item);
         } catch (badgeErr) {
           console.error('torrent-quality-badge: серая метка не встала на карточку', badgeErr);
         }
@@ -471,29 +610,24 @@
   }
 
   // Единая точка входа вердикта: зовут очередь плагина и живая проверка
-  // (tests/live/hide-cards.sh). Промахи ряда копятся и снимаются одним проходом
-  // в микрозадаче: вердикт из кэша приходит синхронно внутри emit ряда.
-  function applyVerdict(line, item, miss) {
+  // (tests/live/hide-cards.sh). Промахи ряда или сетки копятся и снимаются одним
+  // проходом в микрозадаче: вердикт из кэша приходит синхронно внутри emit.
+  function applyVerdict(owner, item, miss) {
     if (!miss) return;
 
-    if (!lineSupported(line)) {
-      if (line && !line.torrent_badge_warned) {
-        line.torrent_badge_warned = true;
-        console.warn('torrent-quality-badge: ряд без items/data.results/emit/scroll — карточки метятся серым, а не скрываются');
+    var kind = owner && owner.torrent_badge_kind;
+    if (!kind || !kind.supported(owner)) {
+      if (owner && !owner.torrent_badge_warned) {
+        owner.torrent_badge_warned = true;
+        console.warn('torrent-quality-badge: у ряда/сетки нет нужных полей — карточки метятся серым, а не скрываются');
       }
-      applyBadge(item, badgeLabel(Lampa.Storage.get('torrents_filter', {})));
+      greyOut(item);
       return;
     }
 
-    var pending = line.torrent_badge_pending;
-    if (!pending) {
-      pending = line.torrent_badge_pending = [];
-      Promise.resolve().then(function () {
-        line.torrent_badge_pending = null;
-        flushMisses(line, pending);
-      });
-    }
-    if (pending.indexOf(item) < 0) pending.push(item);
+    batchOnOwner(owner, 'torrent_badge_pending', item, function (pending) {
+      flushMisses(owner, pending);
+    });
   }
 
   var queue = [];
@@ -588,38 +722,90 @@
     pump();
   }
 
-  function onLineEvent(e) {
-    if (!e.items || !e.items.length) return;
-
+  // Общее ядро ряда и сетки. Истина — карточки ушли на проверку (фильтр активен
+  // и воспроизводим).
+  function checkItems(owner, items) {
     var filter = Lampa.Storage.get('torrents_filter', {});
 
-    if (!filterActive(filter)) return;
-    if (!reproducible(filter)) return;
+    if (!filterActive(filter)) return false;
+    if (!reproducible(filter)) return false;
 
     var signature = filterSignature(filter);
 
-    e.items.forEach(function (item) {
+    items.forEach(function (item) {
       if (alreadyProcessed(item)) return;
       if (!item.data || !item.data.id) return;
 
       markProcessed(item);
-      enqueue(e.line, item, item.data, filter, signature);
+      enqueue(owner, item, item.data, filter, signature);
     });
+    return true;
+  }
+
+  function onLineEvent(e) {
+    if (!e.items || !e.items.length) return;
+    if (e.line && !e.line.torrent_badge_kind) e.line.torrent_badge_kind = LINE;
+    checkItems(e.line, e.items);
+  }
+
+  // Карточки сетки приходят по одной (Items.onAppend) — копятся и в одной
+  // микрозадаче идут тем же путём, что карточки ряда; затем добор сетки.
+  function gridAppend(grid, item) {
+    var held = grid.torrent_badge_held;
+    if (held) {
+      grid.torrent_badge_held = null;
+      applyVerdict(grid, held, true);
+    }
+
+    batchOnOwner(grid, 'torrent_badge_batch', item, function (batch) {
+      if (checkItems(grid, batch) && GRID.supported(grid)) refill(grid);
+    });
+  }
+
+  // Модуль для Emit.use сетки: Lampa зовёт onAppend с this = сетка, после Items.onAppend.
+  var GRID_MODULE = {
+    onAppend: function (item) {
+      gridAppend(this, item);
+    }
+  };
+
+  // Сетка не шлёт событий line: подключаемся к компоненту category_full на init
+  // (до create, то есть до первой карточки). Избранное (favorite) не трогаем.
+  function onActivity(e) {
+    if (e.type !== 'init' || e.component !== 'category_full') return;
+
+    var grid = e.object && e.object.activity && e.object.activity.component;
+    if (!grid || typeof grid.use !== 'function') {
+      if (grid && grid.torrent_badge_warned) return;
+      if (grid) grid.torrent_badge_warned = true;
+      console.warn('torrent-quality-badge: у сетки category_full нет use — карточки сетки не проверяются');
+      return;
+    }
+
+    grid.torrent_badge_kind = GRID;
+    grid.use(GRID_MODULE);
   }
 
   function startPlugin() {
     if (window.torrent_quality_badge_plugin) return;
     // Объект, а не true: истинность по-прежнему защищает от двойного старта, а
-    // живая проверка зовёт через него applyVerdict/verdictKey этой копии плагина.
-    window.torrent_quality_badge_plugin = { applyVerdict: applyVerdict, verdictKey: verdictKey };
+    // живая проверка зовёт через него функции этой копии плагина.
+    window.torrent_quality_badge_plugin = {
+      applyVerdict: applyVerdict, verdictKey: verdictKey, gridShortage: gridShortage
+    };
 
     injectStyle();
     Lampa.Listener.follow('line', onLineEvent);
+    Lampa.Listener.follow('activity', onActivity);
   }
 
-  // Под Node (tests/js/) — только чистые функции, без старта в несуществующем window.
+  // Под Node (tests/js/) — функции для тестов, без старта в несуществующем window.
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { focusTarget: focusTarget, lineSupported: lineSupported, flushMisses: flushMisses };
+    module.exports = {
+      focusTarget: focusTarget, lineSupported: lineSupported, gridSupported: gridSupported,
+      gridShortage: gridShortage, flushMisses: flushMisses, applyVerdict: applyVerdict,
+      refill: refill, onActivity: onActivity, LINE: LINE, GRID: GRID
+    };
     return;
   }
 
