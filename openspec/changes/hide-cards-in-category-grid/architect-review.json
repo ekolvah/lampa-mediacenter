@@ -1,0 +1,47 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "All five round-1 findings are answered in the artifacts: the spec now includes the autoload limit, refill is gated on filterActive and tested, the entry point and the kindless owner have RED tests, and characterisation tests guard the row-pass refactor. No new finding.",
+  "classes": {
+    "simpler": {
+      "evidence": "Unchanged since round 1. Issue #42 requires hiding plus a filled visible area. design.md Alternatives rejects a DOM scan (it breaks the navigator and onPageView), a global Maker.map('Category') patch, Activity.push interception and a one-shot loadNext retry, each with a reason. Decision 3 reuses the row pass behind an adapter. No simpler design meets the scenarios.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "Each of the 13 delta scenarios has a row in the tasks.md map. 'Фильтр не активен' now maps to `grid append with filter off enqueues nothing and loads no page`, which matches design decision 1 and task 3.1: refill runs only while filterActive. The new 'Предел автодогрузки' maps to `grid refill stops at auto page limit`. 'Поиск раздач не удался' remains n/a because finishTask does not change. The other rows name unit tests and/or live steps 1-10.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Group 1 RED now covers decision 1: `activity attaches only to category_full init`, `grid appends batched into one onLineEvent` and the §IV branch `activity warns once without use`. The activity handler is exported under Node. Task 1.3 runs check_red and expects failures on the missing grid exports, the grid pass and the activity handler, but not on the row-pass tests, which task 1.2 requires to be green on current code.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Unchanged since round 1. The design.md section 'Наблюдения на устройстве' (2026-11-07, cdp.py/ui.py) records several observations. Activity init fires before create and carries component. There are 20 onAppend calls before the first frame. Cols and limit_view are 6, and 12 cards are visible, which grounds decision 6. Neighbour focus works after a removal. With a 35 ms build age, next_wait is not set; a later loadNext reaches page 2, which grounds the timer in decision 5. The source-only claims (Next discards when items is empty; onPageView re-inserts from pages) cite lampa-source modules and are exercised by live steps 8 and 9.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Design decision 2 replaces the per-verdict shape guard lineSupported with kind.supported(owner). It now states that an owner without a kind gets the grey mark and one console.warn via torrent_badge_warned, without throwing. It also names what stops being proven: the shape check moves to the entry point. For each lost proof it names the catcher that runs on every verdict: kind.supported in applyVerdict, the test `applyVerdict without kind greys and warns once`, and the table tests of supported. Task 2.3 implements this.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Task 2.2's 'existing row tests stay green' now reaches the refactor. Task 1.2 adds `row pass removes card from results and items` and `row pass moves focus to neighbour`, green on current code before the parameterisation, and design decision 3 records why. Live check 4.2 (on the branch head sha) and 6.2 (on the merge sha) remain the device catchers for Lampa internals. The gap after a Lampa auto-update is stated under Risks, together with the grey mark plus warn fallback.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "The 'Сетка заполнена' requirement is now 35 words. Its fill clause is asserted by `grid refill feeds loaded then loadNext`, `grid refill waits out loadNext guard` and live step 8. Its limit clause is asserted by `grid refill stops at auto page limit`. 'Предел автодогрузки' (29 words) is asserted by the same limit test, but its 'прокрутка догружает как обычно' clause is Lampa's own scroll.onEnd, which the plugin does not touch. 'Страницы кончились' (31 words) now includes the limit case and is asserted by `grid pass keeps last card grey`. The round-1 sentences are unchanged and keep their tests (hiding requirement 39 words, grid hide 24, Favorites edit 16, grid focus 26). Decision 5 records that #42 sets no limit and that 3 is the person's decision.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "Unchanged since round 1. '## Standard approach' cites lampa-source's Listener('activity')/Emit.use, which is how category_full itself is assembled, and a code search (15 results, plus an example plugin URL) showing the DOM-scan approach. It also explains why the design departs from that approach. The only added check is four live JS steps inside the existing tests/live/hide-cards.sh (decision 8).",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "card-torrent-filter",
+      "scenario": "Поиск раздач не удался",
+      "reason": "n/a: ветка results === null в finishTask не вызывает applyVerdict и не меняется"
+    }
+  ]
+}
