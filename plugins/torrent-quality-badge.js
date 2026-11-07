@@ -435,11 +435,12 @@
   // items пуст. Последняя из снимаемых остаётся серой, пока не придут новые
   // карточки: тогда gridAppend снова подаёт её на снятие.
   function holdLast(grid, pending) {
+    if (pending.length < grid.items.length) return pending;
     var cards = pending.filter(function (item) { return grid.items.indexOf(item) >= 0; });
     if (!cards.length || cards.length < grid.items.length) return pending;
 
     var held = cards[cards.length - 1];
-    applyBadge(held, badgeLabel(Lampa.Storage.get('torrents_filter', {})));
+    greyOut(held);
     grid.torrent_badge_held = held;
     return pending.filter(function (item) { return item !== held; });
   }
@@ -517,15 +518,14 @@
     before: holdLast,
     // Из pages[*].items — иначе onPageView вернёт карточку в DOM.
     detach: function (grid, item) {
-      var found = false;
       for (var p in grid.pages) {
         var index = grid.pages[p].items.indexOf(item);
         if (index >= 0) {
           grid.pages[p].items.splice(index, 1);
-          found = true;
+          return true;
         }
       }
-      return found;
+      return false;
     },
     // scroll — навигатор и видимость постеров, как после прокрутки сетки.
     refill: function (grid) {
@@ -569,6 +569,27 @@
     if (focused && focused !== owner.last) Lampa.Controller.collectionFocus(owner.last || false, html);
   }
 
+  // Серая метка «не проверено» вместо скрытия.
+  function greyOut(item) {
+    applyBadge(item, badgeLabel(Lampa.Storage.get('torrents_filter', {})));
+  }
+
+  // Копит item в owner[field] до конца текущей задачи и отдаёт пачку fn одной
+  // микрозадачей: вердикты из кэша и карточки сетки приходят синхронно подряд.
+  function batchOnOwner(owner, field, item, fn) {
+    var batch = owner[field];
+    if (!batch) {
+      batch = owner[field] = [];
+      Promise.resolve().then(function () {
+        owner[field] = null;
+        fn(batch);
+      }).catch(function (err) {
+        console.error('torrent-quality-badge: пачка карточек не обработана', err);
+      });
+    }
+    if (batch.indexOf(item) < 0) batch.push(item);
+  }
+
   // Исключение внутри микрозадачи иначе пропало бы молча (§IV): ERROR и серая
   // метка на каждой отложенной карточке — уже снятые отсоединены, им метка не мешает.
   function flushMisses(owner, pending) {
@@ -576,10 +597,9 @@
       removeMisses(owner, owner.torrent_badge_kind, pending);
     } catch (err) {
       console.error('torrent-quality-badge: снятие карточек упало — карточки метятся серым', err);
-      var label = badgeLabel(Lampa.Storage.get('torrents_filter', {}));
       pending.forEach(function (item) {
         try {
-          applyBadge(item, label);
+          greyOut(item);
         } catch (badgeErr) {
           console.error('torrent-quality-badge: серая метка не встала на карточку', badgeErr);
         }
@@ -599,19 +619,13 @@
         owner.torrent_badge_warned = true;
         console.warn('torrent-quality-badge: у ряда/сетки нет нужных полей — карточки метятся серым, а не скрываются');
       }
-      applyBadge(item, badgeLabel(Lampa.Storage.get('torrents_filter', {})));
+      greyOut(item);
       return;
     }
 
-    var pending = owner.torrent_badge_pending;
-    if (!pending) {
-      pending = owner.torrent_badge_pending = [];
-      Promise.resolve().then(function () {
-        owner.torrent_badge_pending = null;
-        flushMisses(owner, pending);
-      });
-    }
-    if (pending.indexOf(item) < 0) pending.push(item);
+    batchOnOwner(owner, 'torrent_badge_pending', item, function (pending) {
+      flushMisses(owner, pending);
+    });
   }
 
   var queue = [];
@@ -706,11 +720,9 @@
     pump();
   }
 
-  // Истина — карточки ушли на проверку (фильтр активен и воспроизводим).
-  function onLineEvent(e) {
-    if (!e.items || !e.items.length) return false;
-    if (e.line && !e.line.torrent_badge_kind) e.line.torrent_badge_kind = LINE;
-
+  // Общее ядро ряда и сетки. Истина — карточки ушли на проверку (фильтр активен
+  // и воспроизводим).
+  function checkItems(owner, items) {
     var filter = Lampa.Storage.get('torrents_filter', {});
 
     if (!filterActive(filter)) return false;
@@ -718,14 +730,20 @@
 
     var signature = filterSignature(filter);
 
-    e.items.forEach(function (item) {
+    items.forEach(function (item) {
       if (alreadyProcessed(item)) return;
       if (!item.data || !item.data.id) return;
 
       markProcessed(item);
-      enqueue(e.line, item, item.data, filter, signature);
+      enqueue(owner, item, item.data, filter, signature);
     });
     return true;
+  }
+
+  function onLineEvent(e) {
+    if (!e.items || !e.items.length) return;
+    if (e.line && !e.line.torrent_badge_kind) e.line.torrent_badge_kind = LINE;
+    checkItems(e.line, e.items);
   }
 
   // Карточки сетки приходят по одной (Items.onAppend) — копятся и в одной
@@ -737,17 +755,9 @@
       applyVerdict(grid, held, true);
     }
 
-    var batch = grid.torrent_badge_batch;
-    if (!batch) {
-      batch = grid.torrent_badge_batch = [];
-      Promise.resolve().then(function () {
-        grid.torrent_badge_batch = null;
-        if (onLineEvent({ line: grid, items: batch }) && gridSupported(grid)) refill(grid);
-      }).catch(function (err) {
-        console.error('torrent-quality-badge: карточки сетки не обработаны', err);
-      });
-    }
-    batch.push(item);
+    batchOnOwner(grid, 'torrent_badge_batch', item, function (batch) {
+      if (checkItems(grid, batch) && GRID.supported(grid)) refill(grid);
+    });
   }
 
   // Модуль для Emit.use сетки: Lampa зовёт onAppend с this = сетка, после Items.onAppend.
@@ -777,8 +787,10 @@
   function startPlugin() {
     if (window.torrent_quality_badge_plugin) return;
     // Объект, а не true: истинность по-прежнему защищает от двойного старта, а
-    // живая проверка зовёт через него applyVerdict/verdictKey этой копии плагина.
-    window.torrent_quality_badge_plugin = { applyVerdict: applyVerdict, verdictKey: verdictKey };
+    // живая проверка зовёт через него функции этой копии плагина.
+    window.torrent_quality_badge_plugin = {
+      applyVerdict: applyVerdict, verdictKey: verdictKey, gridShortage: gridShortage
+    };
 
     injectStyle();
     Lampa.Listener.follow('line', onLineEvent);

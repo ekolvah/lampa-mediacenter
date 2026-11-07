@@ -7,6 +7,18 @@ var HC = {
     return p;
   },
   sleep: function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); },
+  // Опрашивать cond каждые ms, не больше tries раз; истина — дождались.
+  until: async function (cond, tries, ms) {
+    for (var i = 0; i < tries; i++) {
+      if (cond()) return true;
+      await HC.sleep(ms);
+    }
+    return !!cond();
+  },
+  // Дождаться активного компонента (до 10 с).
+  activeIs: function (component) {
+    return HC.until(function () { return Lampa.Activity.active().component === component; }, 40, 250);
+  },
   rows: function () {
     var a = Lampa.Activity.active();
     if (a.component !== 'main') throw new Error('ожидалась Главная, активна ' + a.component);
@@ -37,10 +49,9 @@ var HC = {
     var cards = HC.cards(owner);
     return cards.find(function (it) { return it.render(true) === owner.last; }) || cards[0];
   },
-  // Видимая часть сетки неполна — та же мера, что gridShortage плагина (2 строки).
+  // Видимая часть сетки неполна — мерой самого плагина.
   short: function (grid) {
-    var cols = grid.params.items.cols;
-    return grid.items.length - (grid.active - grid.active % cols) < cols * 2;
+    return HC.plugin().gridShortage(grid.items.length, grid.active, grid.params.items.cols);
   },
   // Нажатие «ОК» пульта: тот же hover:enter, что шлёт навигатор (Utils.trigger).
   enter: function (el) {
@@ -54,11 +65,10 @@ var HC = {
     HC.rows().some(function (line) { more = line.render(true).querySelector('.card-more'); return !!more; });
     HC.check(more, 'на Главной нет кнопки «Ещё»');
     HC.enter(more);
-    for (var i = 0; i < 60; i++) {
-      await HC.sleep(250);
+    await HC.until(function () {
       var g = HC.grid();
-      if (g && g.items.length && Lampa.Controller.enabled().name === 'content') break;
-    }
+      return g && g.items.length && Lampa.Controller.enabled().name === 'content';
+    }, 60, 250);
     var grid = HC.grid();
     HC.check(grid, '«Ещё» открыло не сетку category_full, а ' + Lampa.Activity.active().component);
     await HC.sleep(1500);
