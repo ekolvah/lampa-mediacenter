@@ -1,7 +1,7 @@
 # card-torrent-filter Specification
 
 ## Purpose
-TBD - created by archiving change hide-cards-without-torrents. Update Purpose after archive.
+Плагин `torrent-quality-badge.js` скрывает в каталоге Lampa карточки, у которых нет раздач под текущий фильтр торрентов, не ломая навигацию пультом и не трогая Избранное.
 
 ## Requirements
 
