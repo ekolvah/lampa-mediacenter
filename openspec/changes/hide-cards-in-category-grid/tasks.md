@@ -4,9 +4,9 @@
 
 ## 1. RED
 
-- [ ] 1.1 Add to `tests/js/torrent-quality-badge.test.js` the tests named in the map below; grid tests use a `fullGrid()` factory next to `fullLine()` (`items`, `pages`, `last`, `active`, `loaded`, `object.page`, `total_pages`, `builded_time`, `params.items.cols`, `emit` recording events, `scroll.render`) and a `global.Lampa` double with `Controller.own`/`collectionSet`/`collectionFocus`
-- [ ] 1.2 Add row-pass tests `row pass removes card from results and items` and `row pass moves focus to neighbour` (export `removeMisses` under Node if needed); verify they pass on the current plugin before any refactor (design 3)
-- [ ] 1.3 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify it fails on the missing grid exports, grid pass and activity handler, not on the row-pass tests; commit RED with the ticks
+- [x] 1.1 Add to `tests/js/torrent-quality-badge.test.js` the tests named in the map below; grid tests use a `fullGrid()` factory next to `fullLine()` (`items`, `pages`, `last`, `active`, `loaded`, `object.page`, `total_pages`, `builded_time`, `params.items.cols`, `emit` recording events, `scroll.render`) and a `global.Lampa` double with `Controller.own`/`collectionSet`/`collectionFocus`
+- [x] 1.2 Add row-pass tests `row pass removes card from results and items` and `row pass moves focus to neighbour` (export `removeMisses` under Node if needed); verify they pass on the current plugin before any refactor (design 3)
+- [x] 1.3 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify it fails on the missing grid exports, grid pass and activity handler, not on the row-pass tests; commit RED with the ticks
 
 ## 2. Shared pass
 
