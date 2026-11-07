@@ -2,3 +2,4 @@ pr,change,task_id,start,merged_at,hours,agent_hours,lines,plan_rounds,code_round
 41,hide-cards-without-torrents,issue-39,,2026-11-07T06:13:03Z,,,891,3,2,,,,,,telemetry: no token sample of b9d3cfcb-56c8-46ae-bde2-e1ce3857c00b; telemetry: no token sample of c6f4a3ac-a269-4b5a-a9b8-0d0b4aece31c
 45,hide-cards-in-category-grid,issue-42,,2026-11-07T07:45:52Z,,,1314,2,1,,,,,,telemetry: no token sample of ca7c87de-b74f-438c-b7dc-63516d6e7aad; telemetry: no token sample of d87d21fd-5643-4185-b647-1590e2ee7bf2
 46,kp-card-trailers,issue-43,,2026-11-07T09:04:02Z,,,684,3,1,,,,,,telemetry: no token sample of 0dfb121e-86cc-4331-a401-e09cb7746520; telemetry: no token sample of 2abfa6ca-1136-4686-8382-7ee56cdbb9bc
+51,kp-trailers-by-title,issue-47,,2026-11-07T11:32:09Z,,,679,3,2,,,,,,telemetry: no token sample of 3d38b67d-a807-440c-9700-893ed7c2bb2f; telemetry: no token sample of eb83ba3b-6e91-4b79-87ec-452b735fb5d1
