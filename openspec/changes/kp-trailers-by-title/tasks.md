@@ -9,8 +9,8 @@
 
 ## 2. Plugin
 
-- [ ] 2.1 On empty `imdb_id` or empty `find` result: build `{method, year}` from `movie` (design 2), call `tmdb.get('search/<method>?query=<encoded title>[&<yearKey>=<year>]', {}, ok, err, {life: WEEK})` (design 1, 5); copy `normalizeTitle` from `kp_source.js:350–364` and match by equality of normalized title sets (design 3); with a year take the first match, without a year only a single match (design 5); pass `{method, id}` to `enrich`; `find` error path unchanged (design 6); update the header comment; verify `node --check plugins/kp-reactions-fix.js`
-- [ ] 2.2 One `console.warn('kp-reactions-fix: no title match', reason, title, year)` for no match, ambiguous match without year and search error (design 7); verify `python -m pytest tests/test_plugin_js.py` is green; commit
+- [x] 2.1 On empty `imdb_id` or empty `find` result: build `{method, year}` from `movie` (design 2), call `tmdb.get('search/<method>?query=<encoded title>[&<yearKey>=<year>]', {}, ok, err, {life: WEEK})` (design 1, 5); copy `normalizeTitle` from `kp_source.js:350–364` and match by equality of normalized title sets (design 3); with a year take the first match, without a year only a single match (design 5); pass `{method, id}` to `enrich`; `find` error path unchanged (design 6); update the header comment; verify `node --check plugins/kp-reactions-fix.js`
+- [x] 2.2 One `console.warn('kp-reactions-fix: no title match', reason, title, year)` for no match, ambiguous match without year and search error (design 7); verify `python -m pytest tests/test_plugin_js.py` is green; commit
 
 ## 3. Live check and docs
 
