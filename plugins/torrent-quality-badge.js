@@ -4,7 +4,9 @@
   // Фильтр раздач («Смотреть → Торренты → Фильтр») применяется только внутри
   // экрана одного фильма — на карточках в списках (Главная/Избранное/подборки)
   // не видно, что под текущий фильтр у фильма не проходит ни одна раздача.
-  // Плагин докидывает на такие карточки метку и делает постер чёрно-белым.
+  // Плагин убирает такие карточки из горизонтальных рядов, и ряд добирает на их
+  // место следующие из своих результатов (см. removeMisses). Если внутренности
+  // ряда не те, что ожидаются, карточка вместо этого метится серым с подписью.
   //
   // Источник раздач — Lampa.Parser.get, тот же метод, которым пользуется штатный
   // экран «Торренты» (см. src/components/torrents.js в зеркале движка): это даёт
@@ -381,19 +383,117 @@
     timer = setTimeout(stop, VIEW_WAIT_MS);
   }
 
-  function applyBadge(item, miss, label) {
+  function applyBadge(item, label) {
     var root = item.render ? item.render(true) : null;
     if (!root) return;
-
-    if (!miss) {
-      root.classList.remove('card--quality-miss');
-      return;
-    }
 
     var view = root.querySelector('.card__view');
 
     if (view) markMiss(root, view, label);
     else waitForView(root, label);
+  }
+
+  // Куда перевести фокус, когда из ряда уходит элемент `index` из `count`:
+  // следующий, иначе предыдущий, иначе некуда (-1). Индексы — до удаления.
+  function focusTarget(index, count) {
+    if (index + 1 < count) return index + 1;
+    return index - 1;
+  }
+
+  // Поля ряда (src/interaction/items/line/ в lampa-source), на которых держится
+  // удаление. Это не публичное API — без них только метим серым (§IV).
+  function lineSupported(line) {
+    return !!(line && Array.isArray(line.items) && line.data &&
+      Array.isArray(line.data.results) && typeof line.emit === 'function' &&
+      line.scroll && typeof line.scroll.render === 'function');
+  }
+
+  // Снимает карточку из ряда целиком: из items, из data.results (иначе onScroll
+  // нарисует её снова) и из DOM. «Ещё» и MoreFirst — тоже элементы items, но их
+  // data нет в results: их не трогаем. line.last — DOM-элемент под фокусом.
+  function removeItem(line, item) {
+    var index = line.items.indexOf(item);
+    var result = line.data.results.indexOf(item.data);
+    if (index < 0 || result < 0) return;
+
+    var render = item.render(true);
+    if (line.last === render) {
+      var target = focusTarget(index, line.items.length);
+      line.last = target >= 0 ? line.items[target].render(true) : false;
+    }
+
+    line.items.splice(index, 1);
+    line.data.results.splice(result, 1);
+    item.destroy();
+  }
+
+  function removeMisses(line, pending) {
+    var focused = Lampa.Controller.own(line) ? line.last : null;
+
+    // more.js ставит «Ещё», меряя её по items[items.length - 1]: на опустевшем ряду
+    // это TypeError. Прокрутка до удаления даёт ряду поставить её, пока карточки
+    // есть (если результаты уже все нарисованы), иначе ничего не меняет.
+    line.emit('scroll');
+    pending.forEach(function (item) {
+      removeItem(line, item);
+    });
+
+    var last = line.items.map(function (it) { return it.render(true); }).indexOf(line.last);
+    line.active = last >= 0 ? last : Math.max(0, Math.min(line.active, line.items.length - 1));
+
+    // Добор — штатный путь ряда: onScroll дорисует из results до своего окна,
+    // поставит «Ещё», когда они кончатся, и введёт новое в навигатор.
+    line.emit('scroll');
+
+    if (!Lampa.Controller.own(line)) return;
+
+    var html = line.scroll.render(true);
+    Lampa.Controller.collectionSet(html);
+    if (focused && focused !== line.last) Lampa.Controller.collectionFocus(line.last || false, html);
+  }
+
+  // Исключение внутри микрозадачи иначе пропало бы молча (§IV): ERROR и серая
+  // метка на каждой отложенной карточке — уже снятые отсоединены, им метка не мешает.
+  function flushMisses(line, pending) {
+    try {
+      removeMisses(line, pending);
+    } catch (err) {
+      console.error('torrent-quality-badge: снятие карточек упало — карточки метятся серым', err);
+      var label = badgeLabel(Lampa.Storage.get('torrents_filter', {}));
+      pending.forEach(function (item) {
+        try {
+          applyBadge(item, label);
+        } catch (badgeErr) {
+          console.error('torrent-quality-badge: серая метка не встала на карточку', badgeErr);
+        }
+      });
+    }
+  }
+
+  // Единая точка входа вердикта: зовут очередь плагина и живая проверка
+  // (tests/live/hide-cards.sh). Промахи ряда копятся и снимаются одним проходом
+  // в микрозадаче: вердикт из кэша приходит синхронно внутри emit ряда.
+  function applyVerdict(line, item, miss) {
+    if (!miss) return;
+
+    if (!lineSupported(line)) {
+      if (line && !line.torrent_badge_warned) {
+        line.torrent_badge_warned = true;
+        console.warn('torrent-quality-badge: ряд без items/data.results/emit/scroll — карточки метятся серым, а не скрываются');
+      }
+      applyBadge(item, badgeLabel(Lampa.Storage.get('torrents_filter', {})));
+      return;
+    }
+
+    var pending = line.torrent_badge_pending;
+    if (!pending) {
+      pending = line.torrent_badge_pending = [];
+      Promise.resolve().then(function () {
+        line.torrent_badge_pending = null;
+        flushMisses(line, pending);
+      });
+    }
+    if (pending.indexOf(item) < 0) pending.push(item);
   }
 
   var queue = [];
@@ -453,29 +553,36 @@
     pump();
   }
 
-  function enqueue(item, movie, filter, signature, label) {
-    var key = movie.id + ':' + movieTypeFlag(movie) + ':' + signature;
+  function cacheKey(movie, signature) {
+    return movie.id + ':' + movieTypeFlag(movie) + ':' + signature;
+  }
+
+  // Ключ кэша для текущего фильтра — чтобы живая проверка читала вердикты плагина.
+  function verdictKey(movie) {
+    return cacheKey(movie, filterSignature(Lampa.Storage.get('torrents_filter', {})));
+  }
+
+  function enqueue(line, item, movie, filter, signature) {
+    var key = cacheKey(movie, signature);
 
     var cache = Lampa.Storage.cache(CACHE_KEY, CACHE_MAX_ENTRIES, {});
     var cached = cache[key];
 
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-      applyBadge(item, cached.miss, label);
+      applyVerdict(line, item, cached.miss);
       return;
     }
+
+    var callback = function (miss) {
+      applyVerdict(line, item, miss);
+    };
 
     if (inFlight[key]) {
-      inFlight[key].push(function (miss) {
-        applyBadge(item, miss, label);
-      });
+      inFlight[key].push(callback);
       return;
     }
 
-    inFlight[key] = [
-      function (miss) {
-        applyBadge(item, miss, label);
-      }
-    ];
+    inFlight[key] = [callback];
 
     queue.push({ key: key, movie: movie, filter: filter });
     pump();
@@ -490,23 +597,30 @@
     if (!reproducible(filter)) return;
 
     var signature = filterSignature(filter);
-    var label = badgeLabel(filter);
 
     e.items.forEach(function (item) {
       if (alreadyProcessed(item)) return;
       if (!item.data || !item.data.id) return;
 
       markProcessed(item);
-      enqueue(item, item.data, filter, signature, label);
+      enqueue(e.line, item, item.data, filter, signature);
     });
   }
 
   function startPlugin() {
     if (window.torrent_quality_badge_plugin) return;
-    window.torrent_quality_badge_plugin = true;
+    // Объект, а не true: истинность по-прежнему защищает от двойного старта, а
+    // живая проверка зовёт через него applyVerdict/verdictKey этой копии плагина.
+    window.torrent_quality_badge_plugin = { applyVerdict: applyVerdict, verdictKey: verdictKey };
 
     injectStyle();
     Lampa.Listener.follow('line', onLineEvent);
+  }
+
+  // Под Node (tests/js/) — только чистые функции, без старта в несуществующем window.
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { focusTarget: focusTarget, lineSupported: lineSupported, flushMisses: flushMisses };
+    return;
   }
 
   if (window.Lampa && window.Lampa.Api) startPlugin();
