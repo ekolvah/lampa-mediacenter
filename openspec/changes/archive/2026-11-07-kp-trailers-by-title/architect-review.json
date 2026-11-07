@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 3,
+  "reviewer": "architect-reviewer",
+  "reasoning": "All round-1 and round-2 findings are closed. Every input the title match compares (the KP card fields and the TMDB names of all four target titles) is now observed, and every added spec sentence is asserted by a test.",
+  "classes": {
+    "simpler": {
+      "evidence": "Rejected alternatives, each with its live case. First result only: «Лес» 2026 returns 791523 «Ведьмин лес» first (proposal Why, design 3). Substring `containsTitle` instead of equality: it would let «Ведьмин лес» match «Лес» (design 3). `year` instead of `primary_release_year`: it lets 760741 «Зверь» 2022 through (design 4). No search without a year: it leaves «Жизнь заново» (KP 7958160, empty first_air_date) without trailers (design 5). First match without a year: «Зверь» returns 2026 and 2022 namesakes (design 5). Wikidata: another host (Standard approach). Search after a `find` error: it hides the first cause (design 6). Reusing `enrich` and the shared `openCard` in `tests/live/kp-trailers/lib.js` remain the minimal shape.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "The spec delta has 12 scenarios. MODIFIED «Трейлеры в KP-карточке» has 4: Трейлер найден, Сериал, Нет imdb_id, TMDB не нашёл тайтл. ADDED «Поиск тайтла по названию» has 8: Совпадение не первым результатом, Совпадение по оригинальному названию, Сравнение без регистра, ё и пунктуации, Сериал ищется среди сериалов, Нет года совпадение одно, Нет года совпадений несколько, Нет совпадения названия, Поиск не удался. Each has its own row and named test in tasks.md `## Scenario → test map`. «Нет imdb_id» also asserts that no `find/` URL is requested and maps to the live `open-card-no-imdb` step. No scenario is left without a test, so scenario_coverage is empty.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Task 1.1 writes the mapped tests from the captured fixtures, renames the two old tests (design 8) and adds the single-request assertion (design 6). Task 1.2 runs `agent-process check_red tests/test_plugin_js.py::test_plugin_js` and names the expected failures. Against plugins/kp-reactions-fix.js:51 (no imdb_id leads to a silent `oncomplite`, with no search and no warning) and the empty-find branch, every ADDED-requirement test fails, as do `no imdb_id searches by title and year` and `empty find falls back to title search`. The renamed `no year ambiguous title warns, no videos` fails because no warning is written. `tv match requests videos and reactions as tv` (find path) and `find error warns with imdb_id, card opens` (one request today) pass, as 1.2 expects.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Observed: KP.full().movie fields of six cards captured on the device on 2026-11-07 (proposal Why table). TMDB search with and without the year and `year` vs `primary_release_year` were queried directly, as was the ё case in 155 «Тёмный рыцарь». The TMDB names of all four target titles are now on record (proposal Why). 1185344 is «Зверь»/«The Beast» and 1545966 is «Лес». 1290418 is «Цикл зверя»/«The Cycle», release_date 2026-09-24, the same year as KP 2026-10-23. tv 318582 is «Жизнь заново»/«Жизнь заново», and `search/tv` without a year returns total_results 1. Each equals its KP card after normalizeTitle, so decision 3 matches all four and decision 5 accepts «Жизнь заново». The one-page read in decision 5 (20 results, «Зверь» has 69) is now stated in design Risks «Единственный тёзка без года». The engine's unencoded `query` and the `videos` merge are cited with lines in lampa-source tmdb.js. kp_source.js normalizeTitle/containsTitle are cited with lines 350-364.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "The archived guard 'поиск по названию: можно получить чужой трейлер' (archive 2026-11-07-kp-card-trailers Non-Goals) is dropped, and the exact imdb_id key is replaced by KP title and optional year. Design Context names the dropped guard. Decisions 3-5 add three replacement checks: normalized title equality, a strict year, a single match without a year. Risks lists what remains: a same-year namesake, a sole namesake without a year, a year mismatch (warning), and a slower first open. Each is an explicit acceptance with its consequence (a wrong trailer, never a broken card). The `find` error path is unchanged (decision 6). The first-page limit of decision 5 is listed under the same risk, with the same wrong-trailer consequence.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Named catchers and the delivery step each reaches. The KP/TMDB year agreement for the target cards is now observed in the proposal and needs no runtime catcher. Proxy handling of the encoded `query` and the button appearing on a card without imdb_id are caught by the live `open-card-no-imdb` step in tests/live/kp-trailers.sh, run by task 3.2 on the pushed head, repeated by 4.1 after /simplify edits to plugin or live scripts and by 5.2 after corrective pushes. If «Зверь» gains an imdb_id, the step fails with an explicit message (design 9). The single `find` request on error is caught by the unit test via check_red, pytest (2.2) and the manual pre-commit stage (4.3, CI). Equality rather than substring matching is caught by the «Лес» test, which fails under containsTitle. Runtime no-match, ambiguous and search-error outcomes are §IV console warnings (design 7), at the same level as the archived change. The namesake risks have no catcher, by stated acceptance.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Words added or edited, and what asserts them. MODIFIED «Трейлеры в KP-карточке»: the fallback sentence (about 16 words) is asserted by `no imdb_id searches by title and year` (including no `find/` URL) and `empty find falls back to title search`. The reactions sentence (5 words) is asserted by the reactions checks. ADDED «Поиск тайтла по названию» is about 103 words. Type routing (15) is asserted by the movie/tv search URL tests. The original/russian arms (14) are asserted by the «Лес» test and `original title matches when russian differs`. Normalization (19) is asserted by `title match ignores case, yo and punctuation`; its 7-word pointer 'так же, как их сравнивает источник KP' names the source of the listed rules. The year filter and first match (17) are asserted by the year-key URL tests and the «Лес» test. No year and single match (11) are asserted by the two no-year tests. Open without the button (14) and the warning with title and year (13) are asserted by the no-match, search-error and ambiguous tests. The round-1 gap (case and the original-title arms) is closed. No added sentence is left without a test.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "`## Standard approach` cites, with URLs or paths, the TMDB search references, lampa-source tmdb.js with lines, kp_source.js normalizeTitle/containsTitle lines 350-364, the own kinozal_scraper tmdb_trailer.py:113-119 (the divergence goes to #48), the archived plugin survey plus a repeated web search, and Wikidata (rejected). Decision 3 now follows the ecosystem standard: it copies normalizeTitle, because the function is not exported, and departs from containsTitle with a live reason («Ведьмин лес» versus «Лес»). The plan adds no new script or check: the live step extends the existing kp-trailers.sh and the unit tests extend the existing vm harness (archived decision 7).",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
