@@ -10,15 +10,15 @@
 
 ## 2. Shared pass
 
-- [ ] 2.1 `gridShortage(count, active, cols)`, `LINE`/`GRID` adapters with `supported` (`gridSupported` table-tested like `lineSupported`), exported under Node (design 2, 6)
-- [ ] 2.2 Parameterize `removeMisses`/`removeItem` by the adapter: `before`, `detach`, shared splice/`last`/`destroy`, shared `active` and focus block, `refill` (design 3); row behaviour unchanged — verify the existing row tests stay green
-- [ ] 2.3 `torrent_badge_kind` on the owner; `applyVerdict` checks `kind.supported`, an owner without kind gets the grey mark and one warning, `flushMisses` passes the adapter (design 2)
-- [ ] 2.4 `GRID.before`: hold the last card, grey it, re-submit on the next `onAppend` (design 4)
-- [ ] 2.5 `refill(grid)`: feed `loaded` while short, then `loadNext` under `GRID_AUTO_PAGES`, one timer at `builded_time + 1000 − now` while the grid is in the document (design 5); verify `python -m pytest tests/test_plugin_js.py` green and `node --check plugins/torrent-quality-badge.js`; commit
+- [x] 2.1 `gridShortage(count, active, cols)`, `LINE`/`GRID` adapters with `supported` (`gridSupported` table-tested like `lineSupported`), exported under Node (design 2, 6)
+- [x] 2.2 Parameterize `removeMisses`/`removeItem` by the adapter: `before`, `detach`, shared splice/`last`/`destroy`, shared `active` and focus block, `refill` (design 3); row behaviour unchanged — verify the existing row tests stay green
+- [x] 2.3 `torrent_badge_kind` on the owner; `applyVerdict` checks `kind.supported`, an owner without kind gets the grey mark and one warning, `flushMisses` passes the adapter (design 2)
+- [x] 2.4 `GRID.before`: hold the last card, grey it, re-submit on the next `onAppend` (design 4)
+- [x] 2.5 `refill(grid)`: feed `loaded` while short, then `loadNext` under `GRID_AUTO_PAGES`, one timer at `builded_time + 1000 − now` while the grid is in the document (design 5); verify `python -m pytest tests/test_plugin_js.py` green and `node --check plugins/torrent-quality-badge.js`; commit
 
 ## 3. Entry point
 
-- [ ] 3.1 `Lampa.Listener.follow('activity')` with the handler exported under Node: on `init` of `category_full` set `torrent_badge_kind = GRID` and attach `onAppend`, batching items per microtask into `onLineEvent({line: grid, items})` then `refill` only while `filterActive`; no `use` → one `console.warn` via `torrent_badge_warned` (design 1); verify `python -m pytest tests/test_plugin_js.py` green; commit
+- [x] 3.1 `Lampa.Listener.follow('activity')` with the handler exported under Node: on `init` of `category_full` set `torrent_badge_kind = GRID` and attach `onAppend`, batching items per microtask into `onLineEvent({line: grid, items})` then `refill` only while `filterActive`; no `use` → one `console.warn` via `torrent_badge_warned` (design 1); verify `python -m pytest tests/test_plugin_js.py` green; commit
 
 ## 4. Live check
 
