@@ -9,9 +9,9 @@
 
 ## 2. Plugin
 
-- [ ] 2.1 Pass a 7-day cache to the `find` call (design 4); derive `{method, id}` once from the `find` result and pass it to both `cub.reactionsGet` and `tmdb.videos`, run them in parallel, call `oncomplite` once when both answered (design 2, 3, 5); update the header comment (design 1)
-- [ ] 2.2 Empty `videos.results` for a found title, or `tmdb.videos` not a function → `console.warn` with method and id; `find` error → `console.warn` with `imdb_id` (design 6)
-- [ ] 2.3 Verify `python -m pytest tests/test_plugin_js.py` is green and `node --check plugins/kp-reactions-fix.js` passes; commit
+- [x] 2.1 Pass a 7-day cache to the `find` call (design 4); derive `{method, id}` once from the `find` result and pass it to both `cub.reactionsGet` and `tmdb.videos`, run them in parallel, call `oncomplite` once when both answered (design 2, 3, 5); update the header comment (design 1)
+- [x] 2.2 Empty `videos.results` for a found title, or `tmdb.videos` not a function → `console.warn` with method and id; `find` error → `console.warn` with `imdb_id` (design 6)
+- [x] 2.3 Verify `python -m pytest tests/test_plugin_js.py` is green and `node --check plugins/kp-reactions-fix.js` passes; commit
 
 ## 3. Live check
 
