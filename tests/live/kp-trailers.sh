@@ -20,32 +20,32 @@ step preflight
 
 # Трейлер ушёл в SmartTube и играет: до 20 с ждём SmartTube на переднем плане и его
 # media_session в state=3 (PLAYING), затем BACK и до 20 с ждём возврата Lampa. Цикл идёт на
-# приставке одним adb shell (design.md решение 2); id ролика проверяет следующий step playing.
+# приставке одним adb shell (design.md решение 2); затем step playing проверяет отданный id.
 trailer_plays() {
   adb_sh '
     resumed() { dumpsys activity activities | grep mResumedActivity; }
-    playing() {
-      dumpsys media_session | sed -n "/package=org.smarttube.stable/,/package=/p" \
-        | grep -q "state=PlaybackState {state=3,"
+    front() { resumed | grep -q " $1/"; }
+    st_playing() {
+      front org.smarttube.stable && dumpsys media_session \
+        | sed -n "/package=org.smarttube.stable/,/package=/p" | grep -q "state=PlaybackState {state=3,"
     }
-    i=0
-    until resumed | grep -q " org.smarttube.stable/" && playing; do
-      i=$((i + 1))
-      if [ $i -ge 20 ]; then
-        echo "за 20 с SmartTube не играет:$(resumed);$(dumpsys media_session | grep -E "package=|state=PlaybackState")"
-        exit 1
-      fi
-      sleep 1
-    done
+    wait20() {  # $1 — что ждём (для сообщения), остальное — условие
+      what=$1; shift; i=0
+      until "$@"; do
+        i=$((i + 1))
+        if [ $i -ge 20 ]; then
+          echo "за 20 с не дождались: $what;$(resumed);$(dumpsys media_session | grep -E "package=|state=PlaybackState")"
+          exit 1
+        fi
+        sleep 1
+      done
+    }
+    wait20 "SmartTube играет" st_playing
     input keyevent 4
-    i=0
-    until resumed | grep -q " top.rootu.lampa/"; do
-      i=$((i + 1))
-      if [ $i -ge 20 ]; then echo "за 20 с после BACK не вернулась Lampa:$(resumed)"; exit 1; fi
-      sleep 1
-    done
+    wait20 "Lampa после BACK" front top.rootu.lampa
     echo "ok: SmartTube играл, Lampa снова на переднем плане"
   '
+  step playing
 }
 
 # Пультом «Смотреть» -> «Трейлеры» -> первый трейлер.
@@ -55,7 +55,6 @@ play_first_trailer() {
   python tools/ui.py --keys "DPAD_CENTER" --expect select
   python tools/ui.py --keys "DPAD_CENTER"
   trailer_plays
-  step playing
 }
 
 echo "== «Зверь» (без imdb_id): первым русский трейлер сервиса, кнопка «Трейлер» играет его с пульта"
@@ -64,7 +63,6 @@ python tools/ui.py --keys "DPAD_RIGHT"
 step button-focus
 python tools/ui.py --keys "DPAD_CENTER"
 trailer_plays
-step playing
 
 echo "== «Зверь»: тот же ролик через «Смотреть» -> «Трейлеры»"
 # После возврата из SmartTube Lampa сама ставит фокус на «Смотреть»; не так — упадёт menu-focus.

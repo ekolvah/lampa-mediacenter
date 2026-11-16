@@ -6,7 +6,6 @@
   // Обёртка пишет отданный наружу id для playing.js и зовёт оригинал; живёт до перезагрузки страницы.
   var open = Lampa.Android.openYoutube;
   Live.check(typeof open === 'function', 'нет Lampa.Android.openYoutube');
-  window.__kpOpenedYoutube = null;
   Lampa.Android.openYoutube = function (id) {
     window.__kpOpenedYoutube = id;
     return open.apply(this, arguments);

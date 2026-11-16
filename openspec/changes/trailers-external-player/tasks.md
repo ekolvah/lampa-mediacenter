@@ -29,7 +29,7 @@
 
 ## 4. Verify
 
-- [ ] 4.1 `/simplify`, коммит правок.
+- [x] 4.1 `/simplify`, коммит правок.
 - [ ] 4.2 `openspec validate --strict --all`.
 - [ ] 4.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
