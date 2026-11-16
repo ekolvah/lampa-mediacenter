@@ -70,12 +70,12 @@
 ## 6. Verify
 
 - [x] 6.1 `/simplify`, коммит правок.
-- [ ] 6.2 `openspec validate --strict --all`.
-- [ ] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 6.2 `openspec validate --strict --all`.
+- [x] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 7. Deliver
 
-- [ ] 7.1 `agent-process archive_change series-last-season-trailer`, затем
+- [x] 7.1 `agent-process archive_change series-last-season-trailer`, затем
   `gh pr create --title "fix: series-last-season-trailer" --body-file <отчёт>`. Отчёт ссылается на #64
   простой ссылкой.
 - [ ] 7.2 `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`, не больше трёх раундов
