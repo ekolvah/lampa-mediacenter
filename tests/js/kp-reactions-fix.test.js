@@ -10,6 +10,7 @@ const vm = require('node:vm');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', '..', 'plugins', 'kp-reactions-fix.js'), 'utf8');
 const WEEK_MIN = 60 * 24 * 7; // life кэша движка — в минутах (day$1 = 60 * 24 в app.min.js)
+const DAY_MIN = 60 * 24;
 // Объекты из vm-контекста несут чужой Object.prototype — deepStrictEqual их не сравнит.
 const plain = (x) => JSON.parse(JSON.stringify(x));
 
@@ -18,9 +19,13 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // (функции нет); reactions — ответ cub. Двойник tmdb.get отвечает по префиксу URL (design 8).
 // service — ответ сервиса трейлеров: объект ответа или { status, ... } — так Lampa.Reguest
 // отдаёт ошибку (jqXHR: status 0 при отказе соединения и таймауте, responseJSON при JSON-теле).
+// tv — ответ tv/<id> или 'error' (по умолчанию один вышедший сезон), запросы — в calls.tv;
+// season — ответ tmdb.videos для tv/<id>/season: 'never' — колбэк не приходит, 'late' — колбэк
+// в calls.late, его зовёт тест. setTimeout — двойник: таймеры в calls.timers, fire() их запускает.
 function load(over) {
-  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS }, over);
-  const calls = { get: [], videos: [], reactions: [], service: [], warn: [], done: [], listeners: {}, shown: [] };
+  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS }, over);
+  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], done: [], listeners: {}, shown: [], timers: [], late: [] };
+  calls.fire = () => calls.timers.splice(0).forEach((t) => t.fn());
   function Reguest() { this.ms = null; }
   Reguest.prototype.timeout = function (ms) { this.ms = ms; };
   Reguest.prototype.silent = function (url, ok, err) {
@@ -34,6 +39,10 @@ function load(over) {
   };
   const tmdb = {
     get(url, params, ok, err, cache) {
+      if (/^tv\/\d+$/.test(url)) {
+        calls.tv.push(plain({ url, cache }));
+        return opts.tv === 'error' ? err() : ok(opts.tv);
+      }
       calls.get.push(plain({ url, cache }));
       const answer = url.startsWith('find/') ? opts.find : url.startsWith('search/') ? opts.search : 'error';
       if (answer === 'error') err();
@@ -43,7 +52,9 @@ function load(over) {
   if (opts.videos !== null) {
     tmdb.videos = function (params, ok) {
       calls.videos.push(plain(params));
-      ok(opts.videos);
+      if (!/\/season$/.test(params.method)) return ok(opts.videos);
+      if (opts.season === 'late') calls.late.push(ok);
+      else if (opts.season !== 'never') ok(opts.season);
     };
   }
   const cub = {
@@ -55,11 +66,14 @@ function load(over) {
   // Lampa.Select.show движка: список на экране.
   const Select = { show(params) { calls.shown.push(params); } };
   const Listener = { follow(name, fn) { calls.listeners[name] = fn; } };
+  const Storage = { field(name) { return name === 'tmdb_lang' ? 'ru' : undefined; } };
   const ctx = {
-    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener },
+    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage },
     $: element,
     console: { warn(...args) { calls.warn.push(args); }, log() {} },
     setInterval, clearInterval,
+    setTimeout(fn, ms) { const t = { fn, ms }; calls.timers.push(t); return t; },
+    clearTimeout(t) { const i = calls.timers.indexOf(t); if (i !== -1) calls.timers.splice(i, 1); },
   };
   ctx.window = ctx;
   calls.ctx = ctx;
@@ -115,6 +129,29 @@ const PICK = { video_id: 'J2VS_OlUJtA', title: 'Зверь (2026)#трейлер
 const NO_PICK = { video_id: null, title: null, confidence: 0, reason: 'no candidates' };
 const PICK_VIDEO = { site: 'YouTube', key: 'J2VS_OlUJtA', name: PICK.title, iso_639_1: 'ru', type: 'Trailer', published_at: '2026' };
 const REACTIONS = { result: [{ type: 'fire', counter: 3 }] };
+const ONE_SEASON = { number_of_seasons: 1, last_episode_to_air: { season_number: 1, air_date: '2026-10-26' } };
+
+// «Джентльмены» (KP 1435343, TMDB tv/236235), ответы TMDB 2026-11-16 (proposal, Why).
+const GENTLEMEN = { imdb_id: 'tt13210838', type: 'tv', title: 'Джентльмены', original_title: 'The Gentlemen', first_air_date: '2024-03-07' };
+const FIND_BOTH = { movie_results: [{ id: 1823885 }], tv_results: [{ id: 236235 }] };
+const GENT_TV = { number_of_seasons: 3, last_episode_to_air: { season_number: 2, air_date: '2026-10-22' } };
+const GENT_VIDEOS = { results: [
+  { key: 'ru-s1-trailer', site: 'YouTube', type: 'Trailer', iso_639_1: 'ru', name: 'ДЖЕНТЛЬМЕНЫ Сезон 1 - Русский трейлер 2', published_at: '2024-02-26T15:00:00.000Z' },
+  { key: 'en-s1-trailer', site: 'YouTube', type: 'Trailer', iso_639_1: 'en', name: 'The Gentlemen | Official Trailer', published_at: '2024-02-22T16:00:00.000Z' },
+  { key: 'en-s1-clip', site: 'YouTube', type: 'Clip', iso_639_1: 'en', name: 'The Gentlemen | Clip', published_at: '2024-03-07T08:00:00.000Z' },
+] };
+// Видео TMDB новее даты сезона N: первым ролик ставит сдвиг даты, а не дата сезона.
+const NEWER_CLIP = { key: 'en-new-clip', site: 'YouTube', type: 'Clip', iso_639_1: 'en', name: 'Behind the scenes', published_at: '2026-11-01T10:00:00.000Z' };
+// Два трейлера 2-го сезона, старший — первым в ответе.
+const SEASON2 = { results: [
+  { key: 's2-date-trailer', site: 'YouTube', type: 'Trailer', iso_639_1: 'en', name: 'Season 2 Date Announcement Trailer', published_at: '2026-07-30T16:00:00.000Z' },
+  { key: 's2-teaser', site: 'YouTube', type: 'Teaser', iso_639_1: 'en', name: 'Season 2 Teaser', published_at: '2026-07-09T16:00:00.000Z' },
+  { key: 's2-trailer', site: 'YouTube', type: 'Trailer', iso_639_1: 'en', name: 'Season 2 Official Trailer', published_at: '2026-08-24T16:00:00.000Z' },
+  { key: 's2-featurette', site: 'YouTube', type: 'Featurette', iso_639_1: 'en', name: 'Featurette', published_at: '2024-08-14T16:00:00.000Z' },
+] };
+const GENT_PICK = { video_id: '3xow3-n2VQM', title: 'Джентльмены (2 сезон) - Русский трейлер (Дубляж, 2026) Гай Ричи', confidence: 0.9, reason: 'ru language' };
+const GENT_FALLBACK = { video_id: null, title: null, confidence: 0, reason: 'ru language; season 2 fallback' };
+const GENT_CARD = { movie: GENTLEMEN, find: FIND_BOTH, videos: GENT_VIDEOS, tv: GENT_TV };
 
 const BEAST = { imdb_id: '', type: 'movie', title: 'Зверь', original_title: 'The Beast', release_date: '2026' };
 const BEAST_2026 = { id: 1185344, title: 'Зверь', original_title: 'The Beast', release_date: '2026-09-17' };
@@ -128,6 +165,7 @@ const LIFE_TV = { id: 318582, name: 'Жизнь заново', original_name: '�
 
 const q = (title) => encodeURIComponent(title);
 const SERVICE_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Зверь') + '&original_title=The%20Beast&year=2026';
+const GENT_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Джентльмены') + '&original_title=The%20Gentlemen&year=2024&season=2';
 // «Зверь» без imdb_id, найден поиском по названию: дальше решают видео TMDB и сервис.
 const BEAST_CARD = { movie: BEAST, search: { results: [BEAST_2026] } };
 // Пункты списка «Трейлеры», как их собрал движок для «Зверя» (proposal, Why): ролик сервиса,
@@ -136,6 +174,21 @@ const RU_ITEM = { title: PICK.title, id: PICK.video_id };
 const MORE_ITEM = { title: 'Ещё', separator: true };
 const EN_ITEM = { title: EN_VIDEOS.results[0].name, id: EN_VIDEOS.results[0].key };
 const TRAILER_ITEMS = [RU_ITEM, MORE_ITEM, EN_ITEM];
+
+// Вставленный ролик стоит первым по обоим ключам сортировки движка: язык tmdb_lang и дата строго
+// позже всех прочих (design.md, решение 4).
+function assertFirstByEngine(list) {
+  assert.strictEqual(list[0].iso_639_1, 'ru');
+  const first = new Date(list[0].published_at).getTime();
+  for (const v of list.slice(1)) {
+    assert.ok(first > new Date(v.published_at).getTime(), JSON.stringify(list));
+  }
+}
+
+// Есть предупреждение, в тексте которого все needles.
+function warnedWith(c, ...needles) {
+  return c.warn.some((w) => needles.every((n) => w.join(' ').includes(n)));
+}
 
 // Ровно одно предупреждение, и в нём все needles.
 function assertWarned(c, ...needles) {
@@ -252,6 +305,109 @@ test('ru video in TMDB: no service request', () => {
   const c = load();
   assert.deepStrictEqual(c.service, []);
   assert.deepStrictEqual(c.done[0].videos, VIDEOS);
+  const tv = load({ movie: GENTLEMEN, find: { movie_results: [], tv_results: [{ id: 236235 }] } });
+  assert.deepStrictEqual(tv.tv.map((t) => t.url), ['tv/236235']);
+  assert.deepStrictEqual(tv.service, []);
+  assert.deepStrictEqual(tv.done[0].videos, VIDEOS);
+  assert.strictEqual(tv.warn.length, 0);
+  assert.strictEqual(tv.done.length, 1);
+});
+
+test('find with movie and tv picks card type', () => {
+  const tv = load({ movie: GENTLEMEN, find: FIND_BOTH });
+  assert.deepStrictEqual(tv.videos, [{ method: 'tv', id: 236235 }]);
+  assert.deepStrictEqual(tv.reactions, [{ method: 'tv', id: 236235 }]);
+  const movie = load({ movie: Object.assign({}, GENTLEMEN, { type: 'movie' }), find: FIND_BOTH });
+  assert.deepStrictEqual(movie.videos, [{ method: 'movie', id: 1823885 }]);
+  assert.deepStrictEqual(movie.reactions, [{ method: 'movie', id: 1823885 }]);
+  assert.deepStrictEqual(movie.tv, []);
+});
+
+test('last season 2: service asked with season despite ru video, its video first', () => {
+  for (const videos of [GENT_VIDEOS, { results: GENT_VIDEOS.results.concat([NEWER_CLIP]) }]) {
+    const c = load({ ...GENT_CARD, videos, service: GENT_PICK });
+    assert.deepStrictEqual(c.service, [{ url: GENT_URL, timeout: 10000 }]);
+    const list = plain(c.done[0].videos.results);
+    assert.deepStrictEqual(list.slice(1), videos.results);
+    assert.strictEqual(list[0].key, '3xow3-n2VQM');
+    assert.strictEqual(list[0].name, GENT_PICK.title);
+    assertFirstByEngine(list);
+    const expected = videos === GENT_VIDEOS ? '2026-10-22' : '2026-11-01T10:00:01.000Z';
+    assert.strictEqual(list[0].published_at, expected);
+    assert.deepStrictEqual(c.videos, [{ method: 'tv', id: 236235 }]);
+    assert.strictEqual(c.warn.length, 0);
+    assert.strictEqual(c.done.length, 1);
+  }
+});
+
+test('last season from last episode, not number of seasons', () => {
+  const c = load({ ...GENT_CARD, service: GENT_PICK });
+  assert.deepStrictEqual(c.tv, [{ url: 'tv/236235', cache: { life: DAY_MIN } }]);
+  assert.ok(c.service[0].url.endsWith('&season=2'), c.service[0].url);
+});
+
+test('service gave nothing: newest TMDB season trailer first, warning', () => {
+  const outcomes = [
+    [GENT_FALLBACK, 'season 2 fallback'],
+    [{ status: 502, responseJSON: { error: 'search failed' } }, 'HTTP 502'],
+    [{ status: 0, statusText: 'timeout' }, 'timeout'],
+  ];
+  for (const [service, needle] of outcomes) {
+    const videos = { results: GENT_VIDEOS.results.concat([NEWER_CLIP]) };
+    const c = load({ ...GENT_CARD, videos, service, season: SEASON2 });
+    assert.deepStrictEqual(c.videos, [{ method: 'tv', id: 236235 }, { method: 'tv/236235/season', id: 2 }], needle);
+    const list = plain(c.done[0].videos.results);
+    assert.strictEqual(list[0].key, 's2-trailer', needle);
+    assert.strictEqual(list[0].name, 'Season 2 Official Trailer', needle);
+    assert.deepStrictEqual(list.slice(1), videos.results, needle);
+    assertFirstByEngine(list);
+    assert.strictEqual(list[0].published_at, '2026-11-01T10:00:01.000Z', needle);
+    assert.strictEqual(c.warn.length, 1, JSON.stringify(c.warn));
+    assert.ok(warnedWith(c, 'Джентльмены', 'season 2', needle), JSON.stringify(c.warn));
+    c.fire();
+    assert.strictEqual(c.done.length, 1, needle);
+  }
+});
+
+test('no season trailer, error or timeout: TMDB videos, warning', () => {
+  const outcomes = [
+    [{ results: [SEASON2.results[1], SEASON2.results[3]] }, 'teaser only'],
+    [NO_RESULTS, 'empty'],
+    [undefined, 'undefined'],
+    ['garbage', 'not results'],
+    [{ results: 'x' }, 'results not a list'],
+  ];
+  for (const [season, label] of outcomes) {
+    const c = load({ ...GENT_CARD, service: GENT_FALLBACK, season });
+    assert.deepStrictEqual(c.done[0].videos, GENT_VIDEOS, label);
+    assert.strictEqual(c.done.length, 1, label);
+    assert.ok(warnedWith(c, 'Джентльмены', 'season 2', 'no season trailer'), label + JSON.stringify(c.warn));
+  }
+  for (const season of ['never', 'late']) {
+    const c = load({ ...GENT_CARD, service: GENT_FALLBACK, season });
+    assert.strictEqual(c.done.length, 0, season);
+    assert.deepStrictEqual(c.timers.map((t) => t.ms), [10000], season);
+    c.fire();
+    assert.strictEqual(c.done.length, 1, season);
+    assert.deepStrictEqual(c.done[0].videos, GENT_VIDEOS, season);
+    assert.ok(warnedWith(c, 'Джентльмены', 'season 2', 'timeout'), season + JSON.stringify(c.warn));
+    c.late.forEach((ok) => ok(SEASON2));
+    assert.strictEqual(c.done.length, 1, season);
+    assert.deepStrictEqual(c.done[0].videos, GENT_VIDEOS, season);
+  }
+});
+
+test('tv details error: film behaviour, warning with id', () => {
+  for (const tv of ['error', {}, { last_episode_to_air: null }]) {
+    const c = load({ ...GENT_CARD, tv });
+    assert.deepStrictEqual(c.service, [], JSON.stringify(tv));
+    assert.deepStrictEqual(c.done[0].videos, GENT_VIDEOS);
+    assert.strictEqual(c.done.length, 1);
+    assertWarned(c, 236235);
+  }
+  const en = load({ ...GENT_CARD, tv: 'error', videos: EN_VIDEOS, service: GENT_PICK });
+  assert.ok(!en.service[0].url.includes('season'), en.service[0].url);
+  assert.strictEqual(en.done[0].videos.results[0].key, '3xow3-n2VQM');
 });
 
 test('en-only videos: service video first', () => {

@@ -10,6 +10,7 @@ import logging
 import sys
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -34,6 +35,10 @@ PICK = TrailerAnswer("J2VS_OlUJtA", "Зверь (2026)#трейлер в рус�
 NO_PICK = TrailerAnswer(None, None, 0.0, "no candidates")
 DAY_S = 24 * 60 * 60
 BEAST = "/trailer?title=%D0%97%D0%B2%D0%B5%D1%80%D1%8C&original_title=The%20Beast&year=2026"
+GENTLEMEN = (
+    "/trailer?title=%D0%94%D0%B6%D0%B5%D0%BD%D1%82%D0%BB%D1%8C%D0%BC%D0%B5%D0%BD%D1%8B"
+    "&original_title=The%20Gentlemen&year=2024"
+)
 
 
 class FakeFinder:
@@ -121,6 +126,22 @@ def test_bad_request_400(service: Service, path: str) -> None:
     assert service.finder.queries == []
 
 
+@pytest.mark.parametrize("service", [[PICK]], indirect=True)
+def test_season_passed_to_finder(service: Service) -> None:
+    status, body = get(service, GENTLEMEN + "&season=2")
+    assert (status, body["video_id"]) == (200, "J2VS_OlUJtA")
+    assert service.finder.queries == [TrailerQuery("Джентльмены", "The Gentlemen", 2024, 2)]
+
+
+@pytest.mark.parametrize("service", [[]], indirect=True)
+@pytest.mark.parametrize("season", ["0", "-1", "x", "1.5", "²"])
+def test_bad_season_400(service: Service, season: str) -> None:
+    status, body = get(service, GENTLEMEN + "&season=" + urllib.parse.quote(season))
+    assert status == 400
+    assert "season" in body["detail"]
+    assert service.finder.queries == []
+
+
 @pytest.mark.parametrize("service", [[]], indirect=True)
 def test_unknown_path_404(service: Service) -> None:
     status, _ = get(service, "/nope")
@@ -190,6 +211,14 @@ def test_cache_expires_after_24h(service: Service) -> None:
     assert len(service.finder.queries) == 2
 
 
+@pytest.mark.parametrize("service", [[NO_PICK, PICK]], indirect=True)
+def test_cache_key_includes_season(service: Service) -> None:
+    get(service, GENTLEMEN)
+    status, body = get(service, GENTLEMEN + "&season=2")
+    assert (status, body["video_id"]) == (200, "J2VS_OlUJtA")
+    assert [q.season for q in service.finder.queries] == [None, 2]
+
+
 @pytest.mark.parametrize("service", [[SearchFailed("blocked"), PICK]], indirect=True)
 def test_error_not_cached(service: Service) -> None:
     assert get(service, BEAST)[0] == 502
@@ -206,6 +235,7 @@ class FakeProfile:
     ru_title: str
     original_title: str
     year: int | None
+    season: int | None = None
 
 
 @dataclass
@@ -231,6 +261,31 @@ def test_library_adapter_maps_pick() -> None:
     answer = finder.find(TrailerQuery("Зверь", "The Beast", 2026))
     assert answer == TrailerAnswer("J2VS_OlUJtA", "Зверь", 0.3, "ambiguous: 2")
     assert seen == [FakeProfile("Зверь", "The Beast", 2026)]
+
+
+def test_library_adapter_passes_season() -> None:
+    seen: list[Any] = []
+
+    def find(profile: Any) -> FakePick:
+        seen.append(profile)
+        return FakePick("3xow3-n2VQM", "Джентльмены (2 сезон)", 0.9, "ru language")
+
+    finder = LibraryFinder(find, FakeProfile, FakeRetrievalError)
+    answer = finder.find(TrailerQuery("Джентльмены", "The Gentlemen", 2024, 2))
+    assert answer == TrailerAnswer("3xow3-n2VQM", "Джентльмены (2 сезон)", 0.9, "ru language")
+    assert seen == [FakeProfile("Джентльмены", "The Gentlemen", 2024, season=2)]
+
+
+def test_library_adapter_season_fallback_null() -> None:
+    # Текст замены — trailer-search v0.2.0, strategy.py:158 (design.md, решение 5).
+    def find(_profile: Any) -> FakePick:
+        return FakePick(
+            "1st-season", "Джентльмены (1 сезон)", 0.9, "ru language; season 2 fallback"
+        )
+
+    finder = LibraryFinder(find, FakeProfile, FakeRetrievalError)
+    answer = finder.find(TrailerQuery("Джентльмены", "The Gentlemen", 2024, 2))
+    assert answer == TrailerAnswer(None, None, 0.0, "ru language; season 2 fallback")
 
 
 def test_library_adapter_maps_error() -> None:

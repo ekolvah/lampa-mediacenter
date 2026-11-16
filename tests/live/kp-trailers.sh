@@ -57,12 +57,17 @@ play_first_trailer() {
   trailer_plays
 }
 
+# Шаг $1 открывает карточку и задаёт window.__kpRuTrailer; пультом «Смотреть» -> «Трейлер», играет он.
+play_trailer_button() {
+  step "$1"
+  python tools/ui.py --keys "DPAD_RIGHT"
+  step button-focus
+  python tools/ui.py --keys "DPAD_CENTER"
+  trailer_plays
+}
+
 echo "== «Зверь» (без imdb_id): первым русский трейлер сервиса, кнопка «Трейлер» играет его с пульта"
-step open-card-no-imdb
-python tools/ui.py --keys "DPAD_RIGHT"
-step button-focus
-python tools/ui.py --keys "DPAD_CENTER"
-trailer_plays
+play_trailer_button open-card-no-imdb
 
 echo "== «Зверь»: тот же ролик через «Смотреть» -> «Трейлеры»"
 # После возврата из SmartTube Lampa сама ставит фокус на «Смотреть»; не так — упадёт menu-focus.
@@ -71,5 +76,8 @@ play_first_trailer
 echo "== «1+1» (с imdb_id): «Трейлеры» есть, трейлер играет с пульта"
 step open-card
 play_first_trailer
+
+echo "== «Джентльмены» (сериал, вышло 2 сезона): кнопка «Трейлер» играет трейлер 2-го сезона"
+play_trailer_button open-card-season
 
 echo "OK: kp-trailers"

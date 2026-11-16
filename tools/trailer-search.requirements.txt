@@ -1,4 +1,6 @@
 # Сервис трейлеров на приставке: venv /opt/trailer-search/venv в Debian-chroot
 # (docs/jacred-on-ugoos.md). Пины проверяет хук pip-audit в .pre-commit-config.yaml.
-trailer-search[ytdlp] @ git+https://github.com/ekolvah/trailer-search@v0.1.0
+# После поднятия пина обязателен `bash tests/live/kp-trailers.sh`: признак замены сезона библиотека
+# отдаёт только текстом reason, его смену ловит шаг open-card-season (series-last-season-trailer).
+trailer-search[ytdlp] @ git+https://github.com/ekolvah/trailer-search@v0.2.0
 yt-dlp==2026.10.26

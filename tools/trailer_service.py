@@ -1,7 +1,8 @@
 """HTTP-сервис трейлеров на приставке (spec trailer-search-service, design.md решения 2–5).
 
-`GET /trailer?title=…&original_title=…&year=…` → русский трейлер с YouTube, выбранный
-библиотекой `trailer-search`: 200 с роликом или `video_id: null`, 400 на неверный запрос,
+`GET /trailer?title=…&original_title=…&year=…&season=…` → русский трейлер с YouTube, выбранный
+библиотекой `trailer-search`: 200 с роликом или `video_id: null` (и когда вместо сезона `season`
+нашёлся только другой), 400 на неверный запрос,
 502 при неудачном поиске (с ERROR в логе). Успешные ответы кэшируются в памяти на 24 часа.
 Слушает только 127.0.0.1:9118 — клиент один, плагин Lampa на той же приставке.
 
@@ -33,6 +34,7 @@ class TrailerQuery:
     title: str
     original_title: str
     year: int | None
+    season: int | None = None
 
 
 @dataclass(frozen=True)
@@ -48,11 +50,20 @@ class SearchFailed(Exception):
 
 
 class BadRequest(ValueError):
-    """Запрос без `title` или с нечисловым `year`."""
+    """Запрос без `title`, с нечисловым `year` или с `season` не от 1."""
 
 
 class TrailerFinder(Protocol):
     def find(self, query: TrailerQuery) -> TrailerAnswer: ...
+
+
+def _int_param(params: dict[str, list[str]], name: str, minimum: int) -> int | None:
+    raw = params.get(name, [""])[0].strip()
+    if not raw:
+        return None
+    if not raw.isdecimal() or int(raw) < minimum:
+        raise BadRequest(f"{name} must be an integer >= {minimum}, got {raw!r}")
+    return int(raw)
 
 
 def parse_query(raw: str) -> TrailerQuery:
@@ -60,11 +71,10 @@ def parse_query(raw: str) -> TrailerQuery:
     title = params.get("title", [""])[0].strip()
     if not title:
         raise BadRequest("title is required")
-    year = params.get("year", [""])[0].strip()
-    if year and not year.isdecimal():
-        raise BadRequest(f"year must be a number, got {year!r}")
     original = params.get("original_title", [""])[0].strip()
-    return TrailerQuery(title, original, int(year) if year else None)
+    return TrailerQuery(
+        title, original, _int_param(params, "year", 0), _int_param(params, "season", 1)
+    )
 
 
 class CachedFinder:
@@ -108,10 +118,11 @@ def build_server(
                 answer = cached.find(query)
             except SearchFailed as err:
                 log.exception(
-                    "search failed: title=%r original_title=%r year=%s: %s",
+                    "search failed: title=%r original_title=%r year=%s season=%s: %s",
                     query.title,
                     query.original_title,
                     query.year,
+                    query.season,
                     err,
                 )
                 self._send(502, {"error": "search failed", "detail": str(err)})
@@ -136,7 +147,10 @@ def build_server(
 
 
 class LibraryFinder:
-    """Адаптер `trailer-search`: `find(FilmProfile) -> TrailerPick`, `error_cls` → `SearchFailed`."""
+    """Адаптер `trailer-search`: `find(FilmProfile) -> TrailerPick`, `error_cls` → `SearchFailed`.
+
+    Ролик другого сезона вместо запрошенного — не ответ: `video_id: null` с причиной библиотеки.
+    """
 
     def __init__(
         self,
@@ -149,11 +163,23 @@ class LibraryFinder:
         self._error_cls = error_cls
 
     def find(self, query: TrailerQuery) -> TrailerAnswer:
-        profile = self._profile_cls(query.title, query.original_title, query.year)
+        profile = self._profile_cls(
+            query.title, query.original_title, query.year, season=query.season
+        )
         try:
             pick = self._find(profile)
         except self._error_cls as err:
             raise SearchFailed(str(err)) from err
+        # Замену сезона v0.2.0 отдаёт только текстом reason; структурно — ekolvah/trailer-search#9.
+        if query.season is not None and pick.reason.endswith(f"; season {query.season} fallback"):
+            log.warning(
+                "no season %d trailer for %r, not answering with %r: %s",
+                query.season,
+                query.title,
+                pick.title,
+                pick.reason,
+            )
+            return TrailerAnswer(None, None, 0.0, pick.reason)
         return TrailerAnswer(pick.video_id, pick.title, pick.confidence, pick.reason)
 
 

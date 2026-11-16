@@ -9,10 +9,13 @@
   // названия, и подставляет в ответ KP.full() reactions и videos тем же способом,
   // каким их получает штатный источник tmdb — см. docs/lampa-config-review.md.
   // Если русского видео у TMDB нет, первым в список ставится русский трейлер с
-  // YouTube от сервиса трейлеров на приставке (docs/jacred-on-ugoos.md). Кнопка
-  // «Трейлер» в строке кнопок карточки запускает первый ролик этого списка.
+  // YouTube от сервиса трейлеров на приставке (docs/jacred-on-ugoos.md). У сериала,
+  // чей последний вышедший сезон N ≥ 2, первым ставится трейлер сезона N: от сервиса,
+  // иначе из видео сезона в TMDB. Кнопка «Трейлер» в строке кнопок карточки запускает
+  // первый ролик этого списка.
 
-  var WEEK = 60 * 24 * 7; // life кэша движка — в минутах
+  var DAY = 60 * 24; // life кэша движка — в минутах
+  var WEEK = DAY * 7;
   var TRAILER_SERVICE = 'http://127.0.0.1:9118/trailer';
   // Больше срока поиска в сервисе (8 с): при зависшем YouTube успевает прийти его 502.
   var TRAILER_TIMEOUT_MS = 10000;
@@ -41,7 +44,7 @@
 
     var orgFull = KP.full;
 
-    // Реакции и видео одного тайтла параллельно; oncomplite — когда пришли оба.
+    // Реакции и трейлеры одного тайтла параллельно; oncomplite — когда готовы оба.
     function enrich(result, title, oncomplite) {
       var pending = 2;
       function done() { if (--pending === 0) oncomplite(result); }
@@ -56,21 +59,113 @@
         return done();
       }
 
-      // Сбой запроса движок отдаёт как пустой список — не отличить от «видео нет».
-      tmdb.videos(title, function (videos) {
-        var list = (videos && videos.results) || [];
-        if (!list.length) {
-          console.warn('kp-reactions-fix: no videos', title.method, title.id);
-        }
-        result.videos = videos;
-        var hasRu = list.some(function (v) { return v.iso_639_1 === 'ru'; });
-        if (hasRu) return done();
+      // Видео и, у сериала, его последний сезон — параллельно; решение о трейлере — когда пришли оба.
+      var videos;
+      var season;
+      var waiting = 2;
+      function ready() {
+        if (--waiting === 0) trailers(result, title, videos, season, done);
+      }
 
-        ruTrailer(result.movie, function (video) {
-          if (video) result.videos = { results: [video].concat(list) };
+      var getSeason = title.method === 'tv' ? lastSeason : function (t, cb) { cb(null); };
+      getSeason(title, function (last) {
+        season = last && last.number >= 2 ? last : null;
+        ready();
+      });
+      // Сбой запроса движок отдаёт как пустой список — не отличить от «видео нет».
+      tmdb.videos(title, function (answer) {
+        videos = answer;
+        ready();
+      });
+    }
+
+    // Список «Трейлеры»: видео TMDB, первым — русский трейлер сервиса; у сериала с последним
+    // сезоном N ≥ 2 — трейлер сезона N, при отказе сервиса — из видео сезона в TMDB.
+    function trailers(result, title, videos, season, done) {
+      var list = (videos && videos.results) || [];
+      if (!list.length) {
+        console.warn('kp-reactions-fix: no videos', title.method, title.id);
+      }
+      result.videos = videos;
+      var hasRu = list.some(function (v) { return v.iso_639_1 === 'ru'; });
+      // Русский ролик TMDB не говорит, какого он сезона, поэтому у сериала сервис спрашивают всегда.
+      if (hasRu && !season) return done();
+
+      var movie = result.movie;
+      var date = season ? season.date : releaseDate(movie);
+      ruTrailer(movie, season, function (video) {
+        if (video) {
+          result.videos = { results: putFirst(video, date, list) };
+          return done();
+        }
+        if (!season) return done();
+        seasonTrailer(title, movie, season, function (trailer) {
+          if (trailer) result.videos = { results: putFirst(trailer, date, list) };
           done();
         });
       });
+    }
+
+    function time(video) {
+      return new Date(video.published_at).getTime();
+    }
+
+    // Самое новое видео по published_at; без даты не считается. null — датированных нет.
+    function newest(list) {
+      return list.reduce(function (max, v) { return time(v) > (max ? time(max) : -Infinity) ? v : max; }, null);
+    }
+
+    // Ролик первым в списке «Трейлеры» по ключам сортировки движка: язык tmdb_lang (до «Ещё»)
+    // и published_at строго позже самого нового в списке — при равных датах порядок не задан.
+    function putFirst(video, date, list) {
+      var last = newest(list);
+      var at = date;
+      if (last && !(new Date(date).getTime() > time(last))) at = new Date(time(last) + 1000).toISOString();
+      var first = {};
+      for (var key in video) first[key] = video[key];
+      first.iso_639_1 = Lampa.Storage.field('tmdb_lang');
+      first.published_at = at;
+      return [first].concat(list);
+    }
+
+    // Последний вышедший сезон: { number, date } по последней вышедшей серии. cb(null) — сведений
+    // нет, предупреждение с id уже в консоли. Анонсированный сезон без серий не считается.
+    function lastSeason(title, cb) {
+      tmdb.get('tv/' + title.id, {}, function (tv) {
+        var episode = tv && tv.last_episode_to_air;
+        if (!episode || !episode.season_number) {
+          console.warn('kp-reactions-fix: no last episode, trailer not by season', title.id);
+          return cb(null);
+        }
+        cb({ number: episode.season_number, date: episode.air_date || '' });
+      }, function () {
+        console.warn('kp-reactions-fix: tv details failed, trailer not by season', title.id);
+        cb(null);
+      }, { life: DAY });
+    }
+
+    // Самый новый Trailer сезона из TMDB тем же путём, что и у движка. cb(null) — трейлера нет,
+    // причина в console.warn. Колбэк движка для сезона может не прийти (seasonFix), поэтому срок.
+    function seasonTrailer(title, movie, season, cb) {
+      var finished = false;
+      function finish(trailer, reason) {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        if (!trailer) console.warn('kp-reactions-fix: no season trailer', cardName(movie), 'season ' + season.number, reason);
+        cb(trailer);
+      }
+      var timer = setTimeout(function () { finish(null, 'timeout'); }, TRAILER_TIMEOUT_MS);
+
+      tmdb.videos({ method: title.method + '/' + title.id + '/season', id: season.number }, function (videos) {
+        var list = videos && Array.isArray(videos.results) ? videos.results : [];
+        var trailer = newest(list.filter(function (v) { return v.type === 'Trailer'; }));
+        finish(trailer, 'no trailer among ' + list.length + ' videos');
+      });
+    }
+
+    function cardName(movie) {
+      return movie.title || movie.original_title || '';
     }
 
     function releaseDate(movie) {
@@ -78,17 +173,18 @@
     }
 
     // Русский трейлер с YouTube от сервиса трейлеров на приставке (tools/trailer_service.py),
-    // в форме видео TMDB. cb(null) — ролика нет, причина уже в console.warn.
-    function ruTrailer(movie, cb) {
-      var name = movie.title || movie.original_title || '';
-      var date = releaseDate(movie);
-      var year = date.slice(0, 4);
+    // в форме видео TMDB; season — трейлер этого сезона. cb(null) — ролика нет, причина уже в
+    // console.warn.
+    function ruTrailer(movie, season, cb) {
+      var name = cardName(movie);
+      var year = releaseDate(movie).slice(0, 4);
       var url = TRAILER_SERVICE + '?title=' + encodeURIComponent(name);
       if (movie.original_title) url += '&original_title=' + encodeURIComponent(movie.original_title);
       if (year) url += '&year=' + year;
+      if (season) url += '&season=' + season.number;
 
       function fail(reason) {
-        console.warn('kp-reactions-fix: no russian trailer', name, year, reason);
+        console.warn('kp-reactions-fix: no russian trailer', name, year, season ? 'season ' + season.number : '', reason);
         cb(null);
       }
 
@@ -96,8 +192,7 @@
       request.timeout(TRAILER_TIMEOUT_MS);
       request.silent(url, function (found) {
         if (!found || !found.video_id) return fail((found && found.reason) || 'empty answer');
-        // published_at — дата релиза карточки: движок сортирует по ней и пишет её подзаголовком.
-        cb({ site: 'YouTube', key: found.video_id, name: found.title, iso_639_1: 'ru', type: 'Trailer', published_at: date });
+        cb({ site: 'YouTube', key: found.video_id, name: found.title, type: 'Trailer' });
       }, function (xhr) {
         var body = xhr.responseJSON || {};
         var detail = [body.error, body.detail].filter(Boolean).join(': ');
@@ -111,7 +206,7 @@
       var tv = movie.type === 'tv';
       var method = tv ? 'tv' : 'movie';
       var year = releaseDate(movie).slice(0, 4);
-      var url = 'search/' + method + '?query=' + encodeURIComponent(movie.title || movie.original_title || '');
+      var url = 'search/' + method + '?query=' + encodeURIComponent(cardName(movie));
       if (year) url += (tv ? '&first_air_date_year=' : '&primary_release_year=') + year;
 
       function fail(reason) {
@@ -141,8 +236,11 @@
       if (!movie.imdb_id) return searchByTitle(movie, cb);
 
       tmdb.get('find/' + movie.imdb_id + '?external_source=imdb_id', {}, function (found) {
-        if (found.movie_results && found.movie_results[0]) cb({ method: 'movie', id: found.movie_results[0].id });
-        else if (found.tv_results && found.tv_results[0]) cb({ method: 'tv', id: found.tv_results[0].id });
+        // Бывает и фильм, и сериал (пустая запись TMDB с тем же imdb_id): берётся тип карточки.
+        var film = (found.movie_results || [])[0];
+        var tv = (found.tv_results || [])[0];
+        if (tv && (movie.type === 'tv' || !film)) cb({ method: 'tv', id: tv.id });
+        else if (film) cb({ method: 'movie', id: film.id });
         else searchByTitle(movie, cb);
       }, function () {
         console.warn('kp-reactions-fix: find failed, no reactions and trailers', movie.imdb_id);
