@@ -1,4 +1,5 @@
 # agent-process:managed
+# fmt: off
 """Claude `SessionStart` check: is the agent-process skill loaded for this project?
 
 Usage: python .claude/agent-process-check.py <Install URL>
