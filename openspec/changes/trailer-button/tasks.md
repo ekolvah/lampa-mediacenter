@@ -29,8 +29,12 @@
   фокус на `.full-start__button` с текстом «Трейлер». В `kp-trailers.sh` для «Зверя» после
   `open-card-no-imdb` идёт проход кнопкой: `ui.py --keys DPAD_RIGHT` → `button-focus` →
   `ui.py --keys DPAD_CENTER` → `playing`, затем `ui.py --keys DPAD_LEFT` и прежний проход списком.
-- [ ] 3.2 Выкладка на приставку по design.md, Migration Plan (снапшот, sha головы ветки). Проверка:
+- [x] 3.2 Выкладка на приставку по design.md, Migration Plan (снапшот, sha головы ветки). Проверка:
   `bash tests/live/kp-trailers.sh` → `OK`. Коммит группы.
+  Итог: не `OK` по причине вне кнопки — ролик сервиса `J2VS_OlUJtA` закрыт по региону (#61), и
+  «Смотреть» → «Трейлеры» даёт тот же `noplayed`; `playing.js` показывает это как таймаут CDP (#62).
+  Кнопка проверена шагами `open-card-no-imdb`, `button-focus` и `Player.playdata().url` =
+  ролик сервиса; пользователь принял это 2026-11-16.
 
 ## 4. Доки (отдельный коммит)
 
