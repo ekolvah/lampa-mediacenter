@@ -11,10 +11,10 @@
 
 ## 2. Плагин
 
-- [ ] 2.1 Слушатель `full`/`complite` в `startPlugin`: `.button--kp-trailer` после `.button--play`, только
+- [x] 2.1 Слушатель `full`/`complite` в `startPlugin`: `.button--kp-trailer` после `.button--play`, только
   при `.view--trailer`; без `.button--play` — предупреждение (решения 1, 4, 5). Проверка: тесты
   «button inserted after play», «no button without trailers», «no play button, warning».
-- [ ] 2.2 Нажатие: одноразовый перехват `Lampa.Select.show`, `onSelect` первого пункта без `separator`;
+- [x] 2.2 Нажатие: одноразовый перехват `Lampa.Select.show`, `onSelect` первого пункта без `separator`;
   пустой список — исходный `show` и предупреждение; перехват не вызван — предупреждение (решения 2, 3).
   Проверка: «button plays first item via engine onSelect», «empty list shows list, warning»,
   «not intercepted, warning», «Select.show restored», «separator first plays next item». Затем

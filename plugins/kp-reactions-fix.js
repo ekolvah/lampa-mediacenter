@@ -9,7 +9,8 @@
   // названия, и подставляет в ответ KP.full() reactions и videos тем же способом,
   // каким их получает штатный источник tmdb — см. docs/lampa-config-review.md.
   // Если русского видео у TMDB нет, первым в список ставится русский трейлер с
-  // YouTube от сервиса трейлеров на приставке (docs/jacred-on-ugoos.md).
+  // YouTube от сервиса трейлеров на приставке (docs/jacred-on-ugoos.md). Кнопка
+  // «Трейлер» в строке кнопок карточки запускает первый ролик этого списка.
 
   var WEEK = 60 * 24 * 7; // life кэша движка — в минутах
   var TRAILER_SERVICE = 'http://127.0.0.1:9118/trailer';
@@ -164,7 +165,42 @@
     KP.__reactions_patched = true;
   }
 
+  // Кнопка «Трейлер» сразу за «Смотреть» запускает первый ролик списка «Трейлеры» с одного
+  // нажатия (spec kp-card-trailers). Список собирает и ролик запускает сам движок: обработчик
+  // .view--trailer синхронно зовёт Lampa.Select.show, кнопка на этот вызов его перехватывает.
+  function addTrailerButton(e) {
+    if (e.type !== 'complite') return;
+    // Карточку без трейлеров движок оставляет без .view--trailer ещё до complite.
+    var trailers = e.body.find('.view--trailer');
+    if (!trailers.length) return;
+    var movie = (e.data && e.data.movie) || {};
+    var name = movie.title || movie.name || '';
+    var play = e.body.find('.button--play');
+    if (!play.length) return console.warn('kp-reactions-fix: no play button, no trailer button', name);
+
+    var button = $('<div class="full-start__button selector button--kp-trailer">' +
+      '<svg><use xlink:href="#sprite-trailer"></use></svg><span>Трейлер</span></div>');
+    button.on('hover:enter', function () {
+      var show = Lampa.Select.show;
+      var list = null;
+      Lampa.Select.show = function (params) { list = params; };
+      try {
+        trailers.trigger('hover:enter');
+      } finally {
+        Lampa.Select.show = show;
+      }
+      if (!list) return console.warn('kp-reactions-fix: trailer list not intercepted', name);
+
+      var first = (list.items || []).filter(function (item) { return !item.separator; })[0];
+      if (first) return list.onSelect(first);
+      console.warn('kp-reactions-fix: no trailer for button', name);
+      show.call(Lampa.Select, list);
+    });
+    play.after(button);
+  }
+
   function startPlugin() {
+    Lampa.Listener.follow('full', addTrailerButton);
     if (Lampa.Api.sources.KP) return patch();
 
     // kp_source грузится отдельным тегом script — порядок завершения между
