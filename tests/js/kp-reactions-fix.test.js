@@ -20,7 +20,7 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // отдаёт ошибку (jqXHR: status 0 при отказе соединения и таймауте, responseJSON при JSON-теле).
 function load(over) {
   const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS }, over);
-  const calls = { get: [], videos: [], reactions: [], service: [], warn: [], done: [] };
+  const calls = { get: [], videos: [], reactions: [], service: [], warn: [], done: [], listeners: {}, shown: [] };
   function Reguest() { this.ms = null; }
   Reguest.prototype.timeout = function (ms) { this.ms = ms; };
   Reguest.prototype.silent = function (url, ok, err) {
@@ -52,15 +52,56 @@ function load(over) {
       ok(opts.reactions);
     },
   };
+  // Lampa.Select.show движка: список на экране.
+  const Select = { show(params) { calls.shown.push(params); } };
+  const Listener = { follow(name, fn) { calls.listeners[name] = fn; } };
   const ctx = {
-    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest },
+    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener },
+    $: element,
     console: { warn(...args) { calls.warn.push(args); }, log() {} },
     setInterval, clearInterval,
   };
   ctx.window = ctx;
+  calls.ctx = ctx;
+  calls.originalShow = Select.show;
   vm.runInNewContext(SRC, ctx);
   KP.full({ id: 'KP_1', method: 'movie' }, (result) => calls.done.push(result), () => {});
   return calls;
+}
+
+// Двойник jQuery-элемента, который создаёт плагин: разметка и обработчики событий.
+function element(html) {
+  return { html, handlers: {}, on(ev, fn) { this.handlers[ev] = fn; return this; } };
+}
+
+// Карточка открыта: событие full/complite с e.body в памяти (design 6). opts: trailers — есть ли
+// .view--trailer; play — есть ли .button--play; items — список, который обработчик .view--trailer
+// движка синхронно отдаёт в Lampa.Select.show; intercept: false — обработчик Select.show не зовёт.
+// Возвращает calls с after (что вставлено за «Смотреть») и played (что запустил onSelect движка).
+function openCard(over) {
+  const opts = Object.assign({ trailers: true, play: true, items: TRAILER_ITEMS, intercept: true }, over);
+  const c = load();
+  c.after = [];
+  c.played = [];
+  const engine = { title: 'YouTube - Зверь', items: opts.items, onSelect(item) { c.played.push(item); } };
+  c.engine = engine;
+  const body = {
+    find(sel) {
+      if (sel === '.view--trailer') {
+        return {
+          length: opts.trailers ? 1 : 0,
+          trigger(ev) { if (ev === 'hover:enter' && opts.intercept) c.ctx.Lampa.Select.show(engine); },
+        };
+      }
+      if (sel === '.button--play') {
+        return { length: opts.play ? 1 : 0, after(el) { c.after.push(el); return this; } };
+      }
+      return { length: 0 };
+    },
+  };
+  c.listeners.full({ type: 'complite', body, data: { movie: BEAST } });
+  c.press = () => c.after[0].handlers['hover:enter']();
+  return c;
 }
 
 // Поля карточек сняты с приставки, ответы поиска — с TMDB, 2026-11-07 (proposal, Why).
@@ -89,11 +130,22 @@ const q = (title) => encodeURIComponent(title);
 const SERVICE_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Зверь') + '&original_title=The%20Beast&year=2026';
 // «Зверь» без imdb_id, найден поиском по названию: дальше решают видео TMDB и сервис.
 const BEAST_CARD = { movie: BEAST, search: { results: [BEAST_2026] } };
+// Пункты списка «Трейлеры», как их собрал движок для «Зверя» (proposal, Why): ролик сервиса,
+// разделитель «Ещё», en-ролик TMDB.
+const RU_ITEM = { title: PICK.title, id: PICK.video_id };
+const MORE_ITEM = { title: 'Ещё', separator: true };
+const EN_ITEM = { title: EN_VIDEOS.results[0].name, id: EN_VIDEOS.results[0].key };
+const TRAILER_ITEMS = [RU_ITEM, MORE_ITEM, EN_ITEM];
+
+// Ровно одно предупреждение, и в нём все needles.
+function assertWarned(c, ...needles) {
+  assert.strictEqual(c.warn.length, 1);
+  assert.ok(needles.every((n) => c.warn[0].includes(n)), JSON.stringify(c.warn));
+}
 
 // Исход «тайтла нет»: одно предупреждение со всеми needles, без видео и реакций, карточка открыта.
 function assertWarnedNoTrailers(c, ...needles) {
-  assert.strictEqual(c.warn.length, 1);
-  assert.ok(needles.every((n) => c.warn[0].includes(n)), JSON.stringify(c.warn));
+  assertWarned(c, ...needles);
   assert.strictEqual(c.videos.length + c.reactions.length, 0);
   assert.strictEqual(c.done.length, 1);
   assert.strictEqual(c.done[0].videos, undefined);
@@ -268,4 +320,66 @@ test('find error warns with imdb_id, card opens', () => {
   assert.ok(c.warn[0].includes('tt1675434'), JSON.stringify(c.warn));
   assert.strictEqual(c.get.length, 1);
   assert.strictEqual(c.done.length, 1);
+});
+
+test('button inserted after play', () => {
+  const c = openCard();
+  assert.strictEqual(c.after.length, 1);
+  assert.ok(c.after[0].html.includes('button--kp-trailer'), c.after[0].html);
+  assert.ok(c.after[0].html.includes('Трейлер'), c.after[0].html);
+  assert.ok(c.after[0].html.includes('#sprite-trailer'), c.after[0].html);
+  assert.strictEqual(c.warn.length, 0);
+});
+
+test('no button without trailers', () => {
+  const c = openCard({ trailers: false });
+  assert.strictEqual(c.after.length, 0);
+  assert.strictEqual(c.warn.length, 0);
+});
+
+test('no play button, warning', () => {
+  const c = openCard({ play: false });
+  assert.strictEqual(c.after.length, 0);
+  assertWarned(c, 'Зверь');
+});
+
+test('button plays first item via engine onSelect', () => {
+  const c = openCard();
+  c.press();
+  assert.deepStrictEqual(c.played, [RU_ITEM]);
+  assert.strictEqual(c.shown.length, 0);
+  assert.strictEqual(c.warn.length, 0);
+});
+
+test('separator first plays next item', () => {
+  const c = openCard({ items: [MORE_ITEM, EN_ITEM] });
+  c.press();
+  assert.deepStrictEqual(c.played, [EN_ITEM]);
+  assert.strictEqual(c.shown.length, 0);
+});
+
+test('Select.show restored', () => {
+  for (const over of [{}, { items: [] }, { intercept: false }]) {
+    const c = openCard(over);
+    c.press();
+    assert.strictEqual(c.ctx.Lampa.Select.show, c.originalShow, JSON.stringify(over));
+  }
+});
+
+test('empty list shows list, warning', () => {
+  for (const items of [[], [MORE_ITEM]]) {
+    const c = openCard({ items });
+    c.press();
+    assert.strictEqual(c.played.length, 0);
+    assert.strictEqual(c.shown.length, 1);
+    assert.strictEqual(c.shown[0], c.engine);
+    assertWarned(c, 'Зверь');
+  }
+});
+
+test('not intercepted, warning', () => {
+  const c = openCard({ intercept: false });
+  c.press();
+  assert.strictEqual(c.played.length, 0);
+  assertWarned(c, 'Зверь');
 });

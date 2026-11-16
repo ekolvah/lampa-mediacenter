@@ -1,7 +1,7 @@
 # trailer-search-service Specification
 
 ## Purpose
-TBD - created by archiving change kp-trailers-ru-youtube. Update Purpose after archive.
+Сервис на приставке (`127.0.0.1:9118`) находит на YouTube русский трейлер по названию и году карточки, чтобы `kp-reactions-fix.js` поставил его первым в «Трейлеры», когда у TMDB русского видео нет; ошибки поиска видны, ответы кэшируются, сервис поднимается сам после перезагрузки.
 
 ## Requirements
 

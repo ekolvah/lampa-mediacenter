@@ -6,7 +6,10 @@ function kpCard(id) {
 }
 
 // Открыть KP-карточку, дождаться в ней кнопки «Трейлеры» и фокуса пульта на «Смотреть».
+// Сбрасывает ролик сервиса прошлой карточки (Activity.push страницу не перезагружает): шаг,
+// которому нужен window.__kpRuTrailer, задаёт его после openCard.
 async function openCard(id) {
+  window.__kpRuTrailer = null;
   Lampa.Activity.push(Object.assign({ url: '', component: 'full' }, kpCard(id)));
   var opened = await Live.waitFor(function () { return Lampa.Activity.active().component === 'full'; }, 10000);
   Live.check(opened, 'карточка не открылась: ' + Lampa.Activity.active().component);

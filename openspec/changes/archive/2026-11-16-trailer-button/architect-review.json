@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "All four round-1 findings are closed in the artifacts. The stale live-test global is reset before the «1+1» run, the removal timing and the sprite now cite the engine source and the device DOM, the separator skip has a named test, and the Risks give the real outcome per case with the catcher that is actually reached.",
+  "classes": {
+    "simpler": {
+      "evidence": "Unchanged from round 1. proposal.md 'Standard approach' rejects the full_btn_priority clone because it opens the same list. design.md decision 1 rejects a separate plugin file (a second sha-pinned URL), and decision 2 rejects a private copy of order and launch because it would drift from lampa.mx. The interceptor is the smallest design that launches through the engine itself.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "Every delta scenario is mapped. 'Первый ролик списка' now also names «separator first plays next item», and design.md decision 6 describes its double: a separator first, then an en video, and the en video is played. tasks.md 2.2 lists it as a verification. The other three scenarios map as in round 1.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Unchanged. Group 1 writes the doubles and the mapped tests (1.1), then runs agent-process check_red tests/test_plugin_js.py::test_plugin_js and commits RED (1.2). .github/agent-process-quality.json declares test.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "proposal.md Why adds an observation from the same app.min.js?v=1994234, read through cdp.py. Trailers.onCreate removes .view--trailer for adult cards, cards without videos and disable_features.trailers. The card calls _this.build(rows) before Listener.send('full', {type: 'complite'}), so the removal precedes complite. #sprite-trailer is a symbol inside svg in the device DOM, and the template's own .view--trailer uses it. Decisions 4 and 5 cite this. Using the source order instead of opening a live card with no videos is acceptable: the source text is the reference. The other behaviours were observed in round 1.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "In tasks.md 3.1 and the Impact list, open-card.js now resets window.__kpRuTrailer before the «1+1» run and gives the reason (Activity.push does not reload the page). So playing.js checks the service key only in the two «Зверь» passes, by button and by list, and the «1+1» pass only checks that a trailer plays. The plugin replaces no project input and drops no guard.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "design.md Risks now gives each case and what happens. If show becomes async, the interceptor is not called and show is already restored, so the engine shows its own list, with the decision 3 warning. If the handler is gone or items changes shape, nothing launches and only the console warning remains. If on.js inserts its button first, «Трейлер» lands one step further from «Смотреть». In every case the catcher reached is the user, with «Смотреть» → «Трейлеры» still working, and then bash tests/live/kp-trailers.sh (including button-focus) on the next plugin change. The Risks reject a scheduled run on goal 2 and keep Lampa.Noty out per §VII. Both choices are traceable and reasoned.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "The spec is unchanged since round 1. One ADDED requirement of about 75 words; every SHALL/MUST sentence is asserted by a mapped unit test or live step. «Трейлеры» staying in the «Смотреть» menu is asserted by the retained menu-focus passes in kp-trailers.sh.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "Unchanged. 'Standard approach' cites the engine's own full_btn_priority, with the source URL, and a 'none found' backed by the queries run and the plugins on the device. The design follows the full/complite button path that on.js and shots-view-button use. The only new artefact is the live step button-focus.js inside the existing harness; no new script or check.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}

@@ -26,9 +26,8 @@
   var first = videos[0];
   Live.check(first.iso_639_1 === 'ru' && first.key === pick.video_id,
     'первым не ролик сервиса ' + pick.video_id + ': ' + first.key + ' (' + first.iso_639_1 + ')');
-  // Для trailer-focus.js: под фокусом списка «Трейлеры» должен быть этот пункт.
-  window.__kpRuTrailerName = first.name;
-
   await openCard(ID);
+  // Для trailer-focus.js и playing.js: под фокусом списка «Трейлеры» и в плеере — этот ролик.
+  window.__kpRuTrailer = first;
   return 'ok: ' + ID + ' без imdb_id, видео ' + videos.length + ', первым ' + first.key;
 })()

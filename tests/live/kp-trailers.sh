@@ -27,8 +27,15 @@ play_first_trailer() {
   step playing
 }
 
-echo "== «Зверь» (без imdb_id): первым русский трейлер сервиса, он и играет с пульта"
+echo "== «Зверь» (без imdb_id): первым русский трейлер сервиса, кнопка «Трейлер» играет его с пульта"
 step open-card-no-imdb
+python tools/ui.py --keys "DPAD_RIGHT"
+step button-focus
+python tools/ui.py --keys "DPAD_CENTER"
+step playing
+
+echo "== «Зверь»: тот же ролик через «Смотреть» -> «Трейлеры»"
+python tools/ui.py --keys "DPAD_LEFT"
 play_first_trailer trailer-focus
 
 echo "== «1+1» (с imdb_id): «Трейлеры» есть, трейлер играет с пульта"
