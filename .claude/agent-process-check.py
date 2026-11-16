@@ -8,9 +8,7 @@ no install of another scope applies to the project. A project-level install is r
 command that removes it; any other case, or a check that cannot decide, is `skill not loaded`.
 When the project's `.pre-commit-config.yaml` carries the agent-process block and this clone does
 not run pre-commit's pre-push hook, or the check cannot tell, it is `pre-push hook not
-installed` with the two commands that install it. Unless the session's `GH_TOKEN` is the
-`env.GH_TOKEN` of the project's `.claude/settings.local.json`, or when the check cannot read it,
-it is `agent identity not set` with the `agent_identity` command. Any marker is printed in one
+installed` with the two commands that install it. Any marker is printed in one
 hook JSON:
 a `systemMessage` for the person, one line per marker, and an `additionalContext` for the agent.
 It always exits 0: a crashing hook is silent, and the marker is the carrier.
@@ -38,9 +36,6 @@ PRE_PUSH_FIX = (
 # The line pre-commit writes into every hook it installs, as `manual.py` of the installer reads it.
 PRE_COMMIT_ID = "# ID: 138fd403232d2ddd5efb44317e38bf03"
 BEGIN = "# agent-process:begin"
-IDENTITY_MARKER = "agent-process agent identity not set"
-IDENTITY_FIX = "agent-process agent_identity --bot <login> --dry-run"
-LOCAL_SETTINGS = ".claude/settings.local.json"
 
 
 def verdict(listing: Any, project: str) -> tuple[str, str] | None:
@@ -120,27 +115,25 @@ def _pre_push(project: Path) -> tuple[str, str] | None:
     git = shutil.which("git")
     if git is None:
         return PRE_PUSH_MARKER, "cannot check: `git` is not on PATH"
-    if _git(git, project, (0, 1), "config", "--get", "core.hooksPath").returncode == 0:
-        return PRE_PUSH_MARKER, "core.hooksPath is set"
     done = _git(git, project, (0,), "rev-parse", "--git-path", "hooks/pre-push")
     hook = project / done.stdout.strip()
+    if _git(git, project, (0, 1), "config", "--get", "core.hooksPath").returncode == 0:
+        try:
+            names = sorted(p.name for p in hook.parent.iterdir() if p.suffix != ".sample")
+        except FileNotFoundError:
+            names = []
+        reason = "core.hooksPath is set"
+        if names:
+            reason += (
+                f" and {hook.parent} holds {', '.join(names)}: git stops running them once it is"
+                " unset, so port them to .pre-commit-config.yaml as repo: local hooks first"
+            )
+        return PRE_PUSH_MARKER, reason
     try:
         installed = PRE_COMMIT_ID.encode() in hook.read_bytes()
     except FileNotFoundError:
         installed = False
     return None if installed else (PRE_PUSH_MARKER, f"{hook} is not pre-commit's hook")
-
-
-def _identity(project: Path) -> tuple[str, str] | None:
-    """`(IDENTITY_MARKER, reason)` unless the session's `GH_TOKEN` is the agent's token that the
-    project's local settings hold; a token the person exported does not silence it."""
-    session = os.environ.get("GH_TOKEN")
-    if not session:
-        return IDENTITY_MARKER, "the session has no GH_TOKEN"
-    data = json.loads((project / LOCAL_SETTINGS).read_text(encoding="utf-8"))
-    if session != data.get("env", {}).get("GH_TOKEN"):
-        return IDENTITY_MARKER, f"the session's GH_TOKEN is not env.GH_TOKEN of {LOCAL_SETTINGS}"
-    return None
 
 
 def _git(
@@ -167,12 +160,6 @@ def _texts(headline: str, reason: str, argv: list[str]) -> tuple[str, str]:
     if headline == PRE_PUSH_MARKER:
         fix = PRE_PUSH_FIX
         advice = "Tell the person to run these commands in this clone; until then a push runs no local check."
-    elif headline == IDENTITY_MARKER:
-        fix = IDENTITY_FIX
-        advice = (
-            "Tell the person to run it, then with --confirm, and to restart Claude Code; until"
-            " then GitHub sees the agent as the person."
-        )
     else:
         fix = argv[0] if argv else "the Install section of the agent-process SKILL.md"
         advice = (
@@ -188,7 +175,6 @@ def main(argv: list[str]) -> int:
     found = [
         _guarded(lambda: _verdict(argv), MARKER),
         _guarded(lambda: _pre_push(project), PRE_PUSH_MARKER),
-        _guarded(lambda: _identity(project), IDENTITY_MARKER),
     ]
     texts = [_texts(headline, reason, argv) for headline, reason in filter(None, found)]
     if not texts:
