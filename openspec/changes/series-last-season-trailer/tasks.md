@@ -58,7 +58,7 @@
   (`/2\s*сезон|сезон\s*2|season\s*2/i`, иначе `Live.check` падает с названием); `openCard`, `window.__kpRuTrailer` = первый ролик. В `kp-trailers.sh`
   проход кнопкой «Зверя» (`DPAD_RIGHT`, `button-focus`, `DPAD_CENTER`, `playing`) выносится в
   `play_trailer_button <шаг открытия>`, затем `play_trailer_button open-card-season` для «Джентльменов».
-- [ ] 4.2 Выкладка по design.md, Migration Plan, шаги 1–3. Проверка: `bash tests/live/kp-trailers.sh`
+- [x] 4.2 Выкладка по design.md, Migration Plan, шаги 1–3. Проверка: `bash tests/live/kp-trailers.sh`
   → `OK: kp-trailers`. Коммит группы.
 
 ## 5. Доки (отдельный коммит)
