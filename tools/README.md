@@ -223,22 +223,28 @@ diff(до, после) обязан совпасть с запрошенным �
 тестом идёт характеризационный: он падает, если фейк перестал быть опасным, — иначе
 остальные тесты доказывали бы пустоту.
 
-## `chroot-debian.sh` / `jacred-start.sh` / `jacred-boot.sh` — свой парсер торрентов
+## Скрипты приставки: Debian-chroot, JacRed и сервис трейлеров
 
-Три скрипта для устройства. `chroot-debian.sh` входит в Debian-chroot в
-`/data/debian`, `jacred-start.sh` поднимает внутри него JacRed,
-`jacred-boot.sh` делает то же самое при загрузке приставки (лежит в
-`/system/su.d/99jacred`, выполняется SuperSU). Обслуживают установку, описанную
-в [../docs/jacred-on-ugoos.md](../docs/jacred-on-ugoos.md), — там же раскладка на
-устройство, диагностика и откат.
+Обслуживают установку, описанную в [../docs/jacred-on-ugoos.md](../docs/jacred-on-ugoos.md), —
+там же раскладка на устройство, диагностика и откат.
+
+- `chroot-debian.sh` — вход в Debian-chroot в `/data/debian`; повторный вход не плодит
+  монтирования.
+- `chroot-start.sh <имя> <каталог> <exec> [args…]` — запуск сервиса chroot в фоне через
+  `start-stop-daemon`: живой процесс — `already running`, код 0; упал на старте — хвост
+  `run.log`, код 1. Тесты — `tests/test_chroot_start.py` (нужен `start-stop-daemon`; на CI
+  есть, локально — WSL).
+- `start.d/jacred.sh`, `start.d/trailer-search.sh` — окружение и вызов `chroot-start.sh` для
+  каждого сервиса.
+- `chroot-boot.sh` — лежит в `/system/su.d/99chroot`, при загрузке запускает каждый
+  `start.d/*.sh`. Управление возвращает сразу (su.d выполняются последовательно внутри
+  daemonsu), отчёт — в `/data/local/tmp/chroot-boot.log` и в logcat под тегом `chroot-boot`.
+- `trailer_service.py` — HTTP-сервис `127.0.0.1:9118/trailer`: русский трейлер с YouTube
+  через библиотеку `ekolvah/trailer-search`, кэш 24 ч. Зависимости —
+  `trailer-search.requirements.txt` (их проверяет `pip-audit`), тесты —
+  `tests/test_trailer_service.py`, устройство не нужно.
 
 ```bash
-adb shell su -c '/system/bin/sh /data/local/tmp/chroot-debian.sh /root/jacred-start.sh'
-adb shell su -c '/system/bin/sh /data/local/tmp/chroot-debian.sh -c "dotnet --info"'
+adb shell '/system/bin/sh /data/local/tmp/chroot-debian.sh /root/start.d/trailer-search.sh'
+adb shell '/system/bin/sh /data/local/tmp/chroot-debian.sh -c "dotnet --info"'
 ```
-
-Первые два идемпотентны: повторный вход в chroot не плодит монтирования,
-повторный старт не поднимает второй экземпляр JacRed. `jacred-boot.sh` возвращает
-управление сразу (su.d выполняются последовательно внутри daemonsu, задерживать
-загрузку нельзя), а работу и весь свой отчёт уносит в фон — в
-`/data/local/tmp/jacred-boot.log` и в logcat под тегом `jacred-boot`.

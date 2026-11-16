@@ -1,0 +1,47 @@
+{
+  "verdict": "approve",
+  "round": 3,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Every round-1 and round-2 finding is closed in the artifacts: platform behaviour is probed on the device before code, the pidfile failure modes have reachable catchers, the start-stop-daemon tests can no longer skip silently on CI, and every scenario maps to a test or a reasoned n/a.",
+  "classes": {
+    "simpler": {
+      "evidence": "Unchanged from round 1. Decision 7 rejects querying the service in parallel for every card because that sends a YouTube search per card. proposal.md 'Standard approach' rejects Invidious, the Data API and a plugin-only search. The shared Python HeuristicStrategy requires a service. Decision 8 now uses the standard start-stop-daemon instead of a hand-written launcher, which shrinks tools/chroot-start.sh to a thin wrapper.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md 'Scenario → test map' covers all 15 delta scenarios. 'Повторный запуск' now names tests/test_chroot_start.py::test_already_running and ::test_stale_pidfile_starts. 'Ролик найден' and 'YouTube отказал' add the adapter tests test_library_adapter_maps_pick and _maps_error. 'После перезагрузки' remains n/a (a reboot of the box), and its reason names task 4.2 (curl and rc=0 in chroot-boot.log) plus test_failed_start_tails_log for the failed-start part.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Group 1 writes tasks 1.1–1.3, then 1.4 runs check_red over tests/test_trailer_service.py, tests/test_chroot_start.py and tests/test_plugin_js.py::test_plugin_js, and RED is committed. Decision 3 now keeps TrailerQuery, TrailerAnswer and SearchFailed local to the module. The library is imported only inside main() and passed through library_finder(find, profile_cls, error_cls), so the module and its tests load without trailer-search or yt-dlp, matching requirements-dev.txt. Library-name drift is caught by the live curl in task 4.2: a wrong attribute raises an exception the handler does not catch, the connection drops, and curl does not get a 200. Decision 5 (design.md:79) now maps SearchFailed → 502, consistent with decision 3 and task 2.1.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "The new task 0.2 runs before Group 1 and observes on the device: root, python3 3.13, `command -v start-stop-daemon`, the venv and requirements, and 3× timed find_trailer for Зверь and Лес. It stops if the median exceeds 10 s or anything is missing. Decision 7 no longer claims anything about engine behaviour: it rests on the plugin's own single delivery path (plugins/kp-reactions-fix.js:41, `done()` → `oncomplite(result)`, confirmed in the #47 worktree) and puts DOM patching after oncomplite out of scope. Card-open timing is task 4.3. The start-stop-daemon behaviour (--exec checks /proc/<pid>/exe, --oknodo, --output) cites the trixie manpage, and Essential: yes cites packages.debian.org. The CI runner is ubuntu-latest: `runs-on: ubuntu-latest` in ekolvah/agent-process-distribution .github/workflows/quality.yml@v3.29.0, read through gh api.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Decision 8 (design.md:131–140) lists what moving from pidof to a pidfile changes and what catches each failure mode. A stale pidfile whose pid now belongs to a foreign process fails the --exec match and the service starts (test_stale_pidfile_starts). A pid reused by another process of the same binary is accepted as residual risk, with the reason (one JacRed binary, no other long-lived python3.13 in the chroot), and is caught by the curl after reboot in task 4.2. A failed start produces rc=1 (test_failed_start_tails_log). An already-running service is covered by test_already_running. The pkill JacRed migration step is kept.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Decision 8 names the `rc=` line in chroot-boot.log, checked in task 4.2, as the boot catcher; the hook's background exit code is stated to be unread. Live check: 5.1 asserts results[0] is iso_639_1 ru with key == the service's video_id, and trailer-focus.js (5.2) asserts the focused «Трейлеры» item has that name before playing.js. The start-stop-daemon tests (test_stale_pidfile_starts, test_failed_start_tails_log, test_already_running) skip with a reason only off CI. When `CI` is set and the tool is missing, they fail with the reason (design.md:144, tasks.md 1.3), so the ubuntu-latest quality run cannot go green without exercising the wrapper. The pytest hook is `language: unsupported` and inherits the runner's environment, so it sees `CI`.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "The spec deltas are unchanged from round 1, so the word counts stand: about 50/45, 22/22, 25/25 and 30/0-automated (asserted on the device in 4.2) for trailer-search-service; about 8/8 and 70/70 for kp-card-trailers. The 'запускаться так же' sentence is now asserted by trailer-focus.js and playing.js. No sentence goes beyond what its tests assert.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "'Standard approach' is unchanged and adequate. tools/trailer_service.py follows the stdlib http.server standard (decision 2). The pip-audit hook reuses the existing standard (decision 9). tools/chroot-start.sh is now a thin wrapper over start-stop-daemon, the Debian standard for daemons without init (decision 8 cites the manpage and dpkg Essential). systemd is rejected for lack of init. tools/chroot-boot.sh keeps the su.d pattern that the existing docs describe. Every new script has a decision that names its problem.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "trailer-search-service",
+      "scenario": "После перезагрузки",
+      "reason": "n/a: перезагрузка приставки, задача 4.2 (`curl` и `rc=0` в `chroot-boot.log`); сбой старта — `tests/test_chroot_start.py::test_failed_start_tails_log`"
+    }
+  ]
+}

@@ -43,6 +43,11 @@ repos:
         args: [-r, requirements-dev.txt]
         files: ^requirements-dev\.txt$
         stages: [manual]
+      - id: pip-audit
+        name: pip-audit tools/trailer-search.requirements.txt
+        args: [-r, tools/trailer-search.requirements.txt]
+        files: ^tools/trailer-search\.requirements\.txt$
+        stages: [manual]
   - repo: local
     hooks:
       - id: pytest
