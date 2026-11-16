@@ -24,7 +24,7 @@
 
 ## 3. Доки (отдельный коммит)
 
-- [ ] 3.1 `docs/lampa-config-review.md`, «Текущее состояние»: абзац «Плеер для трейлеров».
+- [x] 3.1 `docs/lampa-config-review.md`, «Текущее состояние»: абзац «Плеер для трейлеров».
   Проверка: `python scripts/ci_check.py --only links`.
 
 ## 4. Verify

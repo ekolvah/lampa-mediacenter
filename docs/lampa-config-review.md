@@ -32,6 +32,15 @@ TorrServe на приставке** — см. отдельный раздел н
 инициализирован**. Это совпадает с best-practice рекомендацией (VLC стабильнее держит
 тяжёлые 4K/HDR потоки, чем встроенный веб-плеер). ✅ Менять не нужно.
 
+**Плеер для трейлеров:** `player_launch_trailers=youtube` — трейлеры YouTube (кнопка
+«Трейлер» и «Смотреть» → «Трейлеры») движок отдаёт в `Android.openYoutube`, их играет
+**SmartTube** (`org.smarttube.stable`, вошёл в аккаунт YouTube кодом активации TV). Встроенный
+плеер не годится: с IP приставки YouTube требует от анонимного клиента подтвердить, что это не
+бот, мост `yumata.github.io` получает ошибку `150`, и Lampa показывает «видео недоступно».
+Войти в аккаунт в WebView Lampa нельзя. Проверка — `tests/live/kp-trailers.sh`; откат —
+`Lampa.Storage.set('player_launch_trailers', 'inner')` через `tools/cdp.py`. Снапшот —
+`snapshots/2026-11-16_trailers-smarttube/NOTES.md`.
+
 **Качество по умолчанию:** `video_quality_default=2160` (4K). ✅ Уже максимальное.
 
 **Источник каталога:** `source=KP` — каталог Кинопоиска от плагина `kp_source`, чтобы
