@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 3,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Every round-1 and round-2 finding is closed: engine behaviours are observed and bounded, the live step and the unit tests assert what the user sees (season-2 name, engine sort keys), the catcher is traceable, and every cost of the fallback chain is stated.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md decisions 1-5 each name the simpler alternative and why it fails: 'empty' TMDB records (heuristic vs. known card type), mismatch → title search (loses mini-series), number_of_seasons (Gentlemen = 3, season 3 unaired, proposal.md), dating ru TMDB videos (season-1 ru trailer 2024-02-26 before the 2024-03-07 premiere), parallel season-videos request (two extra TMDB calls per series), library-side flag (another trailer-search release). Teaser fallback dropped as a fallback-for-a-fallback. TMDB-season fallback is the person's decision (proposal.md 'Решение пользователя').",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "11 trailer-search-service and 16 kp-card-trailers delta scenarios, each with a row in tasks.md '## Scenario → test map'. 'Трейлер последнего сезона с пульта' is now proven against the scenario, not the service: tasks.md 4.1 open-card-season.js fails with the name unless the first video's name matches /2\\s*сезон|сезон\\s*2|season\\s*2/i (matches «Джентльмены (2 сезон) …» and «Season 2 Official Trailer», rejects both observed season-1 titles in proposal.md), and button-focus/playing play that key through the engine's own list.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Group 1 (tasks.md 1.1-1.3): service tests with the exact v0.2.0 '; season 2 fallback' text, JS tests with tv-details and season-videos doubles (default one aired season so old series tests stay), check_red on tests/test_plugin_js.py::test_plugin_js plus the five new service node ids, RED commit before Group 2.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Observed and recorded in design.md Context (cdp.py, app.min.js?v=1994251, 2026-11-16): tmdb.videos source and its two get calls; season path via tmdb.videos({method:'tv/<id>/season', id:N}); nonexistent season → success with []; seasonFix body (re-requests season/1, expects episodes, so the callback can be lost) — decision 4 now bounds the wait by TRAILER_TIMEOUT_MS and ignores a late callback; trailer sort comparator (0 on equal times, then tmdb_lang / 'Ещё' / en split) — decision 4 now sets published_at strictly 1 s after the newest. TMDB fields from captured responses (proposal.md); library suffix at trailer-search v0.2.0 strategy.py:158.",
+      "result": "ok"
+    },
+    "replaced": {
+      "result": "ok",
+      "evidence": "Dropped guard 'ru video in TMDB → no service request' for N ≥ 2: decision 3, Risks (≈2.8 s cache miss), kept for films and one-season series by the extended 'ru video in TMDB' test. New input N from tv/<id>: failure modes in decision 2, test 'tv details error'. Card-open cap: design.md Risks ('Карточка сериала с N ≥ 2 открывается дольше') now names the ≈20 s worst case (service 10 s timeout, then the season-videos 10 s limit) as the price of decision 4's sequential request, reached only when both fail, each with its warning («service null, error or timeout», «no season trailer, error or timeout»). Old service + new plugin and rollback: Migration Plan."
+    },
+    "catcher": {
+      "evidence": "Library-wording risk: design.md Risks names tests/live/kp-trailers.sh step open-card-season as the catcher; traced: a changed suffix lets the service return a season-1 video as found, the plugin puts it first, and the name regex in tasks.md 4.1 fails on «Джентльмены (1 сезон) …». It is reached on a pin bump by the comment beside the pin (tasks.md 2.2); tools/trailer-search.requirements.txt is not under dependabot (.github/dependabot.yml covers github-actions only), so a bump is always a hand edit that passes that comment, and the service only changes on the box through the manual deploy. Structural fix: issue in ekolvah/trailer-search opened in task 2.3 at apply and linked from Risks and the suffix check. Season-videos callback loss: caught by the TRAILER_TIMEOUT_MS bound with a warning, proven by «no season trailer, error or timeout».",
+      "result": "ok"
+    },
+    "length": {
+      "result": "ok",
+      "evidence": "Spec: 'Трейлеры в KP-карточке' type-match sentence (~20 words) ← «find with movie and tv picks card type». 'Русский трейлер с YouTube' redirect (~15 words) ← «last season 2: service asked with season despite ru video». 'Трейлер последнего сезона' (~95 words): N from last episode ← «last season from last episode»; service with season despite ru, service video first ← «last season 2 …»; newest season trailer in any language first with warning ← «service gave nothing: newest TMDB season trailer first» (two trailers, newest first); list unchanged with warning incl. error/timeout ← «no season trailer, error or timeout»; tv-details failure ← «tv details error». Design decision 4 insertion keys (~45 words: iso_639_1 = tmdb_lang, published_at strictly 1 s after the newest) ← tasks.md 1.2: Storage.field('tmdb_lang') stub = 'ru', both keys asserted on the inserted video in the two mapped tests, one fixture with a TMDB video newer than the season-N date so the clamp decides the order. Service: season param, fallback → null with reason, season in cache key (~45 words) ← five service tests."
+    },
+    "bespoke": {
+      "evidence": "design.md '## Standard approach' cites the TMDB reference pages for find-by-id, tv-series-details (last_episode_to_air) and tv-season-videos; the design follows them and the fields are confirmed by captured responses (proposal.md). 'Готовый чужой плагин: none found' holds: the defect is in this repository's own kp_source bridge. The plan adds no new script or check: open-card-season.js is a step of the existing tests/live/kp-trailers harness, lib.js only shares two helpers with open-card-no-imdb.js.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
