@@ -61,18 +61,17 @@
 
       // Видео и, у сериала, его последний сезон — параллельно; решение о трейлере — когда пришли оба.
       var videos;
-      var season = null;
-      var waiting = title.method === 'tv' ? 2 : 1;
+      var season;
+      var waiting = 2;
       function ready() {
         if (--waiting === 0) trailers(result, title, videos, season, done);
       }
 
-      if (title.method === 'tv') {
-        lastSeason(title, function (last) {
-          season = last;
-          ready();
-        });
-      }
+      var getSeason = title.method === 'tv' ? lastSeason : function (t, cb) { cb(null); };
+      getSeason(title, function (last) {
+        season = last && last.number >= 2 ? last : null;
+        ready();
+      });
       // Сбой запроса движок отдаёт как пустой список — не отличить от «видео нет».
       tmdb.videos(title, function (answer) {
         videos = answer;
@@ -82,26 +81,26 @@
 
     // Список «Трейлеры»: видео TMDB, первым — русский трейлер сервиса; у сериала с последним
     // сезоном N ≥ 2 — трейлер сезона N, при отказе сервиса — из видео сезона в TMDB.
-    function trailers(result, title, videos, last, done) {
+    function trailers(result, title, videos, season, done) {
       var list = (videos && videos.results) || [];
       if (!list.length) {
         console.warn('kp-reactions-fix: no videos', title.method, title.id);
       }
       result.videos = videos;
-      var season = last && last.number >= 2 ? last : null;
       var hasRu = list.some(function (v) { return v.iso_639_1 === 'ru'; });
       // Русский ролик TMDB не говорит, какого он сезона, поэтому у сериала сервис спрашивают всегда.
       if (hasRu && !season) return done();
 
       var movie = result.movie;
+      var date = season ? season.date : releaseDate(movie);
       ruTrailer(movie, season, function (video) {
         if (video) {
-          result.videos = { results: putFirst(video, season ? season.date : releaseDate(movie), list) };
+          result.videos = { results: putFirst(video, date, list) };
           return done();
         }
         if (!season) return done();
         seasonTrailer(title, movie, season, function (trailer) {
-          if (trailer) result.videos = { results: putFirst(trailer, season.date, list) };
+          if (trailer) result.videos = { results: putFirst(trailer, date, list) };
           done();
         });
       });
@@ -111,12 +110,17 @@
       return new Date(video.published_at).getTime();
     }
 
+    // Самое новое видео по published_at; без даты не считается. null — датированных нет.
+    function newest(list) {
+      return list.reduce(function (max, v) { return time(v) > (max ? time(max) : -Infinity) ? v : max; }, null);
+    }
+
     // Ролик первым в списке «Трейлеры» по ключам сортировки движка: язык tmdb_lang (до «Ещё»)
     // и published_at строго позже самого нового в списке — при равных датах порядок не задан.
     function putFirst(video, date, list) {
-      var newest = list.reduce(function (max, v) { return time(v) > max ? time(v) : max; }, -Infinity);
+      var last = newest(list);
       var at = date;
-      if (newest > -Infinity && !(new Date(date).getTime() > newest)) at = new Date(newest + 1000).toISOString();
+      if (last && !(new Date(date).getTime() > time(last))) at = new Date(time(last) + 1000).toISOString();
       var first = {};
       for (var key in video) first[key] = video[key];
       first.iso_639_1 = Lampa.Storage.field('tmdb_lang');
@@ -148,19 +152,20 @@
         if (finished) return;
         finished = true;
         clearTimeout(timer);
-        if (!trailer) console.warn('kp-reactions-fix: no season trailer', movie.title || movie.original_title || '', 'season ' + season.number, reason);
+        if (!trailer) console.warn('kp-reactions-fix: no season trailer', cardName(movie), 'season ' + season.number, reason);
         cb(trailer);
       }
       var timer = setTimeout(function () { finish(null, 'timeout'); }, TRAILER_TIMEOUT_MS);
 
       tmdb.videos({ method: title.method + '/' + title.id + '/season', id: season.number }, function (videos) {
         var list = videos && Array.isArray(videos.results) ? videos.results : [];
-        var newest = null;
-        list.forEach(function (v) {
-          if (v.type === 'Trailer' && (!newest || time(v) > time(newest))) newest = v;
-        });
-        finish(newest, 'no trailer among ' + list.length + ' videos');
+        var trailer = newest(list.filter(function (v) { return v.type === 'Trailer'; }));
+        finish(trailer, 'no trailer among ' + list.length + ' videos');
       });
+    }
+
+    function cardName(movie) {
+      return movie.title || movie.original_title || '';
     }
 
     function releaseDate(movie) {
@@ -171,16 +176,15 @@
     // в форме видео TMDB; season — трейлер этого сезона. cb(null) — ролика нет, причина уже в
     // console.warn.
     function ruTrailer(movie, season, cb) {
-      var name = movie.title || movie.original_title || '';
+      var name = cardName(movie);
       var year = releaseDate(movie).slice(0, 4);
       var url = TRAILER_SERVICE + '?title=' + encodeURIComponent(name);
       if (movie.original_title) url += '&original_title=' + encodeURIComponent(movie.original_title);
       if (year) url += '&year=' + year;
       if (season) url += '&season=' + season.number;
-      var where = [name, year].concat(season ? ['season ' + season.number] : []);
 
       function fail(reason) {
-        console.warn.apply(console, ['kp-reactions-fix: no russian trailer'].concat(where, [reason]));
+        console.warn('kp-reactions-fix: no russian trailer', name, year, season ? 'season ' + season.number : '', reason);
         cb(null);
       }
 
@@ -202,7 +206,7 @@
       var tv = movie.type === 'tv';
       var method = tv ? 'tv' : 'movie';
       var year = releaseDate(movie).slice(0, 4);
-      var url = 'search/' + method + '?query=' + encodeURIComponent(movie.title || movie.original_title || '');
+      var url = 'search/' + method + '?query=' + encodeURIComponent(cardName(movie));
       if (year) url += (tv ? '&first_air_date_year=' : '&primary_release_year=') + year;
 
       function fail(reason) {
