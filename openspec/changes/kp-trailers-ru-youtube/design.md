@@ -86,10 +86,20 @@ yt-dlp, `requirements-dev.txt` не меняется. Тесты поднима�
 пустой список). Тайтлы с русским видео в TMDB его не трогают, в том числе «Лес», на котором
 эвристика ошибается. Параметры — `movie.title`, `movie.original_title` и год карточки, как в #47.
 Запрос — `new Lampa.Reguest()` с `timeout(10000)` и `silent(...)`: тот же класс, которым Lampa
-ходит в JacRed на loopback. Ролик вставляется первым в `result.videos.results` в форме видео TMDB
-(`{site: 'YouTube', key, name, iso_639_1: 'ru', type: 'Trailer'}`), и движок играет его тем же
-путём. Ролик добавляется, а не заменяет: неверный выбор виден как лишний пункт, английский
-трейлер не теряется.
+ходит в JacRed на loopback. Наблюдение 2026-11-16 (`cdp.py`): успех приходит в колбэк уже
+разобранным объектом, ошибка — jqXHR со `status` (0 при отказе соединения), `statusText` и
+`responseJSON`. Ролик вставляется первым в `result.videos.results` в форме видео TMDB
+(`{site: 'YouTube', key, name, iso_639_1: 'ru', type: 'Trailer', published_at}`), и движок играет
+его тем же путём. Ролик добавляется, а не заменяет: неверный выбор виден как лишний пункт,
+английский трейлер не теряется.
+
+Порядок в списке задаёт движок, не плагин. Наблюдение 2026-11-16, `app.min.js` (`view--trailer`):
+пункты сортируются по `published_at`, затем идут видео с `iso_639_1` = `Storage.field('tmdb_lang')`
+(на приставке `ru`), разделитель «Ещё» и видео на `en`; другие языки не показываются. Ролик
+сервиса — единственный на `ru` (сервис спрашивается только без них), поэтому стоит первым.
+`published_at` — дата релиза карточки (`release_date`/`first_air_date`, решение пользователя
+2026-11-16): даты ролика нет ни в плоской выдаче yt-dlp, ни в `TrailerPick`, а без неё подзаголовок
+пункта — «NaN undefined NaN» (`Lampa.Utils.parseTime(undefined).full`).
 
 ### 7. Открытие карточки ждёт сервис, не дольше 10 секунд
 
@@ -120,7 +130,8 @@ https://packages.debian.org/trixie/dpkg). Он даёт pid-файл (`--make-pi
   обёртка: `start-stop-daemon --status` → `already running`, код 0; иначе `--start --background
   --make-pidfile --pidfile <workdir>/<name>.pid --chdir <workdir> --output run.log --exec <exec>`,
   через 3 с снова `--status`, при неудаче хвост `run.log` и код 1. Окружение (`DOTNET_ROOT`,
-  `PATH`) задаёт вызывающий.
+  `PATH`, `TMPDIR=/tmp`) задаёт вызывающий: андроидный `TMPDIR=/data/local/tmp` протекает в
+  chroot, где этого каталога нет (наблюдение 2026-11-16, задача 0.2).
 - `tools/start.d/jacred.sh` и `tools/start.d/trailer-search.sh` — окружение сервиса и
   `exec /root/chroot-start.sh …`. На приставке лежат в `/data/debian/root/start.d/`.
 - `tools/chroot-boot.sh` вместо `jacred-boot.sh`, в `/system/su.d/99chroot` вместо `99jacred`.
