@@ -62,7 +62,7 @@
   → 200 с `video_id`; повторный запуск → `already running`, код 0. Затем перезагрузка (пользователь
   разрешил без отдельного вопроса, 2026-11-07): тот же `curl` → 200, в `/data/local/tmp/chroot-boot.log` `rc=0` для обоих, поиск
   торрентов работает.
-- [ ] 4.3 Плагин на приставку (тот же путь, что для `kp-card-trailers`). Замерить время открытия
+- [x] 4.3 Плагин на приставку (тот же путь, что для `kp-card-trailers`). Замерить время открытия
   карточки «Зверь» на промахе кэша (решение 7) и записать в `docs/jacred-on-ugoos.md`. Больше 10 с —
   стоп, вернуться к дизайну.
 
@@ -80,7 +80,7 @@
 
 ## 6. Доки (отдельный коммит)
 
-- [ ] 6.1 `docs/jacred-on-ugoos.md`, `tools/README.md`, `CLAUDE.md`, `docs/lampa-config-review.md` —
+- [x] 6.1 `docs/jacred-on-ugoos.md`, `tools/README.md`, `CLAUDE.md`, `docs/lampa-config-review.md` —
   по списку в proposal.md, Impact. Старое описание `jacred-start.sh`/`jacred-boot.sh`/`99jacred` удалить,
   а не дописать рядом. Проверка: `python scripts/ci_check.py --only links`.
 

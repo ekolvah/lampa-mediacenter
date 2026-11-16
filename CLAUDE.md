@@ -16,9 +16,10 @@
   как получить с него данные через Smart TV API.
 - [docs/4k-hdr-setup.md](docs/4k-hdr-setup.md) — что уже настроено, что проверено
   на реальном устройстве, и общие best-practice рекомендации по TorrServe/HDR/звуку.
-- [docs/jacred-on-ugoos.md](docs/jacred-on-ugoos.md) — свой парсер торрентов
-  (JacRed в Debian-chroot) на приставке вместо публичного `jac.red`: что
-  развёрнуто, как запускать после перезагрузки, как обновлять базу и откатить.
+- [docs/jacred-on-ugoos.md](docs/jacred-on-ugoos.md) — сервисы в Debian-chroot на
+  приставке: свой парсер торрентов (JacRed) вместо публичного `jac.red` и сервис
+  русских трейлеров с YouTube для KP-карточек: что развёрнуто, как запускать после
+  перезагрузки, как обновлять базу и yt-dlp, как откатить.
 - [docs/torrserver-tuning.md](docs/torrserver-tuning.md) — текущая настройка
   TorrServer (кэш, лимит соединений, порт пиров) и обязательный метод её
   изменения через API (`get` → правка → `set` полным объектом — частичный

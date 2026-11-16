@@ -1,4 +1,4 @@
-# Свой JacRed на приставке (Debian chroot)
+# Свой JacRed и сервис трейлеров на приставке (Debian chroot)
 
 Lampa ищет торренты через парсер. По умолчанию это чужой публичный `jac.red` —
 он работает, пока запросов немного, но отбивает нагрузку: замер на устройстве —
@@ -22,6 +22,9 @@ Jackett для этой роли не подходит: у него нет св�
 | База | `/opt/jacred/Data` | 4.8 ГБ, `fdb` из 256 шардов + `masterDb.bz`, ~1.25 млн ключей |
 | Конфиг | `/opt/jacred/init.conf` | читается из корня приложения, **не** из `Data/init.conf` |
 | HTTP | `http://127.0.0.1:9117` | `listenip: any`, `opensync: false` |
+| Python | `/usr/bin/python3` (внутри chroot) | 3.13 из Debian 13 (`python3`, `python3-venv`, `git`) |
+| Сервис трейлеров | `/opt/trailer-search` (внутри chroot) | `trailer_service.py` + venv по [../tools/trailer-search.requirements.txt](../tools/trailer-search.requirements.txt) |
+| HTTP трейлеров | `http://127.0.0.1:9118/trailer` | только loopback |
 
 Про конфиг стоит запомнить: в дистрибутиве лежит `Data/init.conf`, и выглядит он
 как рабочий файл настроек, но приложение его не читает — это шаблон. Без файла в
@@ -40,61 +43,115 @@ Lampa настроена на этот адрес: `jackett_url` = `http://127.0
 `/sync/*` не отдаём. Как база пополняется — раздел «Откуда берутся новые
 торренты».
 
+## Сервис трейлеров
+
+Плагин `kp-reactions-fix` ([lampa-config-review.md](lampa-config-review.md)) просит у него
+русский трейлер KP-карточки, когда у TMDB нет видео на `ru`:
+
+```bash
+# внутри chroot: в самом Android curl нет
+curl 'http://127.0.0.1:9118/trailer?title=Зверь&original_title=The%20Beast&year=2026'
+# {"video_id": "…", "title": "…", "confidence": …, "reason": "…"}; не нашёл — "video_id": null
+```
+
+Поиск на YouTube делает библиотека `ekolvah/trailer-search` (yt-dlp). Ответы, включая
+«не нашёл», кэшируются в памяти на 24 ч; ошибка YouTube не кэшируется — `502` и ERROR в
+`/opt/trailer-search/run.log`. Без `title` — `400`. Каждый ответ несёт
+`Access-Control-Allow-Origin: *`: страница Lampa открыта с origin `http://lampa.mx`, и без
+заголовка WebView отдаёт ей статус 0 вместо ответа.
+
+Время открытия карточки «Зверь» (`KP.full`, замер 2026-11-16): промах кэша сервиса — ~2,8 с
+(сам поиск ~2–2,5 с, первый после загрузки ~6 с), попадание в кэш — ~0,1 с. Плагин ждёт
+сервис не дольше 10 с, библиотека — не дольше 8 с.
+
+Обновить yt-dlp (YouTube регулярно ломает старые версии): поднять пин в
+`tools/trailer-search.requirements.txt` через PR, затем на приставке:
+
+```bash
+adb push tools/trailer-search.requirements.txt /data/debian/opt/trailer-search/requirements.txt
+adb shell '/system/bin/sh /data/local/tmp/chroot-debian.sh -c "TMPDIR=/tmp /opt/trailer-search/venv/bin/pip install -r /opt/trailer-search/requirements.txt"'
+```
+
+и перезапустить сервис (раздел «Запуск»).
+
 ## Запуск
 
-После загрузки приставки JacRed поднимается сам: скрипт лежит в
-`/system/su.d/99jacred`, SuperSU выполняет содержимое этого каталога при
-загрузке. Никаких действий с ноутбука не требуется.
+После загрузки приставки оба сервиса поднимаются сами: `/system/su.d/99chroot`
+(SuperSU выполняет этот каталог при загрузке) запускает внутри chroot каждый
+`/root/start.d/*.sh`. Никаких действий с ноутбука не требуется; новый сервис — новый
+файл в `start.d/`, без правки `/system`.
 
 Поднять вручную (например, после ручной остановки):
 
 ```bash
-adb shell su -c '/system/bin/sh /data/local/tmp/chroot-debian.sh /root/jacred-start.sh'
+adb shell '/system/bin/sh /data/local/tmp/chroot-debian.sh /root/start.d/jacred.sh'
+adb shell '/system/bin/sh /data/local/tmp/chroot-debian.sh /root/start.d/trailer-search.sh'
 ```
 
-Скрипт идемпотентен: если процесс уже жив, печатает `already running pid=…` и
-выходит; если упал на старте — печатает хвост `run.log` и возвращает `1`.
+Команды на приставке идут после `adb root` (`adb shell id` → `uid=0`). Запуск идемпотентен
+(`start-stop-daemon`, pid-файл `<каталог сервиса>/<имя>.pid`): живой процесс —
+`already running pid=…`, код 0; упал на старте — хвост `run.log`, код 1.
+
+Перезапуск сервиса трейлеров (например, после обновления `trailer_service.py`):
+
+```bash
+adb shell '/system/bin/sh /data/local/tmp/chroot-debian.sh -c "start-stop-daemon --stop --retry 5 --pidfile /opt/trailer-search/trailer-search.pid --exec /opt/trailer-search/venv/bin/python --remove-pidfile; bash /root/start.d/trailer-search.sh"'
+```
+
+JacRed после `pkill JacRed` завершается ~20 с: дождаться, пока `pidof JacRed` опустеет, и
+только потом запускать `start.d/jacred.sh`.
 
 ### Если после перезагрузки поиск не работает
 
 Смотреть сюда, в порядке убывания вероятности:
 
 ```bash
-adb shell su -c 'cat /data/local/tmp/jacred-boot.log'   # что сделал boot-хук
-adb logcat -d -s su.d jacred-boot                       # выполнил ли SuperSU хук вообще
-adb shell su -c 'pidof JacRed'                          # жив ли процесс
+adb shell cat /data/local/tmp/chroot-boot.log   # что сделал boot-хук: «<имя> rc=<код>: <вывод>»
+adb logcat -d -s su.d chroot-boot               # выполнил ли SuperSU хук вообще
+adb shell pidof JacRed                          # жив ли процесс
 ```
 
 Хук пишет в оба места на каждом шаге и не молчит при отказе: если
-`/data/local/tmp/chroot-debian.sh` или `/data/debian` не появились за пять минут
-после загрузки, в лог уходит `GIVING UP` с причиной.
+`/data/local/tmp/chroot-debian.sh` или `/data/debian/root/start.d` не появились за пять
+минут после загрузки, в лог уходит `GIVING UP` с причиной. Сбой одного сервиса не мешает
+остальным: у каждого своя строка `rc=`.
 
 ## Скрипты
 
-Все три лежат в [../tools/](../tools/) и раскладываются на устройство так:
+Лежат в [../tools/](../tools/) и раскладываются на устройство так (после `adb root`):
 
 ```bash
-adb push tools/chroot-debian.sh /data/local/tmp/chroot-debian.sh
-adb push tools/jacred-start.sh  /data/local/tmp/jacred-start.sh
-adb push tools/jacred-boot.sh   /data/local/tmp/jacred-boot.sh
-adb shell su -c 'cp /data/local/tmp/jacred-start.sh /data/debian/root/ &&
-                 chmod 755 /data/debian/root/jacred-start.sh /data/local/tmp/chroot-debian.sh'
+adb push tools/chroot-debian.sh   /data/local/tmp/chroot-debian.sh
+adb push tools/chroot-boot.sh     /data/local/tmp/chroot-boot.sh
+adb push tools/chroot-start.sh    /data/debian/root/chroot-start.sh
+adb shell mkdir -p /data/debian/root/start.d
+adb push tools/start.d/jacred.sh tools/start.d/trailer-search.sh /data/debian/root/start.d/
+adb push tools/trailer_service.py /data/debian/opt/trailer-search/trailer_service.py
+adb shell chmod 755 /data/local/tmp/chroot-debian.sh
 # автозапуск: единственная запись в /system
-adb shell su -c 'mount -o rw,remount / &&
-                 mkdir -p /system/su.d &&
-                 cp /data/local/tmp/jacred-boot.sh /system/su.d/99jacred &&
-                 chmod 0700 /system/su.d /system/su.d/99jacred &&
-                 mount -o ro,remount /'
+adb shell 'mount -o rw,remount / &&
+           mkdir -p /system/su.d &&
+           cp /data/local/tmp/chroot-boot.sh /system/su.d/99chroot &&
+           chmod 0700 /system/su.d /system/su.d/99chroot;
+           mount -o ro,remount /'
 ```
 
-`jacred-start.sh` кладётся ещё и внутрь chroot (`/data/debian/root/`), потому что
+`chroot-start.sh` и `start.d/` лежат внутри chroot (`/data/debian/root/`), потому что
 андроидные каталоги в chroot не смонтированы: `/data/local/tmp` изнутри не виден,
 и путь скрипта надо давать в системе координат chroot'а (`/root/…`).
 
-`chroot-debian.sh` — универсальный вход, годится не только для JacRed:
+venv сервиса трейлеров (один раз; `git` нужен pip для зависимости `git+https`):
 
 ```bash
-adb shell su -c '/system/bin/sh /data/local/tmp/chroot-debian.sh -c "dotnet --info"'
+adb shell '/system/bin/sh /data/local/tmp/chroot-debian.sh -c "export TMPDIR=/tmp; apt-get install -y --no-install-recommends python3 python3-venv git ca-certificates && python3 -m venv /opt/trailer-search/venv"'
+```
+
+затем `pip install` из раздела «Сервис трейлеров».
+
+`chroot-debian.sh` — универсальный вход в chroot:
+
+```bash
+adb shell '/system/bin/sh /data/local/tmp/chroot-debian.sh -c "dotnet --info"'
 ```
 
 ## Откуда берутся новые торренты
@@ -174,9 +231,15 @@ nextread=True` дата — это докуда база догналась.
 
 ## Откат
 
+Только сервис трейлеров: остановить его (команда `--stop` из «Запуск»), удалить
+`/data/debian/root/start.d/trailer-search.sh` и `/data/debian/opt/trailer-search`. Плагин
+без сервиса работает как раньше: TMDB-видео и `console.warn`, что русского трейлера нет.
+
+Всю установку:
+
 ```bash
-adb shell su -c 'rm -rf /data/debian'
-adb shell su -c 'mount -o rw,remount / && rm -rf /system/su.d && mount -o ro,remount /'
+adb shell 'rm -rf /data/debian'
+adb shell 'mount -o rw,remount / && rm -rf /system/su.d && mount -o ro,remount /'
 ```
 
 Первая команда убирает саму установку, вторая — автозапуск. Отдельно вернуть в
@@ -199,6 +262,9 @@ systemless-режима SuperSU (`/su`) — тоже.
 Y2038-совместимом glibc — отсюда именно Debian 13, а не более старый.
 Официальный установщик JacRed (`jacred.sh`) эту архитектуру не ставит, его
 `detect_arch` знает только amd64 и arm64, поэтому ассет разворачивался вручную.
+
+В chroot протекает андроидный `TMPDIR=/data/local/tmp`, которого там нет (на нём падает
+postinst `ca-certificates`), поэтому `start.d/*.sh` и команды выше задают `TMPDIR=/tmp`.
 
 Внутри chroot понадобился `/etc/apt/apt.conf.d/99android` с
 `APT::Sandbox::User "root";`: apt сбрасывает привилегии на пользователя `_apt`, а
