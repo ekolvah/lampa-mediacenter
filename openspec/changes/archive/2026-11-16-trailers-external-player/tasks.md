@@ -30,12 +30,12 @@
 ## 4. Verify
 
 - [x] 4.1 `/simplify`, коммит правок.
-- [ ] 4.2 `openspec validate --strict --all`.
-- [ ] 4.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 4.2 `openspec validate --strict --all`.
+- [x] 4.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 5. Deliver
 
-- [ ] 5.1 `agent-process archive_change trailers-external-player`, затем
+- [x] 5.1 `agent-process archive_change trailers-external-player`, затем
   `gh pr create --title "test: trailers-external-player" --body-file <отчёт>`. Отчёт ссылается на
   tracking issue простой ссылкой.
 - [ ] 5.2 `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`. Не больше трёх
