@@ -30,19 +30,19 @@
 
 ## 2. Сервис и запуск
 
-- [ ] 2.1 `tools/trailer_service.py`: свои типы и `TrailerFinder` Protocol, 400 на неверный запрос,
+- [x] 2.1 `tools/trailer_service.py`: свои типы и `TrailerFinder` Protocol, 400 на неверный запрос,
   200 с роликом или `null`, `SearchFailed` → 502 + ERROR (решения 3, 5). Проверка:
   `python -m pytest tests/test_trailer_service.py`.
-- [ ] 2.2 Кэш 24 ч без ошибок (решение 4). Проверка: тесты `test_cache_*`, `test_error_not_cached`.
-- [ ] 2.3 `library_finder` и `main()`: `127.0.0.1:9118`, импорт библиотеки внутри `main()`,
+- [x] 2.2 Кэш 24 ч без ошибок (решение 4). Проверка: тесты `test_cache_*`, `test_error_not_cached`.
+- [x] 2.3 `library_finder` и `main()`: `127.0.0.1:9118`, импорт библиотеки внутри `main()`,
   `find_trailer` + `YtDlpRetriever(socket_timeout=4, deadline_s=8)`, `time.monotonic`, лог в stderr (решения 2, 3).
   Проверка: `test_main_binds_loopback`, `test_library_adapter_*`.
-- [ ] 2.4 `tools/trailer-search.requirements.txt` и хук `pip-audit` на него (решение 9). Проверка:
+- [x] 2.4 `tools/trailer-search.requirements.txt` и хук `pip-audit` на него (решение 9). Проверка:
   `pre-commit run --hook-stage manual --all-files`. Если хук клонирует и собирает git-зависимость
   дольше минуты — сказать пользователю до коммита.
-- [ ] 2.5 `tools/chroot-start.sh` на `start-stop-daemon` (решение 8). Проверка:
+- [x] 2.5 `tools/chroot-start.sh` на `start-stop-daemon` (решение 8). Проверка:
   `python -m pytest tests/test_chroot_start.py` (на CI; локально без `start-stop-daemon` — skip).
-- [ ] 2.6 `tools/start.d/{jacred,trailer-search}.sh`, `tools/chroot-boot.sh`; удалить
+- [x] 2.6 `tools/start.d/{jacred,trailer-search}.sh`, `tools/chroot-boot.sh`; удалить
   `tools/jacred-start.sh`, `tools/jacred-boot.sh` (решение 8). Проверка: `bash -n` на всех; живая —
   задача 4.2. Коммит группы.
 

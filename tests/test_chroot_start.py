@@ -8,6 +8,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -80,7 +81,9 @@ def test_already_running(workdir: Path) -> None:
 
 def test_stale_pidfile_starts(workdir: Path) -> None:
     # pid из файла жив, но это чужой процесс (не sleep): --exec не совпадает, сервис поднимается.
-    foreign = subprocess.Popen(["cat"], stdin=subprocess.PIPE)
+    # Чужой — интерпретатор Python, не coreutils: в uutils (Ubuntu 26.04) cat и sleep — жёсткие
+    # ссылки на один inode, и --exec принял бы cat за sleep.
+    foreign = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(300)"])
     try:
         (workdir / "svc.pid").write_text(f"{foreign.pid}\n")
         proc = start(workdir, sleep_bin(), "300")
