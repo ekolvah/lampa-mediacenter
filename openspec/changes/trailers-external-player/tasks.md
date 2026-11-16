@@ -11,11 +11,11 @@
 
 ## 2. Живая проверка
 
-- [ ] 2.1 Новый `tests/live/kp-trailers/preflight.js` по design.md, решение 2. В `kp-trailers.sh`
+- [x] 2.1 Новый `tests/live/kp-trailers/preflight.js` по design.md, решение 2. В `kp-trailers.sh`
   его `step` идёт после `restart_lampa`.
-- [ ] 2.2 `tests/live/kp-trailers/playing.js` по решению 2: прочитать id, обнулить, проверить его;
+- [x] 2.2 `tests/live/kp-trailers/playing.js` по решению 2: прочитать id, обнулить, проверить его;
   `Live.check`.
-- [ ] 2.3 `tests/live/kp-trailers.sh`: `trailer_plays` по решению 2, один вызов `adb_sh`.
+- [x] 2.3 `tests/live/kp-trailers.sh`: `trailer_plays` по решению 2, один вызов `adb_sh`.
   Используется в проходе кнопкой и в `play_first_trailer`. Удалить `trailer-focus.js` и параметр
   `play_first_trailer`. В `open-card-no-imdb.js` поправить комментарий, который ссылается на
   `trailer-focus.js`. В шапке требование «YouTube + SmartTube».
