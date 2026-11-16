@@ -8,8 +8,13 @@
   // imdb_id или при пустом find — поиском TMDB по названию и году со сверкой
   // названия, и подставляет в ответ KP.full() reactions и videos тем же способом,
   // каким их получает штатный источник tmdb — см. docs/lampa-config-review.md.
+  // Если русского видео у TMDB нет, первым в список ставится русский трейлер с
+  // YouTube от сервиса трейлеров на приставке (docs/jacred-on-ugoos.md).
 
   var WEEK = 60 * 24 * 7; // life кэша движка — в минутах
+  var TRAILER_SERVICE = 'http://127.0.0.1:9118/trailer';
+  // Больше срока поиска в сервисе (8 с): при зависшем YouTube успевает прийти его 502.
+  var TRAILER_TIMEOUT_MS = 10000;
 
   // normalizeTitle/cleanTitle — копия из kp_source.js (наружу не экспортированы):
   // регистр, виды дефиса, «ё»/«е» и пунктуация при сравнении не важны.
@@ -52,11 +57,50 @@
 
       // Сбой запроса движок отдаёт как пустой список — не отличить от «видео нет».
       tmdb.videos(title, function (videos) {
-        if (!videos || !videos.results || !videos.results.length) {
+        var list = (videos && videos.results) || [];
+        if (!list.length) {
           console.warn('kp-reactions-fix: no videos', title.method, title.id);
         }
         result.videos = videos;
-        done();
+        var hasRu = list.some(function (v) { return v.iso_639_1 === 'ru'; });
+        if (hasRu) return done();
+
+        ruTrailer(result.movie, function (video) {
+          if (video) result.videos = { results: [video].concat(list) };
+          done();
+        });
+      });
+    }
+
+    function releaseDate(movie) {
+      return (movie.type === 'tv' ? movie.first_air_date : movie.release_date) || '';
+    }
+
+    // Русский трейлер с YouTube от сервиса трейлеров на приставке (tools/trailer_service.py),
+    // в форме видео TMDB. cb(null) — ролика нет, причина уже в console.warn.
+    function ruTrailer(movie, cb) {
+      var name = movie.title || movie.original_title || '';
+      var date = releaseDate(movie);
+      var year = date.slice(0, 4);
+      var url = TRAILER_SERVICE + '?title=' + encodeURIComponent(name);
+      if (movie.original_title) url += '&original_title=' + encodeURIComponent(movie.original_title);
+      if (year) url += '&year=' + year;
+
+      function fail(reason) {
+        console.warn('kp-reactions-fix: no russian trailer', name, year, reason);
+        cb(null);
+      }
+
+      var request = new Lampa.Reguest();
+      request.timeout(TRAILER_TIMEOUT_MS);
+      request.silent(url, function (found) {
+        if (!found || !found.video_id) return fail((found && found.reason) || 'empty answer');
+        // published_at — дата релиза карточки: движок сортирует по ней и пишет её подзаголовком.
+        cb({ site: 'YouTube', key: found.video_id, name: found.title, iso_639_1: 'ru', type: 'Trailer', published_at: date });
+      }, function (xhr) {
+        var body = xhr.responseJSON || {};
+        var detail = [body.error, body.detail].filter(Boolean).join(': ');
+        fail(['HTTP ' + xhr.status, xhr.statusText, detail].filter(Boolean).join(' '));
       });
     }
 
@@ -65,7 +109,7 @@
     function searchByTitle(movie, cb) {
       var tv = movie.type === 'tv';
       var method = tv ? 'tv' : 'movie';
-      var year = ((tv ? movie.first_air_date : movie.release_date) || '').slice(0, 4);
+      var year = releaseDate(movie).slice(0, 4);
       var url = 'search/' + method + '?query=' + encodeURIComponent(movie.title || movie.original_title || '');
       if (year) url += (tv ? '&first_air_date_year=' : '&primary_release_year=') + year;
 

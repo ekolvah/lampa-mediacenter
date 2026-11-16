@@ -48,7 +48,7 @@
 
 ## 3. Плагин
 
-- [ ] 3.1 `plugins/kp-reactions-fix.js`: условие «нет видео на `ru`», запрос к сервису с таймаутом
+- [x] 3.1 `plugins/kp-reactions-fix.js`: условие «нет видео на `ru`», запрос к сервису с таймаутом
   10 с, ролик первым в `videos.results`, предупреждения (решения 6, 7). Проверка:
   `node --test tests/js/kp-reactions-fix.test.js`. Коммит группы.
 
