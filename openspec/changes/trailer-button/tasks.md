@@ -22,7 +22,7 @@
 
 ## 3. Живая проверка
 
-- [ ] 3.1 `open-card-no-imdb.js` сохраняет первый ролик в `window.__kpRuTrailer` вместо
+- [x] 3.1 `open-card-no-imdb.js` сохраняет первый ролик в `window.__kpRuTrailer` вместо
   `__kpRuTrailerName`; `trailer-focus.js` читает `__kpRuTrailer.name`; `playing.js` при заданном
   `__kpRuTrailer` проверяет, что играет его `key`; `open-card.js` сбрасывает `__kpRuTrailer` перед
   проходом «1+1» (`Activity.push` страницу не перезагружает). Новый `button-focus.js` по образцу `menu-focus.js`:

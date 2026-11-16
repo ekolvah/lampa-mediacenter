@@ -1,7 +1,7 @@
 (function () {
   // В открытом списке «Трейлеры» под фокусом пульта — ролик сервиса из open-card-no-imdb.js:
   // DPAD_CENTER играет именно его, а не любой трейлер (playing.js проверяет только, что играет).
-  var want = window.__kpRuTrailerName;
+  var want = window.__kpRuTrailer && window.__kpRuTrailer.name;
   Live.check(want, 'нет имени ролика сервиса: сначала шаг open-card-no-imdb');
   var item = document.querySelector('.selectbox-item.focus');
   Live.check(item, 'в списке трейлеров нет пункта под фокусом, контроллер ' + Lampa.Controller.enabled().name);
