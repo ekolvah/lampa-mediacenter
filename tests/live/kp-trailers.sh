@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Живая проверка трейлеров в KP-карточках (plugins/kp-reactions-fix.js, change
-# kp-card-trailers, design.md решение 9). Код выхода — итог: JS-шаг бросает исключение ->
+# kp-card-trailers, design.md решение 9; change kp-trailers-ru-youtube — русский трейлер
+# сервиса 127.0.0.1:9118). Код выхода — итог: JS-шаг бросает исключение ->
 # cdp.py выходит с 1, ui.py не туда -> 1 -> set -e.
 #
 # Требует: ADB к приставке (UGOOS, по умолчанию 192.168.10.5:5555), плагин с трейлерами
-# на приставке, «Плеер для трейлеров» = встроенный. Сам перезапускает Lampa и ставит
+# на приставке, сервис трейлеров в chroot, «Плеер для трейлеров» = встроенный. Сам перезапускает Lampa и ставит
 # DevTools forward.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -15,19 +16,23 @@ source tests/live/lib.sh
 echo "== рестарт Lampa"
 restart_lampa
 
-echo "== шаг 0: KP-карточка без imdb_id находит трейлеры поиском по названию"
+# Пультом «Смотреть» -> «Трейлеры» -> первый трейлер; $1 — шаг проверки открытого списка
+# трейлеров перед запуском (необязательный). playing закрывает плеер.
+play_first_trailer() {
+  python tools/ui.py --keys "DPAD_CENTER,DPAD_DOWN x3" --expect select
+  step menu-focus
+  python tools/ui.py --keys "DPAD_CENTER" --expect select
+  if [ $# -gt 0 ]; then step "$1"; fi
+  python tools/ui.py --keys "DPAD_CENTER"
+  step playing
+}
+
+echo "== «Зверь» (без imdb_id): первым русский трейлер сервиса, он и играет с пульта"
 step open-card-no-imdb
+play_first_trailer trailer-focus
 
-echo "== шаг 1: в KP-карточке есть «Трейлеры»"
+echo "== «1+1» (с imdb_id): «Трейлеры» есть, трейлер играет с пульта"
 step open-card
-
-echo "== шаг 2: пультом «Смотреть» -> «Трейлеры» -> первый трейлер"
-python tools/ui.py --keys "DPAD_CENTER,DPAD_DOWN x3" --expect select
-step menu-focus
-python tools/ui.py --keys "DPAD_CENTER" --expect select
-python tools/ui.py --keys "DPAD_CENTER"
-
-echo "== шаг 3: трейлер играет"
-step playing
+play_first_trailer
 
 echo "OK: kp-trailers"

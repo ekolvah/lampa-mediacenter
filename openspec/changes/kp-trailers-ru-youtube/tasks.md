@@ -68,13 +68,13 @@
 
 ## 5. Живая проверка
 
-- [ ] 5.1 `tests/live/kp-trailers/open-card-no-imdb.js`: дописать проверку, что первым в
+- [x] 5.1 `tests/live/kp-trailers/open-card-no-imdb.js`: дописать проверку, что первым в
   `videos.results` стоит ролик с `iso_639_1` `ru`, и его `key` равен `video_id` из ответа сервиса
   (запрос к `127.0.0.1:9118` из того же шага); его `name` сохранить в `window` для шага 5.2.
-- [ ] 5.2 Новый шаг `tests/live/kp-trailers/trailer-focus.js`: в открытом списке «Трейлеры» под
+- [x] 5.2 Новый шаг `tests/live/kp-trailers/trailer-focus.js`: в открытом списке «Трейлеры» под
   фокусом пункт с этим `name` — то есть с пульта играет ролик сервиса, а не любой (`playing.js`
   проверяет только, что что-то играет).
-- [ ] 5.3 `tests/live/kp-trailers.sh`: шаги пульта (`ui.py` → `menu-focus` → `trailer-focus` →
+- [x] 5.3 `tests/live/kp-trailers.sh`: шаги пульта (`ui.py` → `menu-focus` → `trailer-focus` →
   `playing`) — в функцию, вызвать и для «Зверя». Проверка: `bash tests/live/kp-trailers.sh` → `OK`,
   затем рестарт процесса Lampa и `screencap` (CLAUDE.md, «Быстрый старт»). Коммит группы.
 
