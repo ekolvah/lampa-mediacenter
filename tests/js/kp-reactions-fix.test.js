@@ -84,6 +84,7 @@ function openCard(over) {
   c.after = [];
   c.played = [];
   const engine = { title: 'YouTube - Зверь', items: opts.items, onSelect(item) { c.played.push(item); } };
+  c.engine = engine;
   const body = {
     find(sel) {
       if (sel === '.view--trailer') {
@@ -131,15 +132,20 @@ const SERVICE_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Зверь') + '
 const BEAST_CARD = { movie: BEAST, search: { results: [BEAST_2026] } };
 // Пункты списка «Трейлеры», как их собрал движок для «Зверя» (proposal, Why): ролик сервиса,
 // разделитель «Ещё», en-ролик TMDB.
-const RU_ITEM = { title: PICK.title, id: 'J2VS_OlUJtA' };
+const RU_ITEM = { title: PICK.title, id: PICK.video_id };
 const MORE_ITEM = { title: 'Ещё', separator: true };
-const EN_ITEM = { title: 'The Beast | Official Trailer', id: 'aB3xQ9zLk2w' };
+const EN_ITEM = { title: EN_VIDEOS.results[0].name, id: EN_VIDEOS.results[0].key };
 const TRAILER_ITEMS = [RU_ITEM, MORE_ITEM, EN_ITEM];
+
+// Ровно одно предупреждение, и в нём все needles.
+function assertWarned(c, ...needles) {
+  assert.strictEqual(c.warn.length, 1);
+  assert.ok(needles.every((n) => c.warn[0].includes(n)), JSON.stringify(c.warn));
+}
 
 // Исход «тайтла нет»: одно предупреждение со всеми needles, без видео и реакций, карточка открыта.
 function assertWarnedNoTrailers(c, ...needles) {
-  assert.strictEqual(c.warn.length, 1);
-  assert.ok(needles.every((n) => c.warn[0].includes(n)), JSON.stringify(c.warn));
+  assertWarned(c, ...needles);
   assert.strictEqual(c.videos.length + c.reactions.length, 0);
   assert.strictEqual(c.done.length, 1);
   assert.strictEqual(c.done[0].videos, undefined);
@@ -334,8 +340,7 @@ test('no button without trailers', () => {
 test('no play button, warning', () => {
   const c = openCard({ play: false });
   assert.strictEqual(c.after.length, 0);
-  assert.strictEqual(c.warn.length, 1);
-  assert.ok(c.warn[0].includes('Зверь'), JSON.stringify(c.warn));
+  assertWarned(c, 'Зверь');
 });
 
 test('button plays first item via engine onSelect', () => {
@@ -367,9 +372,8 @@ test('empty list shows list, warning', () => {
     c.press();
     assert.strictEqual(c.played.length, 0);
     assert.strictEqual(c.shown.length, 1);
-    assert.strictEqual(c.shown[0].title, 'YouTube - Зверь');
-    assert.strictEqual(c.warn.length, 1);
-    assert.ok(c.warn[0].includes('Зверь'), JSON.stringify(c.warn));
+    assert.strictEqual(c.shown[0], c.engine);
+    assertWarned(c, 'Зверь');
   }
 });
 
@@ -377,6 +381,5 @@ test('not intercepted, warning', () => {
   const c = openCard({ intercept: false });
   c.press();
   assert.strictEqual(c.played.length, 0);
-  assert.strictEqual(c.warn.length, 1);
-  assert.ok(c.warn[0].includes('Зверь'), JSON.stringify(c.warn));
+  assertWarned(c, 'Зверь');
 });

@@ -82,7 +82,8 @@ YouTube есть, без `needclick` и `noplayed`, `.selectbox` на экран
   `tests/live/kp-trailers.sh` (проход кнопкой для «Зверя»), `tests/live/kp-trailers/open-card-no-imdb.js`
   и `trailer-focus.js` (одна глобальная `__kpRuTrailer` вместо `__kpRuTrailerName`),
   `tests/live/kp-trailers/playing.js` (если `__kpRuTrailer` задан, играет его `key`),
-  `tests/live/kp-trailers/open-card.js` (сбрасывает `__kpRuTrailer` перед проходом «1+1»).
+  `tests/live/kp-trailers/lib.js` (`openCard()` сбрасывает `__kpRuTrailer`: `Activity.push` страницу не
+  перезагружает; `open-card-no-imdb.js` задаёт его после `openCard`).
 - Добавляется: `tests/live/kp-trailers/button-focus.js`.
 - Доки (отдельным коммитом): `docs/lampa-config-review.md`, строка `kp-reactions-fix`: как
   открываются трейлеры.

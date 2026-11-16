@@ -24,8 +24,9 @@
 
 - [x] 3.1 `open-card-no-imdb.js` сохраняет первый ролик в `window.__kpRuTrailer` вместо
   `__kpRuTrailerName`; `trailer-focus.js` читает `__kpRuTrailer.name`; `playing.js` при заданном
-  `__kpRuTrailer` проверяет, что играет его `key`; `open-card.js` сбрасывает `__kpRuTrailer` перед
-  проходом «1+1» (`Activity.push` страницу не перезагружает). Новый `button-focus.js` по образцу `menu-focus.js`:
+  `__kpRuTrailer` проверяет, что играет его `key`; общий `openCard()` в `kp-trailers/lib.js`
+  сбрасывает `__kpRuTrailer` (`Activity.push` страницу не перезагружает), `open-card-no-imdb.js` задаёт его
+  после `openCard` (правка `/simplify`). Новый `button-focus.js` по образцу `menu-focus.js`:
   фокус на `.full-start__button` с текстом «Трейлер». В `kp-trailers.sh` для «Зверя» после
   `open-card-no-imdb` идёт проход кнопкой: `ui.py --keys DPAD_RIGHT` → `button-focus` →
   `ui.py --keys DPAD_CENTER` → `playing`, затем `ui.py --keys DPAD_LEFT` и прежний проход списком.
@@ -44,7 +45,7 @@
 
 ## 5. Verify
 
-- [ ] 5.1 `/simplify`, коммит правок.
+- [x] 5.1 `/simplify`, коммит правок.
 - [ ] 5.2 `openspec validate --strict --all`.
 - [ ] 5.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
