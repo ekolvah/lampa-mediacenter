@@ -38,7 +38,7 @@
 
 ## 4. Доки (отдельный коммит)
 
-- [ ] 4.1 `docs/lampa-config-review.md`, строка `kp-reactions-fix`: фразу «Трейлеры открываются через
+- [x] 4.1 `docs/lampa-config-review.md`, строка `kp-reactions-fix`: фразу «Трейлеры открываются через
   «Смотреть» → «Трейлеры»…» заменить описанием кнопки «Трейлер». Проверка:
   `python scripts/ci_check.py --only links`.
 
