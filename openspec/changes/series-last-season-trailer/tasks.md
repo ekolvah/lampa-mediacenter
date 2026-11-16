@@ -5,9 +5,9 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/test_trailer_service.py`: тесты `trailer-search-service` из карты ниже, которых ещё нет; в
+- [x] 1.1 `tests/test_trailer_service.py`: тесты `trailer-search-service` из карты ниже, которых ещё нет; в
   `reason` фейковой библиотеки — точный текст v0.2.0 `…; season 2 fallback` (design.md, решение 5).
-- [ ] 1.2 `tests/js/kp-reactions-fix.test.js`: двойник `tmdb.get` отвечает на `tv/<id>` (по умолчанию
+- [x] 1.2 `tests/js/kp-reactions-fix.test.js`: двойник `tmdb.get` отвечает на `tv/<id>` (по умолчанию
   один вышедший сезон, чтобы прежние тесты сериалов не менялись), двойник `tmdb.videos` — на
   `tv/<id>/season`; тесты `kp-card-trailers` из карты ниже, которых ещё нет; «ru video in TMDB: no
   service request» дополняется сериалом с одним сезоном.
@@ -16,7 +16,7 @@
   проверяются оба ключа сортировки движка у вставленного ролика: `iso_639_1` = `tmdb_lang` и
   `published_at` строго позже всех прочих. В одной фикстуре есть видео TMDB новее даты сезона N, чтобы
   первым ролик ставил именно сдвиг даты (design.md, решение 4).
-- [ ] 1.3 `agent-process check_red tests/test_plugin_js.py::test_plugin_js
+- [x] 1.3 `agent-process check_red tests/test_plugin_js.py::test_plugin_js
   tests/test_trailer_service.py::test_season_passed_to_finder tests/test_trailer_service.py::test_bad_season_400
   tests/test_trailer_service.py::test_cache_key_includes_season
   tests/test_trailer_service.py::test_library_adapter_passes_season
