@@ -46,12 +46,12 @@
 ## 5. Verify
 
 - [x] 5.1 `/simplify`, коммит правок.
-- [ ] 5.2 `openspec validate --strict --all`.
-- [ ] 5.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 5.2 `openspec validate --strict --all`.
+- [x] 5.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 6. Deliver
 
-- [ ] 6.1 `agent-process archive_change trailer-button`, затем
+- [x] 6.1 `agent-process archive_change trailer-button`, затем
   `gh pr create --title "feat: trailer-button" --body-file <отчёт>`. Отчёт ссылается на #58 простой
   ссылкой.
 - [ ] 6.2 `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`, не больше трёх раундов
