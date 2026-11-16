@@ -87,12 +87,12 @@
 ## 7. Verify
 
 - [x] 7.1 `/simplify`, коммит правок.
-- [ ] 7.2 `openspec validate --strict --all`.
-- [ ] 7.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 7.2 `openspec validate --strict --all`.
+- [x] 7.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 8. Deliver
 
-- [ ] 8.1 `agent-process archive_change kp-trailers-ru-youtube`, затем
+- [x] 8.1 `agent-process archive_change kp-trailers-ru-youtube`, затем
   `gh pr create --title "feat: kp-trailers-ru-youtube" --body-file <отчёт>`. Отчёт ссылается на #48
   простой ссылкой.
 - [ ] 8.2 `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`, не больше трёх раундов
