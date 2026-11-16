@@ -148,6 +148,23 @@ def test_retrieval_error_502_logged(service: Service, caplog: pytest.LogCaptureF
     assert "Зверь" in errors[0] and "2026" in errors[0]
 
 
+@pytest.mark.parametrize(
+    ("service", "path"),
+    [([PICK], BEAST), ([SearchFailed("blocked")], BEAST), ([], "/trailer"), ([], "/nope")],
+    indirect=["service"],
+)
+def test_cors_any_origin(service: Service, path: str) -> None:
+    # Страница Lampa (http://lampa.mx) читает ответ loopback-сервиса только с этим заголовком:
+    # без него WebView отдаёт плагину status 0, хотя сервис ответил 200 (наблюдение 2026-11-16).
+    req = urllib.request.Request(service.base + path, headers={"Origin": "http://lampa.mx"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            headers = resp.headers
+    except urllib.error.HTTPError as err:
+        headers = err.headers
+    assert headers["Access-Control-Allow-Origin"] == "*"
+
+
 @pytest.mark.parametrize("service", [[PICK]], indirect=True)
 def test_cache_hit_skips_search(service: Service) -> None:
     first = get(service, BEAST)

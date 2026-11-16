@@ -54,9 +54,9 @@
 
 ## 4. Приставка
 
-- [ ] 4.1 Разложить `trailer_service.py` в chroot (venv готов в задаче 0.2), снапшот по
+- [x] 4.1 Разложить `trailer_service.py` в chroot (venv готов в задаче 0.2), снапшот по
   `docs/snapshots-convention.md` перед правкой.
-- [ ] 4.2 Переход на общий запуск (решение 8): разложить `chroot-start.sh` и `start.d/`, `pkill JacRed`,
+- [x] 4.2 Переход на общий запуск (решение 8): разложить `chroot-start.sh` и `start.d/`, `pkill JacRed`,
   запустить оба `start.d/*.sh`; `99jacred` → `99chroot`. Проверка: поиск торрентов в Lampa работает;
   на приставке `curl 'http://127.0.0.1:9118/trailer?title=Зверь&original_title=The%20Beast&year=2026'`
   → 200 с `video_id`; повторный запуск → `already running`, код 0. Затем перезагрузка (пользователь
@@ -109,6 +109,7 @@
 | kp-card-trailers | Сервис ролик не дал | `tests/js/kp-reactions-fix.test.js` «service null, error or timeout: TMDB videos, warning» (по случаю на каждый исход) |
 | kp-card-trailers | Русский трейлер с пульта | `tests/live/kp-trailers.sh`, шаги `open-card-no-imdb`, `trailer-focus` и `playing` для «Зверя» |
 | trailer-search-service | Ролик найден | `tests/test_trailer_service.py::test_found_returns_pick`, `tests/test_trailer_service.py::test_library_adapter_maps_pick` |
+| trailer-search-service | Ответ читает страница Lampa | `tests/test_trailer_service.py::test_cors_any_origin` |
 | trailer-search-service | Ролик не найден | `tests/test_trailer_service.py::test_no_match_returns_null` |
 | trailer-search-service | Нет названия | `tests/test_trailer_service.py::test_bad_request_400` |
 | trailer-search-service | YouTube отказал | `tests/test_trailer_service.py::test_retrieval_error_502_logged`, `tests/test_trailer_service.py::test_library_adapter_maps_error` |

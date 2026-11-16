@@ -122,6 +122,9 @@ def build_server(
             data = json.dumps(body, ensure_ascii=False).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
+            # Без него WebView не отдаёт ответ странице Lampa (http://lampa.mx): status 0.
+            # «*» — сервис только на loopback и отдаёт публичные данные YouTube.
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)

@@ -5,6 +5,11 @@
 `year` (необязательны) JSON-объектом с полями `video_id`, `title`, `confidence` и `reason`. Ролик
 SHALL выбираться библиотекой `trailer-search`. Если подходящего ролика нет, ответ SHALL быть
 HTTP 200 с `video_id: null` и причиной в `reason`. Сервис SHALL слушать только `127.0.0.1`.
+Каждый ответ MUST нести `Access-Control-Allow-Origin: *`, чтобы его читала страница Lampa.
+
+#### Scenario: Ответ читает страница Lampa
+- **WHEN** запрос пришёл с заголовком `Origin: http://lampa.mx`
+- **THEN** ответ (200, 400, 404 или 502) несёт `Access-Control-Allow-Origin: *`
 
 #### Scenario: Ролик найден
 - **WHEN** приходит `GET /trailer?title=Зверь&original_title=The Beast&year=2026`, и поиск выбрал ролик

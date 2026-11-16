@@ -51,8 +51,16 @@ YouTube начнёт блокировать домашний IP (ретриве�
 Проблема: плагину в WebView нужен HTTP-адрес, а библиотека — Python. Стандарт —
 `http.server` (https://docs.python.org/3/library/http.server.html). Документация пишет, что он
 «not recommended for production» из-за отсутствия защиты. Здесь один клиент на loopback, так что
-это не мешает. Flask или FastAPI — лишняя зависимость на armhf без выигрыша (§VII). Порт свободен,
-CORS-заголовки не нужны (оба наблюдения — proposal).
+это не мешает. Flask или FastAPI — лишняя зависимость на armhf без выигрыша (§VII). Порт свободен
+(наблюдение — proposal).
+
+Каждый ответ несёт `Access-Control-Allow-Origin: *`. Наблюдение 2026-11-16 (задача 4.3): без него
+сервис логирует `GET /trailer … 200`, а `Lampa.Reguest` со страницы `http://lampa.mx` получает
+`status 0`, `statusText` `error`. JacRed на тот же запрос с `Origin: http://lampa.mx` отвечает
+`Access-Control-Allow-Origin: http://lampa.mx` (`curl -D -` в chroot), поэтому его ответ страница
+читает. Стандарт — CORS (https://fetch.spec.whatwg.org/#http-access-control-allow-origin).
+`*`, а не `http://lampa.mx`: сервис слушает только loopback и отдаёт публичные данные YouTube, а
+привязка к одному origin тихо сломалась бы при смене адреса Lampa. Тест `test_cors_any_origin`.
 
 ### 3. Внешний поиск за Protocol (§II)
 
