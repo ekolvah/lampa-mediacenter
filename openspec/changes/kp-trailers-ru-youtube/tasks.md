@@ -2,7 +2,7 @@
 
 - [x] 0.1 `agent-process start_change kp-trailers-ru-youtube --planner Claude --implementer Claude`
   (tracking issue 48); войти в `.claude/worktrees/kp-trailers-ru-youtube` через `EnterWorktree`.
-- [ ] 0.2 Зонд на приставке до кода (design.md, решения 7, 8, «Risks»). `adb root`, затем
+- [x] 0.2 Зонд на приставке до кода (design.md, решения 7, 8, «Risks»). `adb root`, затем
   `adb shell id` → `uid=0` (команды на приставке — через `adb shell`, не `su -c`). Снапшот по `docs/snapshots-convention.md`:
   `/system/su.d/99jacred`, `/data/debian/root/jacred-start.sh`, список пакетов chroot. В chroot:
   `python3 --version` (ожидается 3.13, библиотеке нужен ≥3.12), `command -v start-stop-daemon`, `apt install python3
@@ -10,17 +10,22 @@
   (файл из задачи 2.4 собрать здесь же), затем по три раза `time` вызова `find_trailer` для «Зверь»
   и «Лес». Записать время в план. Если медиана дольше 10 с или чего-то из перечисленного нет — стоп,
   вернуться к дизайну с пользователем.
+  **Результат 2026-11-16:** `uid=0`, Python 3.13.5, `/usr/sbin/start-stop-daemon` есть. Поставлен ещё
+  `git` (pip нужен для `git+https`). `find_trailer` с `deadline_s=8`: «Зверь» 2,15/2,03/2,02 с
+  (медиана 2,03, `J2VS_OlUJtA`), «Лес» 1,50/1,57/1,35 с (медиана 1,50). В chroot протекает
+  андроидный `TMPDIR=/data/local/tmp`, которого там нет (на нём упал postinst `ca-certificates`), —
+  `start.d/*.sh` задают `TMPDIR=/tmp`.
 
 ## 1. RED
 
-- [ ] 1.1 `tests/test_trailer_service.py`: тесты из карты ниже. Сервер на эфемерном порту, двойник
+- [x] 1.1 `tests/test_trailer_service.py`: тесты из карты ниже. Сервер на эфемерном порту, двойник
   `TrailerFinder`, подставные часы (design.md, решение 3).
-- [ ] 1.2 `tests/js/kp-reactions-fix.test.js`: тесты из карты ниже. Двойник `Lampa.Reguest` отвечает
+- [x] 1.2 `tests/js/kp-reactions-fix.test.js`: тесты из карты ниже. Двойник `Lampa.Reguest` отвечает
   роликом, `null`, ошибкой или таймаутом.
-- [ ] 1.3 `tests/test_chroot_start.py`: тесты из карты ниже, настоящий `start-stop-daemon` с `sleep` и
+- [x] 1.3 `tests/test_chroot_start.py`: тесты из карты ниже, настоящий `start-stop-daemon` с `sleep` и
   `sh -c 'exit 1'` во временном каталоге; без `start-stop-daemon` — `pytest.skip` с причиной, а при заданной `CI` — падение с причиной
   (design.md, решение 8).
-- [ ] 1.4 `agent-process check_red tests/test_trailer_service.py tests/test_chroot_start.py tests/test_plugin_js.py::test_plugin_js`,
+- [x] 1.4 `agent-process check_red tests/test_trailer_service.py tests/test_chroot_start.py tests/test_plugin_js.py::test_plugin_js`,
   коммит RED.
 
 ## 2. Сервис и запуск
