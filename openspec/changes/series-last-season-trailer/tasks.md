@@ -63,7 +63,7 @@
 
 ## 5. Доки (отдельный коммит)
 
-- [ ] 5.1 `docs/jacred-on-ugoos.md`: параметр `season` и ответ `video_id: null` на замену другим сезоном в
+- [x] 5.1 `docs/jacred-on-ugoos.md`: параметр `season` и ответ `video_id: null` на замену другим сезоном в
   описании API сервиса; `docs/lampa-config-review.md`, строка `kp-reactions-fix`: тайтл по типу карточки
   и трейлер последнего сезона у сериалов. Проверка: `python scripts/ci_check.py --only links`.
 

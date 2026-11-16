@@ -46,17 +46,23 @@ Lampa настроена на этот адрес: `jackett_url` = `http://127.0
 ## Сервис трейлеров
 
 Плагин `kp-reactions-fix` ([lampa-config-review.md](lampa-config-review.md)) просит у него
-русский трейлер KP-карточки, когда у TMDB нет видео на `ru`:
+русский трейлер KP-карточки, когда у TMDB нет видео на `ru`, а у сериала с последним вышедшим
+сезоном N ≥ 2 — всегда, трейлер сезона N:
 
 ```bash
 # внутри chroot: в самом Android curl нет
 curl 'http://127.0.0.1:9118/trailer?title=Зверь&original_title=The%20Beast&year=2026'
 # {"video_id": "…", "title": "…", "confidence": …, "reason": "…"}; не нашёл — "video_id": null
+curl 'http://127.0.0.1:9118/trailer?title=Джентльмены&original_title=The%20Gentlemen&year=2024&season=2'
+# year — год 1-го сезона; ролика 2-го сезона нет — "video_id": null, reason "…; season 2 fallback"
 ```
 
-Поиск на YouTube делает библиотека `ekolvah/trailer-search` (yt-dlp). Ответы, включая
-«не нашёл», кэшируются в памяти на 24 ч; ошибка YouTube не кэшируется — `502` и ERROR в
-`/opt/trailer-search/run.log`. Без `title` — `400`. Каждый ответ несёт
+Поиск на YouTube делает библиотека `ekolvah/trailer-search` (yt-dlp). С `season` библиотека
+при отсутствии ролика сезона берёт ролик другого сезона и пишет об этом в `reason`; сервис такой
+ролик не отдаёт (`video_id: null`, WARNING в логе). Ответы, включая
+«не нашёл», кэшируются в памяти на 24 ч (ключ — название, год и сезон); ошибка YouTube не
+кэшируется — `502` и ERROR в `/opt/trailer-search/run.log`. Без `title`, с нечисловым `year` или
+`season` не от 1 — `400`. Каждый ответ несёт
 `Access-Control-Allow-Origin: *`: страница Lampa открыта с origin `http://lampa.mx`, и без
 заголовка WebView отдаёт ей статус 0 вместо ответа.
 
