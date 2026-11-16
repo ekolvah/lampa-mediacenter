@@ -24,14 +24,14 @@
 
 ## 2. Сервис
 
-- [ ] 2.1 Общий разбор целого параметра для `year` и `season` (≥ 1, иначе `BadRequest`),
+- [x] 2.1 Общий разбор целого параметра для `year` и `season` (≥ 1, иначе `BadRequest`),
   `TrailerQuery.season`, `season` в `FilmProfile` у `LibraryFinder`, ролик другого сезона →
   `video_id: null` с тем же `reason` (design.md, решение 5). Проверка:
   `python -m pytest tests/test_trailer_service.py`.
-- [ ] 2.2 Пин `tools/trailer-search.requirements.txt`: `v0.1.0` → `v0.2.0`. Проверка:
+- [x] 2.2 Пин `tools/trailer-search.requirements.txt`: `v0.1.0` → `v0.2.0`. Проверка:
   `pip-audit` из `pre-commit run --hook-stage manual --all-files`. Рядом с пином — комментарий: после
   поднятия пина обязателен `bash tests/live/kp-trailers.sh` (design.md, Risks).
-- [ ] 2.3 Issue в `ekolvah/trailer-search`: структурный признак замены сезона в `TrailerPick` вместо
+- [x] 2.3 Issue в `ekolvah/trailer-search`: структурный признак замены сезона в `TrailerPick` вместо
   суффикса `reason`. Ссылка на него — в design.md, Risks, и в комментарии у проверки суффикса в
   `tools/trailer_service.py`. Проверка: `gh issue view <N> --repo ekolvah/trailer-search`. Коммит группы.
 

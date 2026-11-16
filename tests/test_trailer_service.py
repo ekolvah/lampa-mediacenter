@@ -278,8 +278,10 @@ def test_library_adapter_passes_season() -> None:
 
 def test_library_adapter_season_fallback_null() -> None:
     # Текст замены — trailer-search v0.2.0, strategy.py:158 (design.md, решение 5).
-    def find(profile: Any) -> FakePick:
-        return FakePick("1st-season", "Джентльмены (1 сезон)", 0.9, "ru language; season 2 fallback")
+    def find(_profile: Any) -> FakePick:
+        return FakePick(
+            "1st-season", "Джентльмены (1 сезон)", 0.9, "ru language; season 2 fallback"
+        )
 
     finder = LibraryFinder(find, FakeProfile, FakeRetrievalError)
     answer = finder.find(TrailerQuery("Джентльмены", "The Gentlemen", 2024, 2))
