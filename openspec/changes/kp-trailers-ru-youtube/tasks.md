@@ -34,7 +34,7 @@
   200 с роликом или `null`, `SearchFailed` → 502 + ERROR (решения 3, 5). Проверка:
   `python -m pytest tests/test_trailer_service.py`.
 - [x] 2.2 Кэш 24 ч без ошибок (решение 4). Проверка: тесты `test_cache_*`, `test_error_not_cached`.
-- [x] 2.3 `library_finder` и `main()`: `127.0.0.1:9118`, импорт библиотеки внутри `main()`,
+- [x] 2.3 `LibraryFinder` и `main()`: `127.0.0.1:9118`, импорт библиотеки внутри `main()`,
   `find_trailer` + `YtDlpRetriever(socket_timeout=4, deadline_s=8)`, `time.monotonic`, лог в stderr (решения 2, 3).
   Проверка: `test_main_binds_loopback`, `test_library_adapter_*`.
 - [x] 2.4 `tools/trailer-search.requirements.txt` и хук `pip-audit` на него (решение 9). Проверка:
@@ -86,7 +86,7 @@
 
 ## 7. Verify
 
-- [ ] 7.1 `/simplify`, коммит правок.
+- [x] 7.1 `/simplify`, коммит правок.
 - [ ] 7.2 `openspec validate --strict --all`.
 - [ ] 7.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
@@ -105,7 +105,7 @@
 | kp-card-trailers | Видео не пришли | `tests/js/kp-reactions-fix.test.js` «empty videos, service gave nothing: no trailers, warning» |
 | kp-card-trailers | В TMDB есть русское видео | `tests/js/kp-reactions-fix.test.js` «ru video in TMDB: no service request» |
 | kp-card-trailers | Русский трейлер найден на YouTube | `tests/js/kp-reactions-fix.test.js` «en-only videos: service video first» |
-| kp-card-trailers | Видео TMDB пустые, трейлер найден | `tests/js/kp-reactions-fix.test.js` «empty videos: service video only» |
+| kp-card-trailers | Видео TMDB пустые, трейлер найден | `tests/js/kp-reactions-fix.test.js` «empty or missing videos: service video only» |
 | kp-card-trailers | Сервис ролик не дал | `tests/js/kp-reactions-fix.test.js` «service null, error or timeout: TMDB videos, warning» (по случаю на каждый исход) |
 | kp-card-trailers | Русский трейлер с пульта | `tests/live/kp-trailers.sh`, шаги `open-card-no-imdb`, `trailer-focus` и `playing` для «Зверя» |
 | trailer-search-service | Ролик найден | `tests/test_trailer_service.py::test_found_returns_pick`, `tests/test_trailer_service.py::test_library_adapter_maps_pick` |

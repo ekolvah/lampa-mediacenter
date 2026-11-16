@@ -68,7 +68,7 @@ YouTube начнёт блокировать домашний IP (ретриве�
 (`video_id`, `title`, `confidence`, `reason`), ошибку `SearchFailed`. От них зависят
 `TrailerFinder` (`Protocol`: `TrailerQuery → TrailerAnswer`, бросает `SearchFailed`) и часы
 (`Callable[[], float]`). Библиотека импортируется только внутри `main()` и передаётся в
-`library_finder(find, profile_cls, error_cls)` — адаптер, который строит профиль, переводит ответ в
+`LibraryFinder(find, profile_cls, error_cls)` — адаптер, который строит профиль, переводит ответ в
 `TrailerAnswer`, а `error_cls` в `SearchFailed`. Модуль и тесты загружаются без `trailer-search` и
 yt-dlp, `requirements-dev.txt` не меняется. Тесты поднимают настоящий сервер на эфемерном порту с
 двойником и подставными часами; адаптер проверяется отдельно двойниками функции и классов

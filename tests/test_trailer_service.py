@@ -22,11 +22,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
 from trailer_service import (  # noqa: E402
+    LibraryFinder,
     SearchFailed,
     TrailerAnswer,
     TrailerQuery,
     build_server,
-    library_finder,
     main,
 )
 
@@ -227,7 +227,7 @@ def test_library_adapter_maps_pick() -> None:
         seen.append(profile)
         return FakePick("J2VS_OlUJtA", "Зверь", 0.3, "ambiguous: 2")
 
-    finder = library_finder(find, FakeProfile, FakeRetrievalError)
+    finder = LibraryFinder(find, FakeProfile, FakeRetrievalError)
     answer = finder.find(TrailerQuery("Зверь", "The Beast", 2026))
     assert answer == TrailerAnswer("J2VS_OlUJtA", "Зверь", 0.3, "ambiguous: 2")
     assert seen == [FakeProfile("Зверь", "The Beast", 2026)]
@@ -237,7 +237,7 @@ def test_library_adapter_maps_error() -> None:
     def find(profile: Any) -> FakePick:
         raise FakeRetrievalError(f"all queries failed for {profile.ru_title}")
 
-    finder = library_finder(find, FakeProfile, FakeRetrievalError)
+    finder = LibraryFinder(find, FakeProfile, FakeRetrievalError)
     with pytest.raises(SearchFailed, match="all queries failed for Зверь"):
         finder.find(TrailerQuery("Зверь", "", None))
 
@@ -246,7 +246,7 @@ def test_library_adapter_passes_other_errors() -> None:
     def find(profile: Any) -> FakePick:
         raise KeyError(profile.ru_title)
 
-    finder = library_finder(find, FakeProfile, FakeRetrievalError)
+    finder = LibraryFinder(find, FakeProfile, FakeRetrievalError)
     with pytest.raises(KeyError):
         finder.find(TrailerQuery("Зверь", "", None))
 

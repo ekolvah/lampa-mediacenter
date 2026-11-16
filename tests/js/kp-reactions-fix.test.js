@@ -73,7 +73,6 @@ const EN_VIDEOS = { results: [{ key: 'aB3xQ9zLk2w', site: 'YouTube', type: 'Trai
 const PICK = { video_id: 'J2VS_OlUJtA', title: 'Зверь (2026)#трейлер в русской озвучке#The Beast', confidence: 0.3, reason: 'ambiguous: 2' };
 const NO_PICK = { video_id: null, title: null, confidence: 0, reason: 'no candidates' };
 const PICK_VIDEO = { site: 'YouTube', key: 'J2VS_OlUJtA', name: PICK.title, iso_639_1: 'ru', type: 'Trailer', published_at: '2026' };
-const SERVICE_URL = 'http://127.0.0.1:9118/trailer?title=' + encodeURIComponent('Зверь') + '&original_title=The%20Beast&year=2026';
 const REACTIONS = { result: [{ type: 'fire', counter: 3 }] };
 
 const BEAST = { imdb_id: '', type: 'movie', title: 'Зверь', original_title: 'The Beast', release_date: '2026' };
@@ -87,6 +86,9 @@ const LIFE = { imdb_id: '', type: 'tv', title: 'Жизнь заново', origin
 const LIFE_TV = { id: 318582, name: 'Жизнь заново', original_name: 'Жизнь заново', first_air_date: '2026-10-26' };
 
 const q = (title) => encodeURIComponent(title);
+const SERVICE_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Зверь') + '&original_title=The%20Beast&year=2026';
+// «Зверь» без imdb_id, найден поиском по названию: дальше решают видео TMDB и сервис.
+const BEAST_CARD = { movie: BEAST, search: { results: [BEAST_2026] } };
 
 // Исход «тайтла нет»: одно предупреждение со всеми needles, без видео и реакций, карточка открыта.
 function assertWarnedNoTrailers(c, ...needles) {
@@ -201,22 +203,19 @@ test('ru video in TMDB: no service request', () => {
 });
 
 test('en-only videos: service video first', () => {
-  const c = load({ movie: BEAST, search: { results: [BEAST_2026] }, videos: EN_VIDEOS, service: PICK });
+  const c = load({ ...BEAST_CARD, videos: EN_VIDEOS, service: PICK });
   assert.deepStrictEqual(c.service, [{ url: SERVICE_URL, timeout: 10000 }]);
   assert.deepStrictEqual(plain(c.done[0].videos.results), [PICK_VIDEO].concat(EN_VIDEOS.results));
   assert.strictEqual(c.warn.length, 0);
   assert.strictEqual(c.done.length, 1);
 });
 
-test('empty videos: service video only', () => {
-  const c = load({ movie: BEAST, search: { results: [BEAST_2026] }, videos: { results: [] }, service: PICK });
-  assert.deepStrictEqual(plain(c.done[0].videos.results), [PICK_VIDEO]);
-  assert.strictEqual(c.done.length, 1);
-});
-
-test('missing videos object: service video only', () => {
-  const c = load({ movie: BEAST, search: { results: [BEAST_2026] }, videos: undefined, service: PICK });
-  assert.deepStrictEqual(plain(c.done[0].videos.results), [PICK_VIDEO]);
+test('empty or missing videos: service video only', () => {
+  for (const videos of [{ results: [] }, undefined]) {
+    const c = load({ ...BEAST_CARD, videos, service: PICK });
+    assert.deepStrictEqual(plain(c.done[0].videos.results), [PICK_VIDEO]);
+    assert.strictEqual(c.done.length, 1);
+  }
 });
 
 test('service request without optional params', () => {
@@ -235,25 +234,19 @@ test('tv card asks service with first air date year', () => {
 test('service null, error or timeout: TMDB videos, warning', () => {
   const outcomes = [
     [NO_PICK, 'no candidates'],
-    [{ status: 502, responseJSON: { error: 'search failed', detail: 'Sign in to confirm you are not a bot' } }, '502'],
+    [{ status: 502, responseJSON: { error: 'search failed', detail: 'Sign in to confirm you are not a bot' } }, 'HTTP 502 search failed: Sign in to confirm you are not a bot'],
     [{ status: 0, statusText: 'error' }, 'HTTP 0'],
     [{ status: 0, statusText: 'timeout' }, 'timeout'],
     [{ status: 500, responseText: 'Traceback' }, '500'],
   ];
   for (const [service, needle] of outcomes) {
-    const c = load({ movie: BEAST, search: { results: [BEAST_2026] }, videos: EN_VIDEOS, service });
+    const c = load({ ...BEAST_CARD, videos: EN_VIDEOS, service });
     assert.deepStrictEqual(c.done[0].videos, EN_VIDEOS, needle);
     assert.strictEqual(c.done.length, 1, needle);
     assert.strictEqual(c.warn.length, 1, needle);
     const text = c.warn[0].join(' ');
     assert.ok(['Зверь', '2026', needle].every((n) => text.includes(n)), text);
   }
-});
-
-test('502 warning carries service detail', () => {
-  const service = { status: 502, responseJSON: { error: 'search failed', detail: 'Sign in to confirm you are not a bot' } };
-  const c = load({ movie: BEAST, search: { results: [BEAST_2026] }, videos: EN_VIDEOS, service });
-  assert.ok(c.warn[0].join(' ').includes('not a bot'), JSON.stringify(c.warn));
 });
 
 test('missing tmdb.videos warns, reactions only', () => {

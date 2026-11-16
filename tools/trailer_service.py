@@ -135,7 +135,9 @@ def build_server(
     return ThreadingHTTPServer((HOST, port), Handler)
 
 
-class _LibraryFinder:
+class LibraryFinder:
+    """Адаптер `trailer-search`: `find(FilmProfile) -> TrailerPick`, `error_cls` → `SearchFailed`."""
+
     def __init__(
         self,
         find: Callable[[Any], Any],
@@ -155,13 +157,6 @@ class _LibraryFinder:
         return TrailerAnswer(pick.video_id, pick.title, pick.confidence, pick.reason)
 
 
-def library_finder(
-    find: Callable[[Any], Any], profile_cls: Callable[..., Any], error_cls: type[Exception]
-) -> TrailerFinder:
-    """Адаптер `trailer-search`: `find(FilmProfile) -> TrailerPick`, `error_cls` → `SearchFailed`."""
-    return _LibraryFinder(find, profile_cls, error_cls)
-
-
 def _library() -> TrailerFinder:
     from trailer_search import FilmProfile, TrailerRetrievalError, find_trailer
     from trailer_search.ytdlp import YtDlpRetriever
@@ -169,7 +164,7 @@ def _library() -> TrailerFinder:
     # deadline_s=8 < таймаута плагина 10 с: при зависшем YouTube сервис успевает ответить 502
     # (design.md, решение 7).
     retriever = YtDlpRetriever(socket_timeout=4, deadline_s=8)
-    return library_finder(
+    return LibraryFinder(
         lambda profile: find_trailer(profile, retriever), FilmProfile, TrailerRetrievalError
     )
 
