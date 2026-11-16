@@ -51,7 +51,7 @@
 
 ## 4. Живая проверка
 
-- [ ] 4.1 `tests/live/kp-trailers/lib.js`: `kpFull(id)` и `askService(movie, season)` из
+- [x] 4.1 `tests/live/kp-trailers/lib.js`: `kpFull(id)` и `askService(movie, season)` из
   `open-card-no-imdb.js`, тот переводится на них. Новый `open-card-season.js`: `kpFull('KP_1435343')` —
   `movie.type` = `tv`; `askService(movie, 2)`; первый ролик — ролик сервиса, а если сервис не дал —
   `Trailer` 2-го сезона из TMDB; название первого ролика говорит о 2-м сезоне
