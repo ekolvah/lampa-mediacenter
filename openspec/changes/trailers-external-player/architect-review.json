@@ -1,0 +1,57 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "All three round-1 findings are answered with recorded observations, a named no-catcher boundary carried into the map, and a complete Impact; the plan is the minimum change that makes the live test check the setup actually on the device.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md decision 1 rejects WebView Google sign-in (no youtube.com cookies observed, proposal Why) and waiting out the IP flag. Decision 2 rejects logcat (URL redacted), dumpsys activity (task intent has no dat=, Context), screencap (black video layer), SmartTube private data and PC-side polling (two adb runs and tens of KB per poll). A test that only records the id handed to Android.openYoutube would not satisfy 'Запуск трейлера пультом' (THEN: видео начинает играть), so trailer_plays is needed. One adb_sh script on the device is the smallest form it can take.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": ".openspec.yaml skip_specs: true; no spec deltas. tasks.md '## Scenario → test map' has an n/a row for skip_specs plus rows for the three standing kp-card-trailers scenarios the test edit touches: 'Запуск трейлера пультом' (1+1: trailer_plays, playing), 'Русский трейлер с пульта' (Зверь via list: id = __kpRuTrailer.key) and 'Трейлер одним нажатием с пульта' (Зверь via button: button-focus, trailer_plays, playing). The last two are marked 'proven up to the handed-off id' with a pointer to decision 2.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "tasks.md 1.1 records 'no RED' with a reason (only the live test and a doc change; product behaviour unchanged, skip_specs) and the reproduction: under 'youtube', SmartTube opens while the current playing.js waits for the bridge. This is confirmed by snapshot 2026-11-16_trailers-smarttube NOTES.md line 39 ('шаг playing при youtube не пройдёт').",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Recorded in round 1: bridge error 150, LOGIN_REQUIRED, the yt-dlp client errors, oEmbed 200, the WebView cookie list, SmartTube PlaybackActivity with media_session state=3 (proposal Why), the Trailers.onCreate condition, the Lampa Android export, resolve-activity and the redacted logcat line (design Context). Added in round 2 (design Context): 'adb -s ... shell \"exit 1\"; echo $?' prints 1, so trailer_plays' exit reaches set -e. recents shows the SmartTube task intent without dat=, while the VLC intent with dat= prints in full, so there is no masking. Before BACK: mResumedActivity is SmartTube PlaybackActivity, state=3. 4 s after 'input keyevent 4': mResumedActivity is top.rootu.lampa/.MainActivity, and the uid=10060 block has no state= line, so a stale state=3 cannot carry into the second «Зверь» launch; several ui.py/cdp.py runs separate BACK from that launch. BACK returning to Lampa also cites NOTES.md line 36. The wrapper on Lampa.Android.openYoutube rests on a code reading (same object exported), and fails closed: if the engine bypasses it, playing.js fails on a missing id.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Dropped guards: the inner-player bridge check and the playdata().url contains key check (old playing.js), and trailer-focus.js. Decision 2 'Что перестаёт доказываться' accepts the bridge loss (unused and broken). It covers trailer-focus.js with the handed id == __kpRuTrailer.key check. For the remaining loss, that SmartTube plays that id, it states that no catcher exists, that the person watching closes it, and that the two Зверь scenarios are proven only up to the handed id; Non-Goals and the map repeat this. Decision 2 lists the replaced input's failure modes: stale id across the double Зверь launch (cleared on read), stale state=3 (observed absent after BACK), and wrapper loss on page reload (lives until reload; only restart_lampa reloads, and it runs before preflight). proposal Impact and task 2.3 now include the open-card-no-imdb.js comment edit. git grep finds no other tracked reference to trailer-focus.js or the inner-player trailer setting outside the listed files.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "All traced in the manual live run of task 2.3 on the branch head before the PR (tests/live is not in CI by design). preflight.js throws when the setting is not youtube -> cdp.py exits 1 -> set -e. playing.js Live.check fails on a missing id or id != key -> same path. trailer_plays times out (SmartTube not resumed or not state=3, or Lampa not back) -> exit 1 with the last state; observed propagation -> set -e. Risk 'SmartTube rename' -> the same trailer_plays exit. Risk 'YouTube blocks search' -> open-card-no-imdb.js Live.check on video_id. Focus after return (DPAD_LEFT, then play_first_trailer) -> ui.py --expect select exits 1. The SmartTube-plays-that-id loss has no catcher by explicit statement (replaced). Rollback uses Storage.set via tools/cdp.py, then revert.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "No spec deltas and no rule text added. The only added prose is the 'Плеер для трейлеров' paragraph in docs/lampa-config-review.md (task 3.1). It describes current state and is checked by ci_check --only links; it adds no rule that tests would assert.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "proposal.md '## Standard approach' cites the standard sources: Lampa's own player_launch_trailers / Android.openYoutube setting (used as is, no bypass), the YouTube IFrame API onError reference for 150, the yt-dlp cookies FAQ and the developer.android.com dumpsys page. The design follows them. Added checks are preflight.js and trailer_plays, both in the existing live test. Decision 2 names the problem (kp-trailers.sh fails under the current setting: proposal Why, NOTES.md), uses the standard tool (dumpsys activity / media_session in one on-device adb_sh) and says why the alternatives do not fit.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "kp-card-trailers",
+      "scenario": "Запуск трейлера пультом",
+      "reason": "Live-only on the Ugoos: tests/live/kp-trailers.sh (trailer_plays, playing), run manually in task 2.3, not in CI. Per the tasks.md map."
+    },
+    {
+      "capability": "kp-card-trailers",
+      "scenario": "Русский трейлер с пульта",
+      "reason": "Live-only, and proven only up to the id handed to Android.openYoutube: the id SmartTube plays is not visible outside it (design.md Context, decision 2). The person watching the trailer closes the gap. Per the tasks.md map."
+    },
+    {
+      "capability": "kp-card-trailers",
+      "scenario": "Трейлер одним нажатием с пульта",
+      "reason": "Live-only, and proven only up to the id handed to Android.openYoutube, for the same reason (design.md decision 2). Per the tasks.md map."
+    }
+  ]
+}
