@@ -20,8 +20,8 @@
 
 ## 4. Живая проверка и доки
 
-- [ ] 4.1 `tests/live/now-watching/rows.js` под новые ряды и 2-ю страницу полного списка.
-- [ ] 4.2 `docs/lampa-config-review.md`; решения 2 и 6 в архивном design.md помечены заменёнными.
+- [x] 4.1 `tests/live/now-watching/rows.js` под новые ряды и 2-ю страницу полного списка.
+- [x] 4.2 `docs/lampa-config-review.md`; решения 2 и 6 в архивном design.md помечены заменёнными.
 - [ ] 4.3 Пин ветки на приставке (снапшот), `bash tests/live/now-watching.sh` → OK.
 
 ## 5. Verify и Deliver

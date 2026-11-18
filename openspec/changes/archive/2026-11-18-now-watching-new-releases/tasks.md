@@ -67,7 +67,7 @@
 
 | Спек | Сценарий | Тест |
 |---|---|---|
-| now-watching-new-releases | Ряды стоят за штатными | «rows inserted after originals», «originals unchanged», «no more button» |
+| now-watching-new-releases | Ряды стоят за штатными | заменён изменением `now-watching-replace-rows`: «original row filtered in place», «other rows unchanged», «more button kept» |
 | now-watching-new-releases | Новинки со следующих страниц | «new items from later pages» |
 | now-watching-new-releases | Новинок нет | «empty row skipped, warning» |
 | now-watching-new-releases | Ряды на приставке | `tests/live/now-watching.sh`, шаг `rows` |
@@ -81,8 +81,8 @@
 | now-watching-new-releases | Пары в TMDB нет | «no tmdb pair is unknown» |
 | now-watching-new-releases | TMDB не ответил | «tmdb error is unknown» |
 | now-watching-new-releases | Нет даты последнего эпизода | «no last episode is unknown» |
-| now-watching-new-releases | Две непроверенные | «unknown count in title» |
-| now-watching-new-releases | Все проверены | «no suffix when all checked» |
+| now-watching-new-releases | Две непроверенные | заменён изменением `now-watching-replace-rows`: «unchecked without title suffix» |
+| now-watching-new-releases | Все проверены | n/a: удалён изменением `now-watching-replace-rows` (приписки нет) |
 | now-watching-new-releases | Страница не загрузилась | «page error marks incomplete» |
 | now-watching-new-releases | Ответ не пришёл | «timeout builds partial row» |
 | now-watching-new-releases | TMDB не ответил вовремя | «tmdb timeout is unknown» |
