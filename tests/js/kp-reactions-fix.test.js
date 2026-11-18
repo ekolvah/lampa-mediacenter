@@ -593,7 +593,7 @@ test('watch item first in options, emits watch', () => {
   assert.deepStrictEqual(options.map((o) => o.title), ['Смотреть']);
   assert.deepStrictEqual(emitted, []);
   options[0].onSelect();
-  assert.deepStrictEqual(emitted, [['watch', {}]]);
+  assert.deepStrictEqual(plain(emitted), [['watch', {}]]);
 });
 
 test('no play button, warning', () => {
