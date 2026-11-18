@@ -19,7 +19,7 @@
 
 ## 3. Живая проверка
 
-- [ ] 3.1 `tests/live/kp-trailers/lib.js`: `openCard` ждёт фокус на `.button--kp-torrent`, а не на
+- [x] 3.1 `tests/live/kp-trailers/lib.js`: `openCard` ждёт фокус на `.button--kp-torrent`, а не на
   «Смотреть». `button-focus.js`: комментарий «DPAD_RIGHT с «Торренты»». Новый `torrents-open.js`:
   активный компонент `torrents`, его `movie.id` — id карточки. В `kp-trailers.sh`:
   - `play_first_trailer` начинается с `ui.py --keys "DPAD_RIGHT x4,DPAD_CENTER,DPAD_CENTER,DPAD_DOWN x3"`
@@ -32,7 +32,7 @@
     `play_first_trailer`: путь через «…» уже прошёл «Зверь».
   - «Джентльмены»: без изменений.
   - Комментарии про фокус на «Смотреть» исправить.
-- [ ] 3.2 Выкладка на приставку по design.md, Migration Plan (снапшот, sha головы ветки). Проверка:
+- [x] 3.2 Выкладка на приставку по design.md, Migration Plan (снапшот, sha головы ветки). Проверка:
   `bash tests/live/kp-trailers.sh` → `OK`; затем рестарт Lampa и один `screencap` строки кнопок
   (CLAUDE.md: прогон уводил Lampa в фон через SmartTube; вёрстка — вопрос визуальный). Коммит группы.
 
