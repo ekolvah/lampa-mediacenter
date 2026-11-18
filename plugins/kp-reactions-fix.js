@@ -13,21 +13,23 @@
   // чей последний вышедший сезон N ≥ 2, первым ставится трейлер сезона N: от сервиса,
   // иначе из видео сезона в TMDB. Кнопка «Трейлер» в строке кнопок карточки запускает
   // первый ролик этого списка.
-  // Плагин держит и Главную KP: за штатными рядами «Сейчас смотрят фильмы/сериалы» ставит
-  // ряды их новинок (обёртка KP.main, тот же поиск TMDB-тайтла, что для трейлеров).
+  // Плагин держит и Главную KP: штатные ряды «Сейчас смотрят фильмы/сериалы» и их полный список
+  // по «Ещё» показывают только новинки (обёртки KP.main и KP.list, тот же поиск TMDB-тайтла,
+  // что для трейлеров).
 
   var DAY = 60 * 24; // life кэша движка — в минутах
   var WEEK = DAY * 7;
   var TRAILER_SERVICE = 'http://127.0.0.1:9118/trailer';
   // Больше срока поиска в сервисе (8 с): при зависшем YouTube успевает прийти его 502.
   var TRAILER_TIMEOUT_MS = 10000;
-  // Сколько Главная ждёт рядов новинок: дольше её экран пуст.
+  // Сколько Главная или страница полного списка ждёт новинок: дольше экран пуст.
   var ROWS_TIMEOUT_MS = 5000;
-  var LAST_PAGE = 5;
-  // Штатные ряды kp_source по url, который кладёт его getList, и ряды новинок за ними.
+  // Страниц коллекции на ряд Главной и на одну страницу полного списка.
+  var BATCH = 5;
+  // Штатные ряды kp_source по url, который кладёт его getList.
   var NEW_ROWS = [
-    { url: 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', name: 'Сейчас смотрят фильмы', title: 'Сейчас смотрят: новинки (фильмы)' },
-    { url: 'api/v2.2/films/collections?type=POPULAR_SERIES', name: 'Сейчас смотрят сериалы', title: 'Сейчас смотрят: новинки (сериалы)' },
+    { url: 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', name: 'Сейчас смотрят фильмы' },
+    { url: 'api/v2.2/films/collections?type=POPULAR_SERIES', name: 'Сейчас смотрят сериалы' },
   ];
 
   // normalizeTitle/cleanTitle — копия из kp_source.js (наружу не экспортированы):
@@ -307,14 +309,50 @@
       Lampa.Noty.show('Ряды новинок не построены: ' + reason);
     }
 
-    // Ряд новинок одной коллекции: страница 1 из штатного ряда, 2–5 через KP.list. pending() —
-    // один ожидаемый ответ: settle = pending(), settle(fn) — его колбэк (успех или ошибка); после
-    // конца сбора колбэки не вызываются. Возвращает build(): ряд или null.
-    function collectRow(spec, original, rule, pending) {
+    // Ожидание ответов одного сбора. pending() — один ожидаемый ответ: settle = pending(),
+    // settle(fn) — его колбэк (успех или ошибка). done() зовётся, когда пришли все ответы, но не
+    // позже ROWS_TIMEOUT_MS; поздние колбэки после него не вызываются. start() — запросы
+    // поставлены: ответы из кэша приходят синхронно, раньше него.
+    function waiter(done) {
+      var finished = false;
+      var waiting = 1;
+      var timer = setTimeout(finish, ROWS_TIMEOUT_MS);
+      function finish() {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        var fn = done;
+        done = null;
+        fn();
+      }
+      function release() { if (--waiting === 0) finish(); }
+      return {
+        pending: function () {
+          var settled = false;
+          waiting++;
+          return function (fn) {
+            return function () {
+              if (finished || settled) return;
+              settled = true;
+              fn.apply(null, arguments);
+              release();
+            };
+          };
+        },
+        start: release
+      };
+    }
+
+    // Новинки страниц коллекции first..last: страница first — known (ответ, уже полученный
+    // Главной) или запрос, остальные — запросы к исходному KP.list. Возвращает build():
+    // { results, gaps, failed } — новинки и непроверенные в порядке коллекции, число недошедших
+    // страниц, не дошла ли ни одна.
+    function collectPages(spec, first, last, known, rule, pending) {
       var pages = []; // undefined — нет ответа, null — ошибка страницы
 
-      function addPage(index, results) {
-        pages[index] = (results || []).map(function (card) {
+      function addPage(page, json) {
+        if (json && json.total_pages) srcPages[spec.url] = json.total_pages;
+        pages[page - first] = ((json && json.results) || []).map(function (card) {
           var item = { card: card, verdict: isNewRelease(card, rule), reason: 'no year' };
           if (item.verdict !== 'episode') return item;
           item.reason = 'timeout';
@@ -326,45 +364,72 @@
         });
       }
 
-      addPage(0, original.results);
-      for (var page = 2; page <= LAST_PAGE; page++) (function (page) {
+      for (var page = first; page <= last; page++) (function (page) {
+        if (page === first && known) return addPage(page, known);
         var settle = pending();
-        KP.list({ url: spec.url, page: page }, settle(function (json) {
-          addPage(page - 1, json && json.results);
+        orgList.call(KP, { url: spec.url, page: page }, settle(function (json) {
+          addPage(page, json);
         }), settle(function () {
-          pages[page - 1] = null;
+          pages[page - first] = null;
         }));
       })(page);
 
       return function () {
         var results = [];
         var gaps = [];
-        var unchecked = 0;
-        for (var i = 0; i < LAST_PAGE; i++) {
+        for (var i = 0; i <= last - first; i++) {
           if (!pages[i]) {
-            gaps.push('page ' + (i + 1) + ' ' + (pages[i] === null ? 'failed' : 'timeout'));
+            gaps.push('page ' + (first + i) + ' ' + (pages[i] === null ? 'failed' : 'timeout'));
             continue;
           }
           pages[i].forEach(function (item) {
             if (item.verdict === 'old') return;
-            if (item.verdict !== 'new') {
-              unchecked++;
-              console.warn('kp-reactions-fix: new release not checked', cardName(item.card), item.reason);
-            }
+            if (item.verdict !== 'new') console.warn('kp-reactions-fix: new release not checked', cardName(item.card), item.reason);
             results.push(item.card);
           });
         }
-        if (gaps.length) console.warn('kp-reactions-fix: new release row incomplete', spec.title, gaps.join(', '));
-        if (!results.length) {
-          console.warn('kp-reactions-fix: no new releases', spec.title);
-          return null;
-        }
-        var title = spec.title + (gaps.length ? ' · неполный' : '') + (unchecked ? ' · не проверено: ' + unchecked : '');
-        return { title: title, results: results, total_pages: 1 };
+        if (gaps.length) console.warn('kp-reactions-fix: new release row incomplete', spec.name, gaps.join(', '));
+        return { results: results, gaps: gaps.length, failed: gaps.length > 0 && gaps.length === last - first + 1 };
       };
     }
 
-    // Первая порция Главной: за каждым штатным рядом NEW_ROWS — его ряд новинок. Порция уходит
+    // Штатный ряд с новинками вместо карточек: место, заголовок и «Ещё» штатные, total_pages —
+    // страниц полного списка. Новинок нет — ряда нет.
+    function filteredRow(spec, original, batch) {
+      if (!batch.results.length) {
+        console.warn('kp-reactions-fix: no new releases', spec.name);
+        return null;
+      }
+      var row = {};
+      for (var key in original) row[key] = original[key];
+      row.results = batch.results;
+      row.total_pages = Math.ceil((original.total_pages || 1) / BATCH);
+      if (batch.gaps) row.title += ' · неполный';
+      return row;
+    }
+
+    // Страница N полного списка «Ещё» — новинки страниц коллекции BATCH·(N−1)+1…BATCH·N, не
+    // дальше её конца. Пустую пачку пропускает, как сама Lampa: params.page++ и следующая.
+    function listBatch(spec, params, oncomplite, onerror) {
+      var first = (params.page - 1) * BATCH + 1;
+      var last = first + BATCH - 1;
+      if (srcPages[spec.url]) last = Math.min(last, srcPages[spec.url]);
+      var build;
+      var wait = waiter(function () {
+        var batch = build();
+        var total = Math.ceil((srcPages[spec.url] || last) / BATCH);
+        if (batch.failed) return onerror();
+        if (!batch.results.length && params.page < total) {
+          params.page++;
+          return listBatch(spec, params, oncomplite, onerror);
+        }
+        oncomplite({ results: batch.results, page: params.page, total_pages: total });
+      });
+      build = collectPages(spec, first, last, null, noveltyRule(new Date()), wait.pending);
+      wait.start();
+    }
+
+    // Первая порция Главной: штатные ряды NEW_ROWS заменены отфильтрованными. Порция уходит
     // Главной, когда собраны оба ряда, но не позже ROWS_TIMEOUT_MS.
     function insertRows(parts, oncomplite) {
       var originals = NEW_ROWS.map(function (spec) {
@@ -377,43 +442,35 @@
       }
 
       var rule = noveltyRule(new Date());
-      var finished = false;
-      var waiting = 1; // сам запуск: ответы из кэша приходят синхронно, до конца сборки rows
-      function release() { if (--waiting === 0) finish(); }
-      function pending() {
-        var settled = false;
-        waiting++;
-        return function (fn) {
-          return function () {
-            if (finished || settled) return;
-            settled = true;
-            fn.apply(null, arguments);
-            release();
-          };
-        };
-      }
-      // После finish поздние колбэки не держат порцию и oncomplite Главной (design, решение 3).
-      function finish() {
-        if (finished) return;
-        finished = true;
-        clearTimeout(timer);
+      var rows;
+      // После сбора поздние колбэки не держат порцию и oncomplite Главной.
+      var wait = waiter(function () {
         var out = [];
         parts.forEach(function (p) {
-          out.push(p);
           var i = originals.indexOf(p);
-          var built = i === -1 ? null : rows[i]();
-          if (built) out.push(built);
+          var row = i === -1 ? p : filteredRow(NEW_ROWS[i], p, rows[i]());
+          if (row) out.push(row);
         });
         var done = oncomplite;
         parts = originals = rows = oncomplite = null;
         done(out);
-      }
-      var timer = setTimeout(finish, ROWS_TIMEOUT_MS);
-      var rows = NEW_ROWS.map(function (spec, i) {
-        return collectRow(spec, originals[i], rule, pending);
       });
-      release();
+      rows = NEW_ROWS.map(function (spec, i) {
+        var original = originals[i];
+        return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, wait.pending);
+      });
+      wait.start();
     }
+
+    // «Ещё» у ряда NEW_ROWS: category_full зовёт KP.list с url ряда и page 1, 2, … Остальные
+    // списки идут в kp_source как есть.
+    var orgList = KP.list;
+    var srcPages = {}; // url коллекции → число её страниц, из её ответов
+    KP.list = function (params, oncomplite, onerror) {
+      var spec = NEW_ROWS.filter(function (s) { return params && s.url === params.url; })[0];
+      if (!spec) return orgList.apply(KP, arguments);
+      listBatch(spec, params, oncomplite, onerror);
+    };
 
     // Главная зовёт KP.main один раз и через его oncomplite получает первую порцию рядов;
     // подгрузку при прокрутке (возвращённую функцию) обёртка не трогает.
