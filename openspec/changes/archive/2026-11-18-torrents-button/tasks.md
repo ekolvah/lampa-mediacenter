@@ -44,13 +44,13 @@
 
 ## 5. Verify
 
-- [ ] 5.1 `/simplify`, коммит правок.
-- [ ] 5.2 `openspec validate --strict --all`.
-- [ ] 5.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 5.1 `/simplify`, коммит правок.
+- [x] 5.2 `openspec validate --strict --all`.
+- [x] 5.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 6. Deliver
 
-- [ ] 6.1 `agent-process archive_change torrents-button`, затем
+- [x] 6.1 `agent-process archive_change torrents-button`, затем
   `gh pr create --title "feat: torrents-button" --body-file <отчёт>`. Отчёт ссылается на трекинг-issue
   простой ссылкой.
 - [ ] 6.2 `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`, не больше трёх раундов
