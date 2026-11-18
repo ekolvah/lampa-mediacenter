@@ -13,12 +13,22 @@
   // чей последний вышедший сезон N ≥ 2, первым ставится трейлер сезона N: от сервиса,
   // иначе из видео сезона в TMDB. Кнопка «Трейлер» в строке кнопок карточки запускает
   // первый ролик этого списка.
+  // Плагин держит и Главную KP: за штатными рядами «Сейчас смотрят фильмы/сериалы» ставит
+  // ряды их новинок (обёртка KP.main, тот же поиск TMDB-тайтла, что для трейлеров).
 
   var DAY = 60 * 24; // life кэша движка — в минутах
   var WEEK = DAY * 7;
   var TRAILER_SERVICE = 'http://127.0.0.1:9118/trailer';
   // Больше срока поиска в сервисе (8 с): при зависшем YouTube успевает прийти его 502.
   var TRAILER_TIMEOUT_MS = 10000;
+  // Сколько Главная ждёт рядов новинок: дольше её экран пуст.
+  var ROWS_TIMEOUT_MS = 5000;
+  var LAST_PAGE = 5;
+  // Штатные ряды kp_source по url, который кладёт его getList, и ряды новинок за ними.
+  var NEW_ROWS = [
+    { url: 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', name: 'Сейчас смотрят фильмы', title: 'Сейчас смотрят: новинки (фильмы)' },
+    { url: 'api/v2.2/films/collections?type=POPULAR_SERIES', name: 'Сейчас смотрят сериалы', title: 'Сейчас смотрят: новинки (сериалы)' },
+  ];
 
   // normalizeTitle/cleanTitle — копия из kp_source.js (наружу не экспортированы):
   // регистр, виды дефиса, «ё»/«е» и пунктуация при сравнении не важны.
@@ -134,12 +144,12 @@
       tmdb.get('tv/' + title.id, {}, function (tv) {
         var episode = tv && tv.last_episode_to_air;
         if (!episode || !episode.season_number) {
-          console.warn('kp-reactions-fix: no last episode, trailer not by season', title.id);
+          console.warn('kp-reactions-fix: no last episode', title.id);
           return cb(null);
         }
         cb({ number: episode.season_number, date: episode.air_date || '' });
       }, function () {
-        console.warn('kp-reactions-fix: tv details failed, trailer not by season', title.id);
+        console.warn('kp-reactions-fix: tv details failed', title.id);
         cb(null);
       }, { life: DAY });
     }
@@ -259,6 +269,155 @@
         });
       }, onerror);
     };
+
+    // Новинка (spec now-watching-new-releases): год по Кинопоиску не раньше прошлого; у сериала
+    // со старым стартом — последний эпизод по TMDB за 365 дней. 'unknown' — проверить нечем.
+    function isNewRelease(card, today, lastEpisodeDate) {
+      var year = parseInt(releaseDate(card).slice(0, 4), 10);
+      if (!year) return 'unknown';
+      if (year >= today.getFullYear() - 1) return 'new';
+      if (card.type !== 'tv') return 'old';
+      if (!lastEpisodeDate) return 'unknown';
+      return lastEpisodeDate >= isoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 365)) ? 'new' : 'old';
+    }
+
+    function isoDate(d) {
+      function pad(n) { return (n < 10 ? '0' : '') + n; }
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+
+    // Дата последнего вышедшего эпизода сериала по TMDB. cb(null, причина) — даты нет.
+    function lastEpisode(card, cb) {
+      resolveTitle(card, function (title) {
+        if (!title || title.method !== 'tv') return cb(null, 'no tmdb tv title');
+        lastSeason(title, function (last) {
+          cb(last && last.date, 'no last episode date, tv/' + title.id);
+        });
+      });
+    }
+
+    function rowsFailed(reason) {
+      console.error('kp-reactions-fix: new release rows not built', reason);
+      Lampa.Noty.show('Ряды новинок не построены: ' + reason);
+    }
+
+    // Ряд новинок одной коллекции: страница 1 из штатного ряда, 2–5 через KP.list. over() —
+    // сбор закончен, поздние ответы не учитываются; ondone — пришло всё. build() — ряд или null.
+    function collectRow(spec, original, today, over, ondone) {
+      var pages = [];
+      var failed = [];
+      var waiting = 1;
+      function release() { if (--waiting === 0) ondone(); }
+
+      function addPage(index, results) {
+        pages[index] = (results || []).map(function (card) {
+          var item = { card: card, verdict: isNewRelease(card, today), reason: 'no year' };
+          if (item.verdict !== 'unknown' || card.type !== 'tv' || !releaseDate(card)) return item;
+          item.verdict = null;
+          item.reason = 'timeout';
+          waiting++;
+          lastEpisode(card, function (date, reason) {
+            if (over()) return;
+            item.verdict = isNewRelease(card, today, date);
+            item.reason = reason;
+            release();
+          });
+          return item;
+        });
+      }
+
+      addPage(0, original.results);
+      for (var page = 2; page <= LAST_PAGE; page++) (function (page) {
+        waiting++;
+        KP.list({ url: spec.url, page: page }, function (json) {
+          if (over()) return;
+          addPage(page - 1, json && json.results);
+          release();
+        }, function () {
+          if (over()) return;
+          failed[page - 1] = 'failed';
+          release();
+        });
+      })(page);
+      release();
+
+      return { build: function () {
+        var results = [];
+        var gaps = [];
+        var unchecked = 0;
+        for (var i = 0; i < LAST_PAGE; i++) {
+          if (!pages[i]) {
+            gaps.push('page ' + (i + 1) + ' ' + (failed[i] || 'timeout'));
+            continue;
+          }
+          pages[i].forEach(function (item) {
+            if (item.verdict === 'old') return;
+            if (item.verdict !== 'new') {
+              unchecked++;
+              console.warn('kp-reactions-fix: new release not checked', cardName(item.card), item.reason);
+            }
+            results.push(item.card);
+          });
+        }
+        if (gaps.length) console.warn('kp-reactions-fix: new release row incomplete', spec.title, gaps.join(', '));
+        if (!results.length) {
+          console.warn('kp-reactions-fix: no new releases', spec.title);
+          return null;
+        }
+        var title = spec.title + (gaps.length ? ' · неполный' : '') + (unchecked ? ' · не проверено: ' + unchecked : '');
+        return { title: title, results: results, total_pages: 1 };
+      } };
+    }
+
+    // Первая порция Главной: за каждым штатным рядом NEW_ROWS — его ряд новинок. Порция уходит
+    // Главной, когда собраны оба ряда, но не позже ROWS_TIMEOUT_MS.
+    function insertRows(parts, oncomplite) {
+      var originals = NEW_ROWS.map(function (spec) {
+        return parts.filter(function (p) { return p && p.url === spec.url; })[0];
+      });
+      var missing = NEW_ROWS.filter(function (spec, i) { return !originals[i]; });
+      if (missing.length) {
+        rowsFailed('no row ' + missing.map(function (spec) { return spec.name; }).join(', '));
+        return oncomplite(parts);
+      }
+
+      var today = new Date();
+      var finished = false;
+      var waiting = NEW_ROWS.length + 1;
+      function over() { return finished; }
+      function release() { if (--waiting === 0) finish(); }
+      function finish() {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        var out = [];
+        parts.forEach(function (p) {
+          out.push(p);
+          var i = originals.indexOf(p);
+          var built = i === -1 ? null : rows[i].build();
+          if (built) out.push(built);
+        });
+        oncomplite(out);
+      }
+      var timer = setTimeout(finish, ROWS_TIMEOUT_MS);
+      var rows = NEW_ROWS.map(function (spec, i) {
+        return collectRow(spec, originals[i], today, over, release);
+      });
+      release();
+    }
+
+    // Главная зовёт KP.main один раз и через его oncomplite получает первую порцию рядов;
+    // подгрузку при прокрутке (возвращённую функцию) обёртка не трогает.
+    var orgMain = KP.main;
+    if (typeof orgMain === 'function') {
+      var active = Lampa.Activity.active();
+      if (active && active.component === 'main' && active.source === 'KP') rowsFailed('main screen built before patch');
+      KP.main = function (params, oncomplite, onerror) {
+        return orgMain.call(KP, params, function (parts) {
+          insertRows(parts, oncomplite);
+        }, onerror);
+      };
+    }
 
     KP.__reactions_patched = true;
   }
