@@ -484,22 +484,30 @@
     KP.__reactions_patched = true;
   }
 
-  // Кнопка «Трейлер» сразу за «Смотреть» запускает первый ролик списка «Трейлеры» с одного
-  // нажатия (spec kp-card-trailers). Список собирает и ролик запускает сам движок: обработчик
-  // .view--trailer синхронно зовёт Lampa.Select.show, кнопка на этот вызов его перехватывает.
-  function addTrailerButton(e) {
-    if (e.type !== 'complite') return;
-    // Карточку без трейлеров движок оставляет без .view--trailer ещё до complite.
-    var trailers = e.body.find('.view--trailer');
-    if (!trailers.length) return;
-    var movie = (e.data && e.data.movie) || {};
-    var name = movie.title || movie.name || '';
-    var play = e.body.find('.button--play');
-    if (!play.length) return console.warn('kp-reactions-fix: no play button, no trailer button', name);
+  function cardButton(cls, sprite, text, onEnter) {
+    return $('<div class="full-start__button selector ' + cls + '">' +
+      '<svg><use xlink:href="#sprite-' + sprite + '"></use></svg><span>' + text + '</span></div>')
+      .on('hover:enter', onEnter);
+  }
 
-    var button = $('<div class="full-start__button selector button--kp-trailer">' +
-      '<svg><use xlink:href="#sprite-trailer"></use></svg><span>Трейлер</span></div>');
-    button.on('hover:enter', function () {
+  // «Торренты» передаёт нажатие скрытой .view--torrent движка, как меню «Смотреть» (spec
+  // card-buttons). Без parser_use движок оставляет её с классом hide — тогда кнопки нет.
+  function torrentButton(body) {
+    var torrent = body.find('.view--torrent:not(.hide)');
+    if (!torrent.length) return null;
+    return cardButton('button--kp-torrent', 'torrent', 'Торренты', function () {
+      torrent.trigger('hover:enter');
+    });
+  }
+
+  // «Трейлер» запускает первый ролик списка «Трейлеры» с одного нажатия (spec kp-card-trailers).
+  // Список собирает и ролик запускает сам движок: обработчик .view--trailer синхронно зовёт
+  // Lampa.Select.show, кнопка на этот вызов его перехватывает.
+  function trailerButton(body, name) {
+    // Карточку без трейлеров движок оставляет без .view--trailer ещё до complite.
+    var trailers = body.find('.view--trailer');
+    if (!trailers.length) return null;
+    return cardButton('button--kp-trailer', 'trailer', 'Трейлер', function () {
       var show = Lampa.Select.show;
       var list = null;
       Lampa.Select.show = function (params) { list = params; };
@@ -515,11 +523,27 @@
       console.warn('kp-reactions-fix: no trailer for button', name);
       show.call(Lampa.Select, list);
     });
-    play.after(button);
+  }
+
+  // «Торренты» и «Трейлер» встают на место «Смотреть», а он уходит в меню «…» (spec card-buttons).
+  // «Смотреть» удаляется из DOM, а не скрывается: onGroupButtons движка снимает с него hide
+  // при каждом возврате в карточку.
+  function onFull(e) {
+    if (e.type === 'options') {
+      var link = e.link;
+      return e.options.unshift({ title: 'Смотреть', onSelect: function () { link.emit('watch', {}); } });
+    }
+    if (e.type !== 'complite') return;
+    var movie = (e.data && e.data.movie) || {};
+    var name = movie.title || movie.name || '';
+    var play = e.body.find('.button--play');
+    if (!play.length) return console.warn('kp-reactions-fix: no play button, no card buttons', name);
+    var buttons = [torrentButton(e.body), trailerButton(e.body, name)].filter(Boolean);
+    play.after(buttons).remove();
   }
 
   function startPlugin() {
-    Lampa.Listener.follow('full', addTrailerButton);
+    Lampa.Listener.follow('full', onFull);
     if (Lampa.Api.sources.KP) return patch();
 
     // kp_source грузится отдельным тегом script — порядок завершения между

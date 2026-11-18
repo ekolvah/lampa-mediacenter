@@ -124,14 +124,18 @@ function element(html) {
   return { html, handlers: {}, on(ev, fn) { this.handlers[ev] = fn; return this; } };
 }
 
-// Карточка открыта: событие full/complite с e.body в памяти (design 6). opts: trailers — есть ли
-// .view--trailer; play — есть ли .button--play; items — список, который обработчик .view--trailer
-// движка синхронно отдаёт в Lampa.Select.show; intercept: false — обработчик Select.show не зовёт.
-// Возвращает calls с after (что вставлено за «Смотреть») и played (что запустил onSelect движка).
+// Карточка открыта: событие full/complite с e.body в памяти (design 5). opts: trailers — есть ли
+// .view--trailer; torrent — есть ли .view--torrent без hide; play — есть ли .button--play; items —
+// список, который обработчик .view--trailer движка синхронно отдаёт в Lampa.Select.show;
+// intercept: false — обработчик Select.show не зовёт. Возвращает calls с after (кнопки, вставленные
+// за «Смотреть», по порядку), removed (сколько раз удалён «Смотреть»), torrent (события, переданные
+// «Торрентам») и played (что запустил onSelect движка).
 function openCard(over) {
-  const opts = Object.assign({ trailers: true, play: true, items: TRAILER_ITEMS, intercept: true }, over);
+  const opts = Object.assign({ trailers: true, torrent: true, play: true, items: TRAILER_ITEMS, intercept: true }, over);
   const c = load();
   c.after = [];
+  c.removed = 0;
+  c.torrent = [];
   c.played = [];
   const engine = { title: 'YouTube - Зверь', items: opts.items, onSelect(item) { c.played.push(item); } };
   c.engine = engine;
@@ -143,14 +147,22 @@ function openCard(over) {
           trigger(ev) { if (ev === 'hover:enter' && opts.intercept) c.ctx.Lampa.Select.show(engine); },
         };
       }
+      if (sel === '.view--torrent:not(.hide)') {
+        return { length: opts.torrent ? 1 : 0, trigger(ev) { c.torrent.push(ev); } };
+      }
       if (sel === '.button--play') {
-        return { length: opts.play ? 1 : 0, after(el) { c.after.push(el); return this; } };
+        return {
+          length: opts.play ? 1 : 0,
+          after(els) { c.after.push(...els); return this; },
+          remove() { c.removed++; return this; },
+        };
       }
       return { length: 0 };
     },
   };
   c.listeners.full({ type: 'complite', body, data: { movie: BEAST } });
-  c.press = () => c.after[0].handlers['hover:enter']();
+  c.button = (cls) => c.after.find((el) => el.html.includes(cls));
+  c.press = () => c.button('button--kp-trailer').handlers['hover:enter']();
   return c;
 }
 
@@ -548,25 +560,75 @@ test('find error warns with imdb_id, card opens', () => {
   assert.strictEqual(c.done.length, 1);
 });
 
-test('button inserted after play', () => {
+// --- Кнопки карточки вместо «Смотреть» (spec card-buttons) ---
+
+// Разметка кнопки плагина: класс, подпись и спрайт.
+function assertButton(el, cls, text, sprite) {
+  for (const part of [cls, text, '#sprite-' + sprite]) assert.ok(el.html.includes(part), el.html);
+}
+
+test('torrent button first, opens torrents', () => {
   const c = openCard();
+  assertButton(c.after[0], 'button--kp-torrent', 'Торренты', 'torrent');
+  assert.deepStrictEqual(c.torrent, []);
+  c.after[0].handlers['hover:enter']();
+  assert.deepStrictEqual(c.torrent, ['hover:enter']);
+  assert.strictEqual(c.warn.length, 0);
+});
+
+test('no torrent button without enabled source', () => {
+  const c = openCard({ torrent: false });
+  assert.strictEqual(c.button('button--kp-torrent'), undefined);
+  assert.strictEqual(c.warn.length, 0);
+});
+
+test('play removed', () => {
+  for (const over of [{}, { torrent: false, trailers: false }]) {
+    const c = openCard(over);
+    assert.strictEqual(c.removed, 1, JSON.stringify(over));
+  }
+});
+
+test('watch item first in options, emits watch', () => {
+  const c = load();
+  const emitted = [];
+  // Пункт другого плагина уже в меню: «Смотреть» всё равно первый.
+  const options = [{ title: 'Другой плагин' }];
+  c.listeners.full({ type: 'options', options, link: { emit(name, args) { emitted.push([name, args]); } } });
+  assert.deepStrictEqual(options.map((o) => o.title), ['Смотреть', 'Другой плагин']);
+  assert.deepStrictEqual(emitted, []);
+  options[0].onSelect();
+  assert.deepStrictEqual(plain(emitted), [['watch', {}]]);
+});
+
+test('no play button, warning', () => {
+  for (const over of [{ play: false }, { play: false, trailers: false }]) {
+    const c = openCard(over);
+    assert.strictEqual(c.after.length, 0, JSON.stringify(over));
+    assertWarned(c, 'Зверь');
+  }
+});
+
+// --- Кнопка «Трейлер» (spec kp-card-trailers) ---
+
+test('trailer after torrent', () => {
+  const c = openCard();
+  assert.strictEqual(c.after.length, 2);
+  assert.ok(c.after[0].html.includes('button--kp-torrent'), c.after[0].html);
+  assertButton(c.after[1], 'button--kp-trailer', 'Трейлер', 'trailer');
+  assert.strictEqual(c.warn.length, 0);
+});
+
+test('trailer first without torrents', () => {
+  const c = openCard({ torrent: false });
   assert.strictEqual(c.after.length, 1);
   assert.ok(c.after[0].html.includes('button--kp-trailer'), c.after[0].html);
-  assert.ok(c.after[0].html.includes('Трейлер'), c.after[0].html);
-  assert.ok(c.after[0].html.includes('#sprite-trailer'), c.after[0].html);
-  assert.strictEqual(c.warn.length, 0);
 });
 
 test('no button without trailers', () => {
   const c = openCard({ trailers: false });
-  assert.strictEqual(c.after.length, 0);
+  assert.strictEqual(c.button('button--kp-trailer'), undefined);
   assert.strictEqual(c.warn.length, 0);
-});
-
-test('no play button, warning', () => {
-  const c = openCard({ play: false });
-  assert.strictEqual(c.after.length, 0);
-  assertWarned(c, 'Зверь');
 });
 
 test('button plays first item via engine onSelect', () => {

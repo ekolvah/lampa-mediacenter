@@ -48,18 +48,19 @@ trailer_plays() {
   step playing
 }
 
-# Пультом «Смотреть» -> «Трейлеры» -> первый трейлер.
+# Пультом «…» -> «Смотреть» -> «Трейлеры» -> первый трейлер. Фокус на «Торренты»; вправо «Трейлер»,
+# «Избранное», «Реакции», «…» («Подписаться» скрыта); первый пункт «Еще» — «Смотреть» (spec
+# card-buttons). Число нажатий проверяет menu-focus.
 play_first_trailer() {
-  python tools/ui.py --keys "DPAD_CENTER,DPAD_DOWN x3" --expect select
+  python tools/ui.py --keys "DPAD_RIGHT x4,DPAD_CENTER,DPAD_CENTER,DPAD_DOWN x3" --expect select
   step menu-focus
   python tools/ui.py --keys "DPAD_CENTER" --expect select
   python tools/ui.py --keys "DPAD_CENTER"
   trailer_plays
 }
 
-# Шаг $1 открывает карточку и задаёт window.__kpRuTrailer; пультом «Смотреть» -> «Трейлер», играет он.
+# Карточка открыта, фокус на «Торренты»; пультом «Трейлер», играет он (или window.__kpRuTrailer).
 play_trailer_button() {
-  step "$1"
   python tools/ui.py --keys "DPAD_RIGHT"
   step button-focus
   python tools/ui.py --keys "DPAD_CENTER"
@@ -67,17 +68,22 @@ play_trailer_button() {
 }
 
 echo "== «Зверь» (без imdb_id): первым русский трейлер сервиса, кнопка «Трейлер» играет его с пульта"
-play_trailer_button open-card-no-imdb
+step open-card-no-imdb
+play_trailer_button
 
-echo "== «Зверь»: тот же ролик через «Смотреть» -> «Трейлеры»"
-# После возврата из SmartTube Lampa сама ставит фокус на «Смотреть»; не так — упадёт menu-focus.
+echo "== «Зверь»: тот же ролик через «…» -> «Смотреть» -> «Трейлеры»"
+# После возврата из SmartTube Lampa сама ставит фокус на «Торренты»; не так — упадёт menu-focus.
 play_first_trailer
 
-echo "== «1+1» (с imdb_id): «Трейлеры» есть, трейлер играет с пульта"
+echo "== «1+1» (с imdb_id): «Торренты» открывают список торрентов, кнопка «Трейлер» играет трейлер"
 step open-card
-play_first_trailer
+python tools/ui.py --keys "DPAD_CENTER"
+step torrents-open
+python tools/ui.py --keys "BACK"
+play_trailer_button
 
 echo "== «Джентльмены» (сериал, вышло 2 сезона): кнопка «Трейлер» играет трейлер 2-го сезона"
-play_trailer_button open-card-season
+step open-card-season
+play_trailer_button
 
 echo "OK: kp-trailers"

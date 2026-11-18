@@ -29,18 +29,22 @@ function askService(movie, season) {
   });
 }
 
-// Открыть KP-карточку, дождаться в ней кнопки «Трейлеры» и фокуса пульта на «Смотреть».
+// Открыть KP-карточку, дождаться в ней кнопки «Трейлеры» и фокуса пульта на «Торренты».
+// «Торренты» — первая кнопка строки (plugins/kp-reactions-fix.js, spec card-buttons): нет фокуса
+// на ней — движок сменил .view--torrent или кнопок плагина нет.
 // Сбрасывает ролик сервиса прошлой карточки (Activity.push страницу не перезагружает): шаг,
 // которому нужен window.__kpRuTrailer, задаёт его после openCard.
+// Открытую карточку запоминает в window.__kpCard (её сверяет torrents-open.js).
 async function openCard(id) {
   window.__kpRuTrailer = null;
+  window.__kpCard = id;
   Lampa.Activity.push(Object.assign({ url: '', component: 'full' }, kpCard(id)));
   var opened = await Live.waitFor(function () { return Lampa.Activity.active().component === 'full'; }, 10000);
   Live.check(opened, 'карточка не открылась: ' + Lampa.Activity.active().component);
   var shown = await Live.waitFor(function () { return document.querySelector('.view--trailer'); }, 20000);
   Live.check(shown, 'в KP-карточке ' + id + ' нет кнопки «Трейлеры» (.view--trailer)');
-  // В full-start-new «Трейлеры» живут в скрытом контейнере и открываются меню «Смотреть»
-  // (ui.py в kp-trailers.sh начинает с него), поэтому важен фокус, а не видимость кнопки.
-  var play = await Live.waitFor(function () { return document.querySelector('.full-start__button.button--play.focus'); }, 5000);
-  Live.check(play, 'фокус не на «Смотреть»: ' + ((document.querySelector('.focus') || {}).className));
+  // В full-start-new «Трейлеры» живут в скрытом контейнере и открываются меню «Смотреть»; ui.py в
+  // kp-trailers.sh считает нажатия от первой кнопки, поэтому важен фокус, а не видимость кнопки.
+  var torrent = await Live.waitFor(function () { return document.querySelector('.full-start__button.button--kp-torrent.focus'); }, 5000);
+  Live.check(torrent, 'фокус не на «Торренты»: ' + ((document.querySelector('.focus') || {}).className));
 }
