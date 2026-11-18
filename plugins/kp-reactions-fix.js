@@ -13,12 +13,24 @@
   // чей последний вышедший сезон N ≥ 2, первым ставится трейлер сезона N: от сервиса,
   // иначе из видео сезона в TMDB. Кнопка «Трейлер» в строке кнопок карточки запускает
   // первый ролик этого списка.
+  // Плагин держит и Главную KP: штатные ряды «Сейчас смотрят фильмы/сериалы» и их полный список
+  // по «Ещё» показывают только новинки (обёртки KP.main и KP.list, тот же поиск TMDB-тайтла,
+  // что для трейлеров).
 
   var DAY = 60 * 24; // life кэша движка — в минутах
   var WEEK = DAY * 7;
   var TRAILER_SERVICE = 'http://127.0.0.1:9118/trailer';
   // Больше срока поиска в сервисе (8 с): при зависшем YouTube успевает прийти его 502.
   var TRAILER_TIMEOUT_MS = 10000;
+  // Сколько Главная или страница полного списка ждёт новинок: дольше экран пуст.
+  var ROWS_TIMEOUT_MS = 5000;
+  // Страниц коллекции на ряд Главной и на одну страницу полного списка.
+  var BATCH = 5;
+  // Штатные ряды kp_source по url, который кладёт его getList.
+  var NOW_WATCHING = [
+    { url: 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', name: 'Сейчас смотрят фильмы' },
+    { url: 'api/v2.2/films/collections?type=POPULAR_SERIES', name: 'Сейчас смотрят сериалы' },
+  ];
 
   // normalizeTitle/cleanTitle — копия из kp_source.js (наружу не экспортированы):
   // регистр, виды дефиса, «ё»/«е» и пунктуация при сравнении не важны.
@@ -134,12 +146,12 @@
       tmdb.get('tv/' + title.id, {}, function (tv) {
         var episode = tv && tv.last_episode_to_air;
         if (!episode || !episode.season_number) {
-          console.warn('kp-reactions-fix: no last episode, trailer not by season', title.id);
+          console.warn('kp-reactions-fix: no last episode', title.id);
           return cb(null);
         }
         cb({ number: episode.season_number, date: episode.air_date || '' });
       }, function () {
-        console.warn('kp-reactions-fix: tv details failed, trailer not by season', title.id);
+        console.warn('kp-reactions-fix: tv details failed', title.id);
         cb(null);
       }, { life: DAY });
     }
@@ -259,6 +271,215 @@
         });
       }, onerror);
     };
+
+    // Новинка (spec now-watching-new-releases): год по Кинопоиску не раньше прошлого; у сериала
+    // со старым стартом — последний эпизод по TMDB за 365 дней. 'episode' — нужна дата эпизода
+    // (lastEpisodeDate не передан), 'unknown' — проверить нечем.
+    function isNewRelease(card, rule, lastEpisodeDate) {
+      var year = parseInt(releaseDate(card).slice(0, 4), 10);
+      if (!year) return 'unknown';
+      if (year >= rule.minYear) return 'new';
+      if (card.type !== 'tv') return 'old';
+      if (lastEpisodeDate === undefined) return 'episode';
+      if (!lastEpisodeDate) return 'unknown';
+      return lastEpisodeDate >= rule.cutoff ? 'new' : 'old';
+    }
+
+    function noveltyRule(today) {
+      function pad(n) { return (n < 10 ? '0' : '') + n; }
+      var d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 365);
+      return {
+        minYear: today.getFullYear() - 1,
+        cutoff: d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+      };
+    }
+
+    // Дата последнего вышедшего эпизода сериала по TMDB. cb(null, причина) — даты нет.
+    function lastEpisode(card, cb) {
+      resolveTitle(card, function (title) {
+        if (!title || title.method !== 'tv') return cb(null, 'no tmdb tv title');
+        lastSeason(title, function (last) {
+          cb((last && last.date) || null, 'no last episode date, tv/' + title.id);
+        });
+      });
+    }
+
+    function rowsFailed(reason) {
+      console.error('kp-reactions-fix: new release rows not built', reason);
+      Lampa.Noty.show('Ряды новинок не построены: ' + reason);
+    }
+
+    // Ожидание ответов одного сбора. pending() — один ожидаемый ответ: settle = pending(),
+    // settle(fn) — его колбэк (успех или ошибка). done() зовётся, когда пришли все ответы, но не
+    // позже ROWS_TIMEOUT_MS; поздние колбэки после него не вызываются. start() — запросы
+    // поставлены: ответы из кэша приходят синхронно, раньше него.
+    function waiter(done) {
+      var finished = false;
+      var waiting = 1;
+      var timer = setTimeout(finish, ROWS_TIMEOUT_MS);
+      function finish() {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        var fn = done;
+        done = null;
+        fn();
+      }
+      function release() { if (--waiting === 0) finish(); }
+      return {
+        pending: function () {
+          var settled = false;
+          waiting++;
+          return function (fn) {
+            return function () {
+              if (finished || settled) return;
+              settled = true;
+              fn.apply(null, arguments);
+              release();
+            };
+          };
+        },
+        start: release
+      };
+    }
+
+    // Новинки страниц коллекции first..last: страница first — known (ответ, уже полученный
+    // Главной) или запрос, остальные — запросы к исходному KP.list. Возвращает build():
+    // { results, gaps } — новинки и непроверенные в порядке коллекции, число недошедших страниц.
+    function collectPages(spec, first, last, known, rule, pending) {
+      var pages = []; // undefined — нет ответа, null — ошибка страницы
+
+      function addPage(page, json) {
+        if (json && json.total_pages) srcPages[spec.url] = json.total_pages;
+        pages[page - first] = ((json && json.results) || []).map(function (card) {
+          var item = { card: card, verdict: isNewRelease(card, rule), reason: 'no year' };
+          if (item.verdict !== 'episode') return item;
+          item.reason = 'timeout';
+          lastEpisode(card, pending()(function (date, reason) {
+            item.verdict = isNewRelease(card, rule, date);
+            item.reason = reason;
+          }));
+          return item;
+        });
+      }
+
+      if (known) addPage(first, known);
+      for (var page = known ? first + 1 : first; page <= last; page++) (function (page) {
+        var settle = pending();
+        orgList.call(KP, { url: spec.url, page: page }, settle(function (json) {
+          addPage(page, json);
+        }), settle(function () {
+          pages[page - first] = null;
+        }));
+      })(page);
+
+      return function () {
+        var results = [];
+        var gaps = [];
+        for (var i = 0; i <= last - first; i++) {
+          if (!pages[i]) {
+            gaps.push('page ' + (first + i) + ' ' + (pages[i] === null ? 'failed' : 'timeout'));
+            continue;
+          }
+          pages[i].forEach(function (item) {
+            if (item.verdict === 'old') return;
+            if (item.verdict !== 'new') console.warn('kp-reactions-fix: new release not checked', cardName(item.card), item.reason);
+            results.push(item.card);
+          });
+        }
+        if (gaps.length) console.warn('kp-reactions-fix: new release row incomplete', spec.name, gaps.join(', '));
+        return { results: results, gaps: gaps.length };
+      };
+    }
+
+    // Штатный ряд с новинками вместо карточек: место, заголовок и «Ещё» штатные, total_pages —
+    // страниц полного списка. Новинок нет — ряда нет.
+    function filteredRow(spec, original, batch) {
+      if (!batch.results.length) {
+        console.warn('kp-reactions-fix: no new releases', spec.name);
+        return null;
+      }
+      var row = {};
+      for (var key in original) row[key] = original[key];
+      row.results = batch.results;
+      row.total_pages = Math.ceil((original.total_pages || 1) / BATCH);
+      if (batch.gaps) row.title += ' · неполный';
+      return row;
+    }
+
+    // Страница N полного списка «Ещё» — новинки страниц коллекции BATCH·(N−1)+1…BATCH·N, не
+    // дальше её конца. Пустую пачку пропускает, как сама Lampa: params.page++ и следующая.
+    function listBatch(spec, params, oncomplite, onerror) {
+      var first = (params.page - 1) * BATCH + 1;
+      var last = first + BATCH - 1;
+      if (srcPages[spec.url]) last = Math.min(last, srcPages[spec.url]);
+      var build;
+      var wait = waiter(function () {
+        var batch = build();
+        var total = Math.ceil((srcPages[spec.url] || last) / BATCH);
+        if (batch.gaps && batch.gaps === last - first + 1) return onerror();
+        if (!batch.results.length && params.page < total) {
+          params.page++;
+          return listBatch(spec, params, oncomplite, onerror);
+        }
+        oncomplite({ results: batch.results, page: params.page, total_pages: total });
+      });
+      build = collectPages(spec, first, last, null, noveltyRule(new Date()), wait.pending);
+      wait.start();
+    }
+
+    // Первая порция Главной: штатные ряды NOW_WATCHING заменены отфильтрованными. Порция уходит
+    // Главной, когда собраны оба ряда, но не позже ROWS_TIMEOUT_MS.
+    function filterRows(parts, oncomplite) {
+      var originals = NOW_WATCHING.map(function (spec) {
+        return parts.filter(function (p) { return p && p.url === spec.url; })[0];
+      });
+      var missing = NOW_WATCHING.filter(function (spec, i) { return !originals[i]; });
+      if (missing.length) {
+        rowsFailed('no row ' + missing.map(function (spec) { return spec.name; }).join(', '));
+        return oncomplite(parts);
+      }
+
+      var rule = noveltyRule(new Date());
+      var rows;
+      var wait = waiter(function () {
+        var out = [];
+        parts.forEach(function (p) {
+          var i = originals.indexOf(p);
+          var row = i === -1 ? p : filteredRow(NOW_WATCHING[i], p, rows[i]());
+          if (row) out.push(row);
+        });
+        oncomplite(out);
+      });
+      rows = NOW_WATCHING.map(function (spec, i) {
+        var original = originals[i];
+        return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, wait.pending);
+      });
+      wait.start();
+    }
+
+    // «Ещё» у ряда NOW_WATCHING: category_full зовёт KP.list с url ряда и page 1, 2, … Остальные
+    // списки идут в kp_source как есть.
+    var orgList = KP.list;
+    var srcPages = {}; // url коллекции → число её страниц, из её ответов
+    KP.list = function (params, oncomplite, onerror) {
+      var spec = NOW_WATCHING.filter(function (s) { return params && s.url === params.url; })[0];
+      if (!spec) return orgList.apply(KP, arguments);
+      listBatch(spec, params, oncomplite, onerror);
+    };
+
+    // Главная зовёт KP.main один раз и через его oncomplite получает первую порцию рядов;
+    // подгрузку при прокрутке (возвращённую функцию) обёртка не трогает.
+    var orgMain = KP.main;
+    if (typeof orgMain === 'function') {
+      var active = Lampa.Activity.active();
+      if (active && active.component === 'main' && active.source === 'KP') rowsFailed('main screen built before patch');
+      KP.main = function (params, oncomplite, onerror) {
+        return orgMain.call(KP, params, function (parts) {
+          filterRows(parts, oncomplite);
+        }, onerror);
+      };
+    }
 
     KP.__reactions_patched = true;
   }

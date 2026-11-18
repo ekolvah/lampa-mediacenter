@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "All three round-1 findings are answered in the artifacts: source-line observations for every platform claim, a reached catcher for the late patch with a spec scenario and test, and a scenario and test for the untested series clause. No new finding.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md decisions 1-3 and 6 reject five simpler options with reasons: a separate plugin, the partNext hook (position-based), page 1 only (20 of 20 films new, proposal.md Why), a module row cache, and a per-card badge. A start-year-only series filter is ruled out by R1. The late-patch catcher is one active-screen check in patch(), not a rebuild mechanism, which is the cheaper option.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "spec.md now has 21 scenarios, adding 'Нет даты последнего эпизода' and 'Перехват опоздал'. tasks.md '## Scenario → test map' maps them to 'no last episode is unknown' and 'late patch, noty' (tasks.md:83, :90). The other 19 are unchanged and mapped as in round 1. 'Ряды на приставке' maps to tests/live/now-watching.sh step rows.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "tasks.md 1.1-1.2: the map's tests are written on the extended load(), which now includes a Lampa.Activity.active() double (design.md decision 7). Then `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, whose pytest node runs `node --test tests/js/*.test.js`, is committed RED before Group 2.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "design.md decision 2 records source observations from local copies of kp_source.js and app.min.js 3.4.7. getList sets \"url\": method (kp_source.js:366-400), and main$1 calls it with the two collection URLs (:459, :464). KP.list reads params.url/page (:660-675). Lampa.Noty is exported (app.min.js:67383) and kp_source itself calls Lampa.Noty.show (kp_source.js:1248). Startup order: Plugins.load then startApp (app.min.js:67786, :45937-45960); Activity.init's setTimeout(last, 500) (:56098); app:ready at the end of startApp (:67697-67701); KP registered on ready (kp_source.js:1296); our 200 ms poll (plugins/kp-reactions-fix.js:300-314). The 300 ms margin is acknowledged as no guarantee and gets an explicit catcher. Activity.active() returns the last push (app.min.js:56282-56299, :56335). KP cannot be re-registered (getter plus window.kp_source_plugin guard, kp_source.js:1252-1257, :1303). Decision 3 cites the in-memory cache and CACHE_TIME (:15, :24, :126-150), the kp_prox fallback on 429/451 (:82, :91), and convertElem per call (:194, :385-387). The round-1 probe and measurements remain in proposal.md Why.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "No project-declared input is replaced and no guard is dropped. The KP.main wrapper sits under the existing KP.__reactions_patched guard. The `if KP.main` guard is covered by R15: without main, Главная KP does not build, which is visible. Decision 5 edits only the text of lastSeason's warnings.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "R9 (url/format change) -> unit test 'missing original row, noty' in test_plugin_js on every PR head, and Noty on the device on each Главная build through the wrapper. R14 (late patch) -> the active-screen check in patch() fires Noty and console.error at runtime, covered by unit test 'late patch, noty'. KP re-registration is ruled out by the recorded getter and guard. R15 -> an empty Главная. R1, R2, R4, R6, R12 -> named node tests. R5 -> tests/live/hide-cards.sh. R11 -> the time printed by rows.js. R3, R8, R13 -> the user's visual comparison, the stated goal. Each catcher reaches its case.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Approximate words per spec requirement versus words asserted. 'Ряды новинок на Главной' (~95): all clauses asserted. 'Новинка-фильм' (~30): all asserted. 'Новинка-сериал' (~70): all asserted, now including 'нет даты последнего эпизода' via 'no last episode is unknown'. 'Непроверенные карточки видны' (~30): asserted. 'Неполная выборка видна' (~60): asserted. 'Сбой перехвата виден' (~50, with the late-patch clause): asserted by 'missing original row, noty' and 'late patch, noty'. No sentence without a test.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "proposal.md '## Standard approach' names Lampa.ContentRows and shows from a recorded box observation that it is dead on KP. It names SURS (TMDB only) and kp_source's 'За год' (wrong order), and 'none found' lists what was searched. That is convincing, and the main wrapper is the workaround the repo's doc proposes. The added tests/live/now-watching.sh and rows.js follow the repo's live harness (lib.sh step/restart_lampa, the hide-cards selector). They close the 'Ряды на приставке' scenario that node doubles cannot prove. No new tool or gate is introduced.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
