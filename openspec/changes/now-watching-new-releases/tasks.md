@@ -33,7 +33,7 @@
 
 ## 4. Живая проверка
 
-- [ ] 4.1 `tests/live/now-watching.sh` и шаг `tests/live/now-watching/rows.js` по design.md,
+- [x] 4.1 `tests/live/now-watching.sh` и шаг `tests/live/now-watching/rows.js` по design.md,
   решение 7. Скрипт перезапускает Lampa на экран: перед запуском спросить пользователя, не смотрит
   ли он что-то.
 - [ ] 4.2 Выкладка на приставку по design.md, Migration Plan (снапшот, sha головы ветки). Проверка:
