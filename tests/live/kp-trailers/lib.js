@@ -34,8 +34,10 @@ function askService(movie, season) {
 // на ней — движок сменил .view--torrent или кнопок плагина нет.
 // Сбрасывает ролик сервиса прошлой карточки (Activity.push страницу не перезагружает): шаг,
 // которому нужен window.__kpRuTrailer, задаёт его после openCard.
+// Открытую карточку запоминает в window.__kpCard (её сверяет torrents-open.js).
 async function openCard(id) {
   window.__kpRuTrailer = null;
+  window.__kpCard = id;
   Lampa.Activity.push(Object.assign({ url: '', component: 'full' }, kpCard(id)));
   var opened = await Live.waitFor(function () { return Lampa.Activity.active().component === 'full'; }, 10000);
   Live.check(opened, 'карточка не открылась: ' + Lampa.Activity.active().component);

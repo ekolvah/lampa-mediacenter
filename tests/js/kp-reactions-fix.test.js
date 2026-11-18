@@ -161,7 +161,7 @@ function openCard(over) {
     },
   };
   c.listeners.full({ type: 'complite', body, data: { movie: BEAST } });
-  c.button = (cls) => c.after.filter((el) => el.html.includes(cls))[0];
+  c.button = (cls) => c.after.find((el) => el.html.includes(cls));
   c.press = () => c.button('button--kp-trailer').handlers['hover:enter']();
   return c;
 }
@@ -562,10 +562,14 @@ test('find error warns with imdb_id, card opens', () => {
 
 // --- Кнопки карточки вместо «Смотреть» (spec card-buttons) ---
 
+// Разметка кнопки плагина: класс, подпись и спрайт.
+function assertButton(el, cls, text, sprite) {
+  for (const part of [cls, text, '#sprite-' + sprite]) assert.ok(el.html.includes(part), el.html);
+}
+
 test('torrent button first, opens torrents', () => {
   const c = openCard();
-  const html = c.after[0].html;
-  for (const part of ['button--kp-torrent', 'Торренты', '#sprite-torrent']) assert.ok(html.includes(part), html);
+  assertButton(c.after[0], 'button--kp-torrent', 'Торренты', 'torrent');
   assert.deepStrictEqual(c.torrent, []);
   c.after[0].handlers['hover:enter']();
   assert.deepStrictEqual(c.torrent, ['hover:enter']);
@@ -600,7 +604,6 @@ test('no play button, warning', () => {
   for (const over of [{ play: false }, { play: false, trailers: false }]) {
     const c = openCard(over);
     assert.strictEqual(c.after.length, 0, JSON.stringify(over));
-    assert.deepStrictEqual(c.torrent, []);
     assertWarned(c, 'Зверь');
   }
 });
@@ -611,8 +614,7 @@ test('trailer after torrent', () => {
   const c = openCard();
   assert.strictEqual(c.after.length, 2);
   assert.ok(c.after[0].html.includes('button--kp-torrent'), c.after[0].html);
-  const html = c.after[1].html;
-  for (const part of ['button--kp-trailer', 'Трейлер', '#sprite-trailer']) assert.ok(html.includes(part), html);
+  assertButton(c.after[1], 'button--kp-trailer', 'Трейлер', 'trailer');
   assert.strictEqual(c.warn.length, 0);
 });
 

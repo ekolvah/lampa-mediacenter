@@ -59,10 +59,8 @@ play_first_trailer() {
   trailer_plays
 }
 
-# Шаг $1 (необязателен: карточка уже открыта) открывает карточку и задаёт window.__kpRuTrailer;
-# пультом «Торренты» -> «Трейлер», играет он.
+# Карточка открыта, фокус на «Торренты»; пультом «Трейлер», играет он (или window.__kpRuTrailer).
 play_trailer_button() {
-  [ -n "${1:-}" ] && step "$1"
   python tools/ui.py --keys "DPAD_RIGHT"
   step button-focus
   python tools/ui.py --keys "DPAD_CENTER"
@@ -70,7 +68,8 @@ play_trailer_button() {
 }
 
 echo "== «Зверь» (без imdb_id): первым русский трейлер сервиса, кнопка «Трейлер» играет его с пульта"
-play_trailer_button open-card-no-imdb
+step open-card-no-imdb
+play_trailer_button
 
 echo "== «Зверь»: тот же ролик через «…» -> «Смотреть» -> «Трейлеры»"
 # После возврата из SmartTube Lampa сама ставит фокус на «Торренты»; не так — упадёт menu-focus.
@@ -84,6 +83,7 @@ python tools/ui.py --keys "BACK"
 play_trailer_button
 
 echo "== «Джентльмены» (сериал, вышло 2 сезона): кнопка «Трейлер» играет трейлер 2-го сезона"
-play_trailer_button open-card-season
+step open-card-season
+play_trailer_button
 
 echo "OK: kp-trailers"
