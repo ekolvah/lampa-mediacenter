@@ -1,0 +1,62 @@
+{
+  "verdict": "approve",
+  "round": 4,
+  "reviewer": "architect-reviewer",
+  "reasoning": "The only edit since round 3 changes the format of the `none found:` marker in proposal.md `## Standard approach`, with the same content. Every delta scenario is still mapped, every remote scenario keeps its live proof, and each named catcher is reached in the 3.2 run.",
+  "classes": {
+    "simpler": {
+      "evidence": "Unchanged since round 1: design.md decisions 1–3 reject `full_btn_priority` (silent reset on lampa.mx updates, v=1994234 -> v=1994469), `hide` (re-shown by `onGroupButtons`), CSS display:none (fallback focus on an invisible button) and inserting at the row start (loses the template check). One `onFull` listener, one `cardButton`, `play.after(buttons).remove()` is the minimum for the user-decided scope. The round 2 live split (design.md Risks, last paragraph) walks «…» once per run instead of twice.",
+      "result": "ok"
+    },
+    "map": {
+      "result": "ok",
+      "evidence": "card-buttons: 7 scenarios, 7 rows. kp-card-trailers «Кнопка «Трейлер»»: 5 scenarios, 5 rows. kp-card-trailers «Трейлер последнего сезона» (MODIFIED; a diff against openspec/specs/kp-card-trailers/spec.md shows only the remote scenario's WHEN changed): 6 scenarios, 6 rows. The five unchanged scenarios map to existing tests in tests/js/kp-reactions-fix.test.js:396, 413, 419, 442, 470 (names checked by grep, one match each), copied from openspec/changes/archive/2026-11-16-series-last-season-trailer/tasks.md:110-114. The remote scenario maps to «Джентльмены» `open-card-season`, `button-focus`, `playing`. The out-of-delta «Русский трейлер с пульта» and «Запуск трейлера пультом» keep their «Зверь» list proof (tasks.md map, last two rows)."
+    },
+    "red": {
+      "evidence": "tasks.md 1.1 writes the mapped tests with in-memory doubles (design.md decision 5, §II) and moves the trailer tests to `after(buttons)`. 1.2 runs `agent-process check_red tests/test_plugin_js.py::test_plugin_js` and commits RED before group 2.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Engine behaviour is observed in proposal.md Why: source quotes from http://lampa.mx/app.min.js?v=1994469 (`Torrents.onCreate`, `Options.onCreate`/`Select`, `onGroupButtons`, read_only `.button--play` remove, `collectionFocus`, `complite` before `groupButtons`/`toggle`), plus the `cdp.py` probe on the box (selector order of KP_958607; `full`/`options` item opening «Источник» with «Трейлеры»). Two things are assumed by the live choreography and never observed. First, focus is on «Торренты» after the return from SmartTube (start of «Зверь» `play_first_trailer`, 'DPAD_RIGHT x4'). The old comment in kp-trailers.sh records that the engine refocused the first button, «Смотреть», not the pressed «Трейлер». Second, focus is on «Торренты» after BACK from the torrents list («1+1» `play_trailer_button`). These are test steps, not design decisions, and each wrong count fails in the same PR's run (tasks.md 3.2): `menu-focus` for the first, `button-focus` for the second. Accepted.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "«Зверь» keeps its list walk, now through «…» -> «Смотреть» -> «Трейлеры» (tasks.md 3.1), so «Русский трейлер с пульта» keeps its proof: `playing` checks id = `__kpRuTrailer.key`, set by `open-card-no-imdb`. «Запуск трейлера пультом» keeps its proof too. Both are mapped (tasks.md:77-78). The «1+1» list walk is replaced by the «Трейлер» button. That loses nothing: «1+1» has no `__kpRuTrailer`, and the list path is proven on «Зверь». The split is written in design.md Risks:97-99. No project-declared input is replaced and no guard is dropped.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "(1) If `full`/`options` is dropped, `menu-focus` catches it in «Зверь» `play_first_trailer`. Without the item, the first «Еще» entry is «AI-ассистент», the walk never reaches «Трейлеры», and `menu-focus` fails on `.selectbox-item.focus` text. Traced. (2) If `view--torrent` is renamed, `openCard` in tests/live/kp-trailers/lib.js fails waiting for focus on `.button--kp-torrent` at step `open-card-no-imdb`. That is the first card of `bash tests/live/kp-trailers.sh`, and design.md Risks:93-95 now names it. Traced. Both are reached by the 3.2 run on the branch head and by the next plugin edit's run, as Risks states.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "card-buttons «Кнопка «Торренты»»: 50 words, every clause asserted: first plus `hover:enter` passed on («torrent button first, opens torrents»), absent («no torrent button without enabled source»), on the box (`open-card`, `torrents-open`). card-buttons «Смотреть» в меню «…»: 47 words, every clause asserted («play removed», «watch item first in options, emits watch», «no play button, warning», `menu-focus` on «Зверь»). kp-card-trailers «Кнопка «Трейлер»»: 86 words, 18 edited, both placements asserted («trailer after torrent», «trailer first without torrents»). «Трейлер последнего сезона»: requirement text unchanged; one scenario WHEN edited, asserted by `openCard` focus on «Торренты» followed by `button-focus` for «Джентльмены».",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "proposal.md '## Standard approach' covers three points. (1) It cites the engine's own `full_btn_priority`/`Buttons.onPriorityButton` from the source URL quoted in Why (http://lampa.mx/app.min.js?v=1994469); design.md decision 1 departs from it because of an observed silent reset on lampa.mx updates. (2) For a ready plugin it records 'none found:' with both search queries of 2026-11-18 and the box's `document.scripts` list. Round 4 fixed only the marker's format, to the 'none found:' form finish_propose expects; the content is unchanged. (3) It names the engine's `full`/`options` and `full`/`complite` plugin path that the design follows. The plan adds no script or check: `torrents-open.js` is one more step in the existing tests/live/kp-trailers harness.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "card-buttons",
+      "scenario": "Торренты с пульта",
+      "reason": "Remote focus and Activity on the box; proven only by `tests/live/kp-trailers.sh` (`open-card`, `torrents-open` for «1+1»), not in CI."
+    },
+    {
+      "capability": "card-buttons",
+      "scenario": "Смотреть из «…» с пульта",
+      "reason": "Select menus driven by the remote on the box; proven only by `tests/live/kp-trailers.sh` (`menu-focus` for «Зверь»)."
+    },
+    {
+      "capability": "kp-card-trailers",
+      "scenario": "Трейлер одним нажатием с пульта",
+      "reason": "Playback in SmartTube on the box; proven by `tests/live/kp-trailers.sh` up to the handed-off id (`button-focus`, `playing` for «Зверь»)."
+    },
+    {
+      "capability": "kp-card-trailers",
+      "scenario": "Трейлер последнего сезона с пульта",
+      "reason": "Playback in SmartTube on the box; proven by `tests/live/kp-trailers.sh` up to the handed-off id (`open-card-season`, `button-focus`, `playing` for «Джентльмены»)."
+    }
+  ]
+}
