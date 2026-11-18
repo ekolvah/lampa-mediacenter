@@ -5,9 +5,9 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/js/kp-reactions-fix.test.js`: двойники по design.md, решение 5; тесты из карты ниже;
+- [x] 1.1 `tests/js/kp-reactions-fix.test.js`: двойники по design.md, решение 5; тесты из карты ниже;
   существующие тесты трейлера переходят с `after(button)` на `after(buttons)`.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Плагин
 
