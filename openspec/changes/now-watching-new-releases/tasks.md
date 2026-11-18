@@ -41,7 +41,7 @@
 
 ## 5. Доки (отдельный коммит)
 
-- [ ] 5.1 `docs/lampa-config-review.md`: строка `kp-reactions-fix` — ряды новинок на Главной; абзац
+- [x] 5.1 `docs/lampa-config-review.md`: строка `kp-reactions-fix` — ряды новинок на Главной; абзац
   «Свой плагин. Штатный путь `ContentRows`…» — ссылка на ряды новинок как пример обёртки `main`.
   Шапка `plugins/kp-reactions-fix.js` — что плагин держит и Главную (решение 1). Проверка:
   `python scripts/ci_check.py --only links`.
