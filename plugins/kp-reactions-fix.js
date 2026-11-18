@@ -27,7 +27,7 @@
   // Страниц коллекции на ряд Главной и на одну страницу полного списка.
   var BATCH = 5;
   // Штатные ряды kp_source по url, который кладёт его getList.
-  var NEW_ROWS = [
+  var NOW_WATCHING = [
     { url: 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', name: 'Сейчас смотрят фильмы' },
     { url: 'api/v2.2/films/collections?type=POPULAR_SERIES', name: 'Сейчас смотрят сериалы' },
   ];
@@ -345,8 +345,7 @@
 
     // Новинки страниц коллекции first..last: страница first — known (ответ, уже полученный
     // Главной) или запрос, остальные — запросы к исходному KP.list. Возвращает build():
-    // { results, gaps, failed } — новинки и непроверенные в порядке коллекции, число недошедших
-    // страниц, не дошла ли ни одна.
+    // { results, gaps } — новинки и непроверенные в порядке коллекции, число недошедших страниц.
     function collectPages(spec, first, last, known, rule, pending) {
       var pages = []; // undefined — нет ответа, null — ошибка страницы
 
@@ -364,8 +363,8 @@
         });
       }
 
-      for (var page = first; page <= last; page++) (function (page) {
-        if (page === first && known) return addPage(page, known);
+      if (known) addPage(first, known);
+      for (var page = known ? first + 1 : first; page <= last; page++) (function (page) {
         var settle = pending();
         orgList.call(KP, { url: spec.url, page: page }, settle(function (json) {
           addPage(page, json);
@@ -389,7 +388,7 @@
           });
         }
         if (gaps.length) console.warn('kp-reactions-fix: new release row incomplete', spec.name, gaps.join(', '));
-        return { results: results, gaps: gaps.length, failed: gaps.length > 0 && gaps.length === last - first + 1 };
+        return { results: results, gaps: gaps.length };
       };
     }
 
@@ -418,7 +417,7 @@
       var wait = waiter(function () {
         var batch = build();
         var total = Math.ceil((srcPages[spec.url] || last) / BATCH);
-        if (batch.failed) return onerror();
+        if (batch.gaps && batch.gaps === last - first + 1) return onerror();
         if (!batch.results.length && params.page < total) {
           params.page++;
           return listBatch(spec, params, oncomplite, onerror);
@@ -429,13 +428,13 @@
       wait.start();
     }
 
-    // Первая порция Главной: штатные ряды NEW_ROWS заменены отфильтрованными. Порция уходит
+    // Первая порция Главной: штатные ряды NOW_WATCHING заменены отфильтрованными. Порция уходит
     // Главной, когда собраны оба ряда, но не позже ROWS_TIMEOUT_MS.
-    function insertRows(parts, oncomplite) {
-      var originals = NEW_ROWS.map(function (spec) {
+    function filterRows(parts, oncomplite) {
+      var originals = NOW_WATCHING.map(function (spec) {
         return parts.filter(function (p) { return p && p.url === spec.url; })[0];
       });
-      var missing = NEW_ROWS.filter(function (spec, i) { return !originals[i]; });
+      var missing = NOW_WATCHING.filter(function (spec, i) { return !originals[i]; });
       if (missing.length) {
         rowsFailed('no row ' + missing.map(function (spec) { return spec.name; }).join(', '));
         return oncomplite(parts);
@@ -443,31 +442,28 @@
 
       var rule = noveltyRule(new Date());
       var rows;
-      // После сбора поздние колбэки не держат порцию и oncomplite Главной.
       var wait = waiter(function () {
         var out = [];
         parts.forEach(function (p) {
           var i = originals.indexOf(p);
-          var row = i === -1 ? p : filteredRow(NEW_ROWS[i], p, rows[i]());
+          var row = i === -1 ? p : filteredRow(NOW_WATCHING[i], p, rows[i]());
           if (row) out.push(row);
         });
-        var done = oncomplite;
-        parts = originals = rows = oncomplite = null;
-        done(out);
+        oncomplite(out);
       });
-      rows = NEW_ROWS.map(function (spec, i) {
+      rows = NOW_WATCHING.map(function (spec, i) {
         var original = originals[i];
         return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, wait.pending);
       });
       wait.start();
     }
 
-    // «Ещё» у ряда NEW_ROWS: category_full зовёт KP.list с url ряда и page 1, 2, … Остальные
+    // «Ещё» у ряда NOW_WATCHING: category_full зовёт KP.list с url ряда и page 1, 2, … Остальные
     // списки идут в kp_source как есть.
     var orgList = KP.list;
     var srcPages = {}; // url коллекции → число её страниц, из её ответов
     KP.list = function (params, oncomplite, onerror) {
-      var spec = NEW_ROWS.filter(function (s) { return params && s.url === params.url; })[0];
+      var spec = NOW_WATCHING.filter(function (s) { return params && s.url === params.url; })[0];
       if (!spec) return orgList.apply(KP, arguments);
       listBatch(spec, params, oncomplite, onerror);
     };
@@ -480,7 +476,7 @@
       if (active && active.component === 'main' && active.source === 'KP') rowsFailed('main screen built before patch');
       KP.main = function (params, oncomplite, onerror) {
         return orgMain.call(KP, params, function (parts) {
-          insertRows(parts, oncomplite);
+          filterRows(parts, oncomplite);
         }, onerror);
       };
     }

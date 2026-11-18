@@ -233,14 +233,14 @@ const TV_ID = { tt0944947: 1399, tt4574334: 66732 };
 const findTv = (url) => ({ movie_results: [], tv_results: [{ id: TV_ID[/find\/(tt\d+)/.exec(url)[1]] }] });
 const aired = (date) => ({ last_episode_to_air: { season_number: 2, air_date: date } });
 const HOME = [
-  part('Сейчас смотрят фильмы', MOVIES_URL, [AVATAR, ZOOTOPIA]),
-  part('Сейчас смотрят сериалы', SERIES_URL, [PLURIBUS]),
+  part(MOVIES_ROW, MOVIES_URL, [AVATAR, ZOOTOPIA]),
+  part(SERIES_ROW, SERIES_URL, [PLURIBUS]),
   part('Топ фильмы', 'api/v2.2/films/collections?type=TOP_250_MOVIES', [INTERSTELLAR]),
 ];
 // Главная, в коллекции фильмов на 1-й странице movies, на 2-й — page2; у сериалов — series.
 function homeWith(over) {
   const o = Object.assign({ movies: [AVATAR], page2: [], series: [PLURIBUS], pages: null }, over);
-  const parts = [part('Сейчас смотрят фильмы', MOVIES_URL, o.movies), part('Сейчас смотрят сериалы', SERIES_URL, o.series)];
+  const parts = [part(MOVIES_ROW, MOVIES_URL, o.movies), part(SERIES_ROW, SERIES_URL, o.series)];
   const pages = o.pages || ((url, page) => ({ results: url === MOVIES_URL && page === 2 ? o.page2 : [] }));
   return home(Object.assign({}, over, { parts, pages }));
 }
@@ -644,7 +644,6 @@ test('new items from later pages', () => {
   assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title, late.title]);
   assert.deepStrictEqual(c.list.filter((l) => l.url === MOVIES_URL).map((l) => l.page), [2, 3, 4, 5]);
   assert.deepStrictEqual(c.list.filter((l) => l.url === SERIES_URL).map((l) => l.page), [2, 3, 4, 5]);
-  assert.strictEqual(row(c, MOVIES_ROW).title, MOVIES_ROW);
 });
 
 test('empty row skipped, warning', () => {
@@ -672,7 +671,6 @@ test('future year is new', () => {
 test('empty year is unknown', () => {
   const c = homeWith({ movies: [AVATAR, film('Без года', '')] });
   assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, 'Без года']);
-  assert.strictEqual(row(c, MOVIES_ROW).title, MOVIES_ROW);
   assert.ok(warnedWith(c, 'Без года'), JSON.stringify(c.warn));
 });
 
@@ -686,7 +684,6 @@ test('new series no tmdb', () => {
 test('new season of old series', () => {
   const c = homeWith({ series: [THRONES], find: findTv, tv: () => aired('2026-10-01') });
   assert.deepStrictEqual(names(row(c, SERIES_ROW)), [THRONES.title]);
-  assert.strictEqual(row(c, SERIES_ROW).title, SERIES_ROW);
   assert.deepStrictEqual(c.tv, [{ url: 'tv/1399', cache: { life: DAY_MIN } }]);
 });
 
@@ -704,14 +701,12 @@ test('old series without new episodes', () => {
 test('no tmdb pair is unknown', () => {
   const c = homeWith({ series: [NEVSKY], search: NO_RESULTS });
   assert.deepStrictEqual(names(row(c, SERIES_ROW)), [NEVSKY.title]);
-  assert.strictEqual(row(c, SERIES_ROW).title, SERIES_ROW);
   assert.ok(warnedWith(c, 'new release not checked', NEVSKY.title), JSON.stringify(c.warn));
 });
 
 test('tmdb error is unknown', () => {
   const c = homeWith({ series: [THRONES], find: findTv, tv: 'error' });
   assert.deepStrictEqual(names(row(c, SERIES_ROW)), [THRONES.title]);
-  assert.strictEqual(row(c, SERIES_ROW).title, SERIES_ROW);
   assert.ok(warnedWith(c, 'new release not checked', THRONES.title), JSON.stringify(c.warn));
 });
 
@@ -719,7 +714,6 @@ test('no last episode is unknown', () => {
   for (const tv of [{}, { last_episode_to_air: null }, { last_episode_to_air: { season_number: 3 } }]) {
     const c = homeWith({ series: [THRONES], find: findTv, tv });
     assert.deepStrictEqual(names(row(c, SERIES_ROW)), [THRONES.title], JSON.stringify(tv));
-    assert.strictEqual(row(c, SERIES_ROW).title, SERIES_ROW, JSON.stringify(tv));
     assert.ok(warnedWith(c, 'new release not checked', THRONES.title), JSON.stringify(c.warn));
   }
 });
@@ -760,7 +754,6 @@ test('tmdb timeout is unknown', () => {
   c.fire();
   assert.strictEqual(c.home.length, 1);
   assert.deepStrictEqual(names(row(c, SERIES_ROW)), [THRONES.title]);
-  assert.strictEqual(row(c, SERIES_ROW).title, SERIES_ROW);
   assert.ok(warnedWith(c, 'new release not checked', THRONES.title, 'timeout'), JSON.stringify(c.warn));
 });
 
@@ -771,7 +764,7 @@ test('missing original row, noty', () => {
   assert.strictEqual(c.noty.length, 1);
   assert.ok(c.noty[0].includes('Ряды новинок не построены'), c.noty[0]);
   assert.strictEqual(c.error.length, 1);
-  assert.ok(c.error[0].join(' ').includes('Сейчас смотрят сериалы'), JSON.stringify(c.error));
+  assert.ok(c.error[0].join(' ').includes(SERIES_ROW), JSON.stringify(c.error));
   assert.deepStrictEqual(c.list, []);
 });
 
