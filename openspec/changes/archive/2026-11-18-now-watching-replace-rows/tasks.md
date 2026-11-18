@@ -22,12 +22,12 @@
 
 - [x] 4.1 `tests/live/now-watching/rows.js` под новые ряды и 2-ю страницу полного списка.
 - [x] 4.2 `docs/lampa-config-review.md`; решения 2 и 6 в архивном design.md помечены заменёнными.
-- [ ] 4.3 Пин ветки на приставке (снапшот), `bash tests/live/now-watching.sh` → OK.
+- [x] 4.3 Пин ветки на приставке (снапшот), `bash tests/live/now-watching.sh` → OK.
 
 ## 5. Verify и Deliver
 
-- [ ] 5.1 `openspec validate --strict --all`, `pre-commit run --hook-stage manual --all-files`.
-- [ ] 5.2 `agent-process archive_change now-watching-replace-rows`, push, `wait_for_pr 69`.
+- [x] 5.1 `openspec validate --strict --all`, `pre-commit run --hook-stage manual --all-files`.
+- [x] 5.2 `agent-process archive_change now-watching-replace-rows`, push, `wait_for_pr 69`.
 
 ## Scenario → test map
 
