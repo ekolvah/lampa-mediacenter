@@ -1,7 +1,8 @@
 # now-watching-new-releases Specification
 
 ## Purpose
-TBD - created by archiving change now-watching-new-releases. Update Purpose after archive.
+Ряды «Сейчас смотрят фильмы» и «Сейчас смотрят сериалы» на Главной с источником `KP` и их полный
+список по «Ещё» показывают только новинки: старые фильмы и сериалы без новых эпизодов отсеяны.
 
 ## Requirements
 
