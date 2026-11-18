@@ -22,9 +22,13 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // tv — ответ tv/<id> или 'error' (по умолчанию один вышедший сезон), запросы — в calls.tv;
 // season — ответ tmdb.videos для tv/<id>/season: 'never' — колбэк не приходит, 'late' — колбэк
 // в calls.late, его зовёт тест. setTimeout — двойник: таймеры в calls.timers, fire() их запускает.
+// find, search, tv могут быть функцией от URL (find, search) или id (tv), 'never' — ответа нет.
+// Главная (design.md, решение 7): parts — первая порция KP.main; pages(url, page) — ответ KP.list,
+// 'error' или 'never'; active — Lampa.Activity.active(); today — «сейчас» для Date; open: false —
+// без KP.full в конце load().
 function load(over) {
-  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS }, over);
-  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], done: [], listeners: {}, shown: [], timers: [], late: [] };
+  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true }, over);
+  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [] };
   calls.fire = () => calls.timers.splice(0).forEach((t) => t.fn());
   function Reguest() { this.ms = null; }
   Reguest.prototype.timeout = function (ms) { this.ms = ms; };
@@ -34,19 +38,26 @@ function load(over) {
     if (s && typeof s.status === 'number') err(s);
     else ok(s);
   };
+  const answer = (a, key) => (typeof a === 'function' ? a(key) : a);
+  const reply = (a, ok, err) => { if (a === 'error') err(); else if (a !== 'never') ok(a); };
   const KP = {
     full(params, ok) { ok({ movie: opts.movie }); },
+    main(params, ok) { ok(plain(opts.parts)); return NEXT; },
+    list(params, ok, err) {
+      calls.list.push(plain(params));
+      reply(opts.pages(params.url, params.page), (json) => ok(plain(json)), err);
+    },
   };
   const tmdb = {
     get(url, params, ok, err, cache) {
-      if (/^tv\/\d+$/.test(url)) {
+      const tv = /^tv\/(\d+)$/.exec(url);
+      if (tv) {
         calls.tv.push(plain({ url, cache }));
-        return opts.tv === 'error' ? err() : ok(opts.tv);
+        return reply(answer(opts.tv, +tv[1]), ok, err);
       }
       calls.get.push(plain({ url, cache }));
-      const answer = url.startsWith('find/') ? opts.find : url.startsWith('search/') ? opts.search : 'error';
-      if (answer === 'error') err();
-      else ok(answer);
+      const a = url.startsWith('find/') ? answer(opts.find, url) : url.startsWith('search/') ? answer(opts.search, url) : 'error';
+      reply(a, ok, err);
     },
   };
   if (opts.videos !== null) {
@@ -67,10 +78,17 @@ function load(over) {
   const Select = { show(params) { calls.shown.push(params); } };
   const Listener = { follow(name, fn) { calls.listeners[name] = fn; } };
   const Storage = { field(name) { return name === 'tmdb_lang' ? 'ru' : undefined; } };
+  const Noty = { show(text) { calls.noty.push(text); } };
+  const Activity = { active() { return opts.active; } };
+  const now = new Date(opts.today).getTime();
+  class FakeDate extends Date {
+    constructor(...args) { if (args.length) super(...args); else super(now); }
+  }
   const ctx = {
-    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage },
+    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Noty, Activity },
     $: element,
-    console: { warn(...args) { calls.warn.push(args); }, log() {} },
+    Date: FakeDate,
+    console: { warn(...args) { calls.warn.push(args); }, error(...args) { calls.error.push(args); }, log() {} },
     setInterval, clearInterval,
     setTimeout(fn, ms) { const t = { fn, ms }; calls.timers.push(t); return t; },
     clearTimeout(t) { const i = calls.timers.indexOf(t); if (i !== -1) calls.timers.splice(i, 1); },
@@ -79,8 +97,26 @@ function load(over) {
   calls.ctx = ctx;
   calls.originalShow = Select.show;
   vm.runInNewContext(SRC, ctx);
-  KP.full({ id: 'KP_1', method: 'movie' }, (result) => calls.done.push(result), () => {});
+  if (opts.open) KP.full({ id: 'KP_1', method: 'movie' }, (result) => calls.done.push(result), () => {});
   return calls;
+}
+
+// Главная KP открыта: Lampa зовёт KP.main, порции — в c.home, возвращённая подгрузка — c.next.
+function home(over) {
+  const c = load(Object.assign({ open: false }, over));
+  c.home = [];
+  c.next = c.ctx.Lampa.Api.sources.KP.main({}, (parts) => c.home.push(plain(parts)), () => {});
+  return c;
+}
+
+// Ряд Главной по заголовку (без добавок « · …»).
+function row(c, title) {
+  return c.home[0].find((part) => part.title.split(' · ')[0] === title);
+}
+
+// Названия карточек ряда.
+function names(part) {
+  return part.results.map((card) => card.title);
 }
 
 // Двойник jQuery-элемента, который создаёт плагин: разметка и обработчики событий.
@@ -174,6 +210,40 @@ const RU_ITEM = { title: PICK.title, id: PICK.video_id };
 const MORE_ITEM = { title: 'Ещё', separator: true };
 const EN_ITEM = { title: EN_VIDEOS.results[0].name, id: EN_VIDEOS.results[0].key };
 const TRAILER_ITEMS = [RU_ITEM, MORE_ITEM, EN_ITEM];
+
+// Главная KP (proposal, Why): части первой порции kp_source — с url, который кладёт getList.
+const TODAY = '2026-11-18T12:00:00';
+const MOVIES_URL = 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES';
+const SERIES_URL = 'api/v2.2/films/collections?type=POPULAR_SERIES';
+const NEW_MOVIES = 'Сейчас смотрят: новинки (фильмы)';
+const NEW_SERIES = 'Сейчас смотрят: новинки (сериалы)';
+const NEXT = function next() {};
+const film = (title, year) => ({ id: 'KP_' + title, type: 'movie', title, original_title: title, imdb_id: '', release_date: year });
+const show = (title, year, imdb) => ({ id: 'KP_' + title, type: 'tv', title, name: title, original_title: title, imdb_id: imdb || '', first_air_date: year });
+const part = (title, url, results) => ({ title, url, results, page: 1, total_pages: 35, total_results: 0, more: true });
+const AVATAR = film('Аватар: Пламя и пепел', '2025');
+const ZOOTOPIA = film('Зверополис 2', '2025');
+const INTERSTELLAR = film('Интерстеллар', '2014');
+const PLURIBUS = show('Одна из многих', '2025');
+// Старт до прошлого года: решает последний эпизод по TMDB (find по imdb_id → tv/<id>).
+const THRONES = show('Игра престолов', '2011', 'tt0944947');
+const STRANGER = show('Очень странные дела', '2016', 'tt4574334');
+const NEVSKY = show('Невский', '2015');
+const TV_ID = { tt0944947: 1399, tt4574334: 66732 };
+const findTv = (url) => ({ movie_results: [], tv_results: [{ id: TV_ID[/find\/(tt\d+)/.exec(url)[1]] }] });
+const aired = (date) => ({ last_episode_to_air: { season_number: 2, air_date: date } });
+const HOME = [
+  part('Сейчас смотрят фильмы', MOVIES_URL, [AVATAR, ZOOTOPIA]),
+  part('Сейчас смотрят сериалы', SERIES_URL, [PLURIBUS]),
+  part('Топ фильмы', 'api/v2.2/films/collections?type=TOP_250_MOVIES', [INTERSTELLAR]),
+];
+// Главная, в коллекции фильмов на 1-й странице movies, на 2-й — page2; у сериалов — series.
+function homeWith(over) {
+  const o = Object.assign({ movies: [AVATAR], page2: [], series: [PLURIBUS], pages: null }, over);
+  const parts = [part('Сейчас смотрят фильмы', MOVIES_URL, o.movies), part('Сейчас смотрят сериалы', SERIES_URL, o.series)];
+  const pages = o.pages || ((url, page) => ({ results: url === MOVIES_URL && page === 2 ? o.page2 : [] }));
+  return home(Object.assign({}, over, { parts, pages }));
+}
 
 // Вставленный ролик стоит первым по обоим ключам сортировки движка: язык tmdb_lang и дата строго
 // позже всех прочих (design.md, решение 4).
@@ -538,4 +608,183 @@ test('not intercepted, warning', () => {
   c.press();
   assert.strictEqual(c.played.length, 0);
   assertWarned(c, 'Зверь');
+});
+
+// --- Ряды новинок на Главной KP (spec now-watching-new-releases) ---
+
+test('rows inserted after originals', () => {
+  const c = home();
+  assert.deepStrictEqual(c.home[0].map((p) => p.title), [
+    'Сейчас смотрят фильмы', NEW_MOVIES, 'Сейчас смотрят сериалы', NEW_SERIES, 'Топ фильмы',
+  ]);
+  assert.deepStrictEqual(names(row(c, NEW_MOVIES)), [AVATAR.title, ZOOTOPIA.title]);
+  assert.deepStrictEqual(names(row(c, NEW_SERIES)), [PLURIBUS.title]);
+  assert.strictEqual(c.home.length, 1);
+});
+
+test('originals unchanged', () => {
+  const parts = HOME.concat([part('Сейчас смотрят ещё', MOVIES_URL + 'x', [INTERSTELLAR])]);
+  const c = home({ parts });
+  const originals = c.home[0].filter((p) => p.title !== NEW_MOVIES && p.title !== NEW_SERIES);
+  assert.deepStrictEqual(originals, plain(parts));
+  assert.strictEqual(c.next, NEXT);
+});
+
+test('no more button', () => {
+  const c = home();
+  assert.strictEqual(row(c, NEW_MOVIES).total_pages, 1);
+  assert.strictEqual(row(c, NEW_SERIES).total_pages, 1);
+});
+
+test('new items from later pages', () => {
+  const old = film('Начало', '2010');
+  const late = film('Грешники', '2025');
+  const c = homeWith({ movies: [AVATAR, ZOOTOPIA], page2: [INTERSTELLAR, late, old] });
+  assert.deepStrictEqual(names(row(c, NEW_MOVIES)), [AVATAR.title, ZOOTOPIA.title, late.title]);
+  assert.deepStrictEqual(c.list.filter((l) => l.url === MOVIES_URL).map((l) => l.page), [2, 3, 4, 5]);
+  assert.deepStrictEqual(c.list.filter((l) => l.url === SERIES_URL).map((l) => l.page), [2, 3, 4, 5]);
+  assert.strictEqual(row(c, NEW_MOVIES).title, NEW_MOVIES);
+});
+
+test('empty row skipped, warning', () => {
+  const c = homeWith({ movies: [INTERSTELLAR] });
+  assert.strictEqual(row(c, NEW_MOVIES), undefined);
+  assert.ok(row(c, NEW_SERIES));
+  assert.ok(warnedWith(c, NEW_MOVIES), JSON.stringify(c.warn));
+});
+
+test('january keeps last year', () => {
+  const c = homeWith({ today: '2027-01-15T12:00:00', movies: [film('Прошлогодний', '2026')] });
+  assert.deepStrictEqual(names(row(c, NEW_MOVIES)), ['Прошлогодний']);
+});
+
+test('year before last is old', () => {
+  const c = homeWith({ movies: [AVATAR, film('Позапрошлый', '2024')] });
+  assert.deepStrictEqual(names(row(c, NEW_MOVIES)), [AVATAR.title]);
+});
+
+test('future year is new', () => {
+  const c = homeWith({ movies: [film('Будущий', '2027')] });
+  assert.deepStrictEqual(names(row(c, NEW_MOVIES)), ['Будущий']);
+});
+
+test('empty year is unknown', () => {
+  const c = homeWith({ movies: [AVATAR, film('Без года', '')] });
+  assert.deepStrictEqual(names(row(c, NEW_MOVIES)), [AVATAR.title, 'Без года']);
+  assert.strictEqual(row(c, NEW_MOVIES).title, NEW_MOVIES + ' · не проверено: 1');
+  assert.ok(warnedWith(c, 'Без года'), JSON.stringify(c.warn));
+});
+
+test('new series no tmdb', () => {
+  const c = homeWith({ series: [PLURIBUS, show('Свежий', '2026', 'tt9')] });
+  assert.deepStrictEqual(names(row(c, NEW_SERIES)), [PLURIBUS.title, 'Свежий']);
+  assert.deepStrictEqual(c.get, []);
+  assert.deepStrictEqual(c.tv, []);
+});
+
+test('new season of old series', () => {
+  const c = homeWith({ series: [THRONES], find: findTv, tv: () => aired('2026-10-01') });
+  assert.deepStrictEqual(names(row(c, NEW_SERIES)), [THRONES.title]);
+  assert.strictEqual(row(c, NEW_SERIES).title, NEW_SERIES);
+  assert.deepStrictEqual(c.tv, [{ url: 'tv/1399', cache: { life: DAY_MIN } }]);
+});
+
+test('last episode boundary 365 days', () => {
+  const dates = { 1399: '2025-11-18', 66732: '2025-11-17' };
+  const c = homeWith({ series: [THRONES, STRANGER], find: findTv, tv: (id) => aired(dates[id]) });
+  assert.deepStrictEqual(names(row(c, NEW_SERIES)), [THRONES.title]);
+});
+
+test('old series without new episodes', () => {
+  const c = homeWith({ series: [PLURIBUS, STRANGER], find: findTv, tv: () => aired('2025-06-01') });
+  assert.deepStrictEqual(names(row(c, NEW_SERIES)), [PLURIBUS.title]);
+});
+
+test('no tmdb pair is unknown', () => {
+  const c = homeWith({ series: [NEVSKY], search: NO_RESULTS });
+  assert.deepStrictEqual(names(row(c, NEW_SERIES)), [NEVSKY.title]);
+  assert.strictEqual(row(c, NEW_SERIES).title, NEW_SERIES + ' · не проверено: 1');
+  assert.ok(warnedWith(c, 'new release not checked', NEVSKY.title), JSON.stringify(c.warn));
+});
+
+test('tmdb error is unknown', () => {
+  const c = homeWith({ series: [THRONES], find: findTv, tv: 'error' });
+  assert.deepStrictEqual(names(row(c, NEW_SERIES)), [THRONES.title]);
+  assert.strictEqual(row(c, NEW_SERIES).title, NEW_SERIES + ' · не проверено: 1');
+  assert.ok(warnedWith(c, 'new release not checked', THRONES.title), JSON.stringify(c.warn));
+});
+
+test('no last episode is unknown', () => {
+  for (const tv of [{}, { last_episode_to_air: null }, { last_episode_to_air: { season_number: 3 } }]) {
+    const c = homeWith({ series: [THRONES], find: findTv, tv });
+    assert.deepStrictEqual(names(row(c, NEW_SERIES)), [THRONES.title], JSON.stringify(tv));
+    assert.strictEqual(row(c, NEW_SERIES).title, NEW_SERIES + ' · не проверено: 1', JSON.stringify(tv));
+    assert.ok(warnedWith(c, 'new release not checked', THRONES.title), JSON.stringify(c.warn));
+  }
+});
+
+test('unknown count in title', () => {
+  const c = homeWith({ series: [PLURIBUS, NEVSKY, THRONES], find: findTv, search: NO_RESULTS, tv: 'error' });
+  assert.deepStrictEqual(names(row(c, NEW_SERIES)), [PLURIBUS.title, NEVSKY.title, THRONES.title]);
+  assert.strictEqual(row(c, NEW_SERIES).title, 'Сейчас смотрят: новинки (сериалы) · не проверено: 2');
+});
+
+test('no suffix when all checked', () => {
+  const c = homeWith({ series: [PLURIBUS, THRONES], find: findTv, tv: () => aired('2026-10-01') });
+  assert.strictEqual(row(c, NEW_SERIES).title, NEW_SERIES);
+  assert.strictEqual(row(c, NEW_MOVIES).title, NEW_MOVIES);
+});
+
+test('page error marks incomplete', () => {
+  const byPage = { 2: [film('Два', '2026')], 4: [film('Четыре', '2026')], 5: [film('Пять', '2026')] };
+  const pages = (url, page) => (url !== MOVIES_URL ? NO_RESULTS : page === 3 ? 'error' : { results: byPage[page] });
+  const c = homeWith({ pages });
+  assert.deepStrictEqual(names(row(c, NEW_MOVIES)), [AVATAR.title, 'Два', 'Четыре', 'Пять']);
+  assert.strictEqual(row(c, NEW_MOVIES).title, NEW_MOVIES + ' · неполный');
+  assert.strictEqual(row(c, NEW_SERIES).title, NEW_SERIES);
+  assert.ok(warnedWith(c, NEW_MOVIES, 'page 3'), JSON.stringify(c.warn));
+});
+
+test('timeout builds partial row', () => {
+  const pages = (url, page) => (url !== MOVIES_URL ? NO_RESULTS : page === 4 ? 'never' : { results: page === 2 ? [ZOOTOPIA] : [] });
+  const c = homeWith({ pages });
+  assert.strictEqual(c.home.length, 0);
+  assert.deepStrictEqual(c.timers.map((t) => t.ms), [5000]);
+  c.fire();
+  assert.strictEqual(c.home.length, 1);
+  assert.deepStrictEqual(names(row(c, NEW_MOVIES)), [AVATAR.title, ZOOTOPIA.title]);
+  assert.strictEqual(row(c, NEW_MOVIES).title, NEW_MOVIES + ' · неполный');
+  assert.ok(warnedWith(c, NEW_MOVIES, 'page 4'), JSON.stringify(c.warn));
+});
+
+test('tmdb timeout is unknown', () => {
+  const c = homeWith({ series: [THRONES], find: findTv, tv: 'never' });
+  assert.strictEqual(c.home.length, 0);
+  c.fire();
+  assert.strictEqual(c.home.length, 1);
+  assert.deepStrictEqual(names(row(c, NEW_SERIES)), [THRONES.title]);
+  assert.strictEqual(row(c, NEW_SERIES).title, NEW_SERIES + ' · не проверено: 1');
+  assert.ok(warnedWith(c, 'new release not checked', THRONES.title, 'timeout'), JSON.stringify(c.warn));
+});
+
+test('missing original row, noty', () => {
+  const parts = [HOME[0], HOME[2]];
+  const c = home({ parts });
+  assert.deepStrictEqual(c.home, [plain(parts)]);
+  assert.strictEqual(c.noty.length, 1);
+  assert.ok(c.noty[0].includes('Ряды новинок не построены'), c.noty[0]);
+  assert.strictEqual(c.error.length, 1);
+  assert.ok(c.error[0].join(' ').includes('Сейчас смотрят сериалы'), JSON.stringify(c.error));
+  assert.deepStrictEqual(c.list, []);
+});
+
+test('late patch, noty', () => {
+  const c = load({ open: false, active: { component: 'main', source: 'KP' } });
+  assert.strictEqual(c.noty.length, 1);
+  assert.ok(c.noty[0].includes('Ряды новинок не построены'), c.noty[0]);
+  assert.strictEqual(c.error.length, 1);
+  for (const active of [null, { component: 'main', source: 'tmdb' }, { component: 'full', source: 'KP' }]) {
+    const quiet = load({ open: false, active });
+    assert.deepStrictEqual([quiet.noty, quiet.error], [[], []], JSON.stringify(active));
+  }
 });

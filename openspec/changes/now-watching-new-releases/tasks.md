@@ -5,9 +5,9 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/js/kp-reactions-fix.test.js`: расширить `load()` по design.md, решение 7; написать
+- [x] 1.1 `tests/js/kp-reactions-fix.test.js`: расширить `load()` по design.md, решение 7; написать
   тесты из карты ниже.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Фильтр
 
