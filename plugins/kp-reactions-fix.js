@@ -531,7 +531,7 @@
   function onFull(e) {
     if (e.type === 'options') {
       var link = e.link;
-      return e.options.push({ title: 'Смотреть', onSelect: function () { link.emit('watch', {}); } });
+      return e.options.unshift({ title: 'Смотреть', onSelect: function () { link.emit('watch', {}); } });
     }
     if (e.type !== 'complite') return;
     var movie = (e.data && e.data.movie) || {};

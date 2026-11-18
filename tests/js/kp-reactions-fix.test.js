@@ -592,9 +592,10 @@ test('play removed', () => {
 test('watch item first in options, emits watch', () => {
   const c = load();
   const emitted = [];
-  const options = [];
+  // Пункт другого плагина уже в меню: «Смотреть» всё равно первый.
+  const options = [{ title: 'Другой плагин' }];
   c.listeners.full({ type: 'options', options, link: { emit(name, args) { emitted.push([name, args]); } } });
-  assert.deepStrictEqual(options.map((o) => o.title), ['Смотреть']);
+  assert.deepStrictEqual(options.map((o) => o.title), ['Смотреть', 'Другой плагин']);
   assert.deepStrictEqual(emitted, []);
   options[0].onSelect();
   assert.deepStrictEqual(plain(emitted), [['watch', {}]]);
