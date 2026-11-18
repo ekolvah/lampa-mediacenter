@@ -271,19 +271,25 @@
     };
 
     // Новинка (spec now-watching-new-releases): год по Кинопоиску не раньше прошлого; у сериала
-    // со старым стартом — последний эпизод по TMDB за 365 дней. 'unknown' — проверить нечем.
-    function isNewRelease(card, today, lastEpisodeDate) {
+    // со старым стартом — последний эпизод по TMDB за 365 дней. 'episode' — нужна дата эпизода
+    // (lastEpisodeDate не передан), 'unknown' — проверить нечем.
+    function isNewRelease(card, rule, lastEpisodeDate) {
       var year = parseInt(releaseDate(card).slice(0, 4), 10);
       if (!year) return 'unknown';
-      if (year >= today.getFullYear() - 1) return 'new';
+      if (year >= rule.minYear) return 'new';
       if (card.type !== 'tv') return 'old';
+      if (lastEpisodeDate === undefined) return 'episode';
       if (!lastEpisodeDate) return 'unknown';
-      return lastEpisodeDate >= isoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 365)) ? 'new' : 'old';
+      return lastEpisodeDate >= rule.cutoff ? 'new' : 'old';
     }
 
-    function isoDate(d) {
+    function noveltyRule(today) {
       function pad(n) { return (n < 10 ? '0' : '') + n; }
-      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      var d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 365);
+      return {
+        minYear: today.getFullYear() - 1,
+        cutoff: d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+      };
     }
 
     // Дата последнего вышедшего эпизода сериала по TMDB. cb(null, причина) — даты нет.
@@ -291,7 +297,7 @@
       resolveTitle(card, function (title) {
         if (!title || title.method !== 'tv') return cb(null, 'no tmdb tv title');
         lastSeason(title, function (last) {
-          cb(last && last.date, 'no last episode date, tv/' + title.id);
+          cb((last && last.date) || null, 'no last episode date, tv/' + title.id);
         });
       });
     }
@@ -301,53 +307,42 @@
       Lampa.Noty.show('Ряды новинок не построены: ' + reason);
     }
 
-    // Ряд новинок одной коллекции: страница 1 из штатного ряда, 2–5 через KP.list. over() —
-    // сбор закончен, поздние ответы не учитываются; ondone — пришло всё. build() — ряд или null.
-    function collectRow(spec, original, today, over, ondone) {
-      var pages = [];
-      var failed = [];
-      var waiting = 1;
-      function release() { if (--waiting === 0) ondone(); }
+    // Ряд новинок одной коллекции: страница 1 из штатного ряда, 2–5 через KP.list. pending() —
+    // один ожидаемый ответ: settle = pending(), settle(fn) — его колбэк (успех или ошибка); после
+    // конца сбора колбэки не вызываются. Возвращает build(): ряд или null.
+    function collectRow(spec, original, rule, pending) {
+      var pages = []; // undefined — нет ответа, null — ошибка страницы
 
       function addPage(index, results) {
         pages[index] = (results || []).map(function (card) {
-          var item = { card: card, verdict: isNewRelease(card, today), reason: 'no year' };
-          if (item.verdict !== 'unknown' || card.type !== 'tv' || !releaseDate(card)) return item;
-          item.verdict = null;
+          var item = { card: card, verdict: isNewRelease(card, rule), reason: 'no year' };
+          if (item.verdict !== 'episode') return item;
           item.reason = 'timeout';
-          waiting++;
-          lastEpisode(card, function (date, reason) {
-            if (over()) return;
-            item.verdict = isNewRelease(card, today, date);
+          lastEpisode(card, pending()(function (date, reason) {
+            item.verdict = isNewRelease(card, rule, date);
             item.reason = reason;
-            release();
-          });
+          }));
           return item;
         });
       }
 
       addPage(0, original.results);
       for (var page = 2; page <= LAST_PAGE; page++) (function (page) {
-        waiting++;
-        KP.list({ url: spec.url, page: page }, function (json) {
-          if (over()) return;
+        var settle = pending();
+        KP.list({ url: spec.url, page: page }, settle(function (json) {
           addPage(page - 1, json && json.results);
-          release();
-        }, function () {
-          if (over()) return;
-          failed[page - 1] = 'failed';
-          release();
-        });
+        }), settle(function () {
+          pages[page - 1] = null;
+        }));
       })(page);
-      release();
 
-      return { build: function () {
+      return function () {
         var results = [];
         var gaps = [];
         var unchecked = 0;
         for (var i = 0; i < LAST_PAGE; i++) {
           if (!pages[i]) {
-            gaps.push('page ' + (i + 1) + ' ' + (failed[i] || 'timeout'));
+            gaps.push('page ' + (i + 1) + ' ' + (pages[i] === null ? 'failed' : 'timeout'));
             continue;
           }
           pages[i].forEach(function (item) {
@@ -366,7 +361,7 @@
         }
         var title = spec.title + (gaps.length ? ' · неполный' : '') + (unchecked ? ' · не проверено: ' + unchecked : '');
         return { title: title, results: results, total_pages: 1 };
-      } };
+      };
     }
 
     // Первая порция Главной: за каждым штатным рядом NEW_ROWS — его ряд новинок. Порция уходит
@@ -381,11 +376,23 @@
         return oncomplite(parts);
       }
 
-      var today = new Date();
+      var rule = noveltyRule(new Date());
       var finished = false;
-      var waiting = NEW_ROWS.length + 1;
-      function over() { return finished; }
+      var waiting = 1; // сам запуск: ответы из кэша приходят синхронно, до конца сборки rows
       function release() { if (--waiting === 0) finish(); }
+      function pending() {
+        var settled = false;
+        waiting++;
+        return function (fn) {
+          return function () {
+            if (finished || settled) return;
+            settled = true;
+            fn.apply(null, arguments);
+            release();
+          };
+        };
+      }
+      // После finish поздние колбэки не держат порцию и oncomplite Главной (design, решение 3).
       function finish() {
         if (finished) return;
         finished = true;
@@ -394,14 +401,16 @@
         parts.forEach(function (p) {
           out.push(p);
           var i = originals.indexOf(p);
-          var built = i === -1 ? null : rows[i].build();
+          var built = i === -1 ? null : rows[i]();
           if (built) out.push(built);
         });
-        oncomplite(out);
+        var done = oncomplite;
+        parts = originals = rows = oncomplite = null;
+        done(out);
       }
       var timer = setTimeout(finish, ROWS_TIMEOUT_MS);
       var rows = NEW_ROWS.map(function (spec, i) {
-        return collectRow(spec, originals[i], today, over, release);
+        return collectRow(spec, originals[i], rule, pending);
       });
       release();
     }
