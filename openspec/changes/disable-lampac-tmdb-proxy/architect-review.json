@@ -1,0 +1,52 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Both round-1 findings are fixed. The catcher is now a documented step with its gap stated as an accepted risk, and the requirement claims only what tmdb-unfiltered.js asserts. The rest of the plan was already sound.",
+  "classes": {
+    "simpler": {
+      "evidence": "Simplest: flip the flag and record a one-off cdp.py check in NOTES.md, no new script. design.md Decision 2 explains why not: the filter cannot be seen (total_results is not recalculated, no error) and a Lampac update or sync can bring the flag back, so the spec needs a check that can run again. Adding a step to kp-trailers.sh is rejected because its preflight needs SmartTube and the trailer service, and tests/live/lib.sh step() loads only $DIR/lib.js. Decision 1's alternatives (own bypass, dropping on.js, own proxy) are each rejected with a reason. The runtime alarm in kp-reactions-fix.js is deliberately out of scope (design.md Risks).",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "specs/tmdb-access/spec.md has two scenarios: 'Тайтл, скрытый прокси Lampac, находится' and 'Адреса TMDB не ведут на прокси Lampac'. Both map in the tasks.md Scenario → test map, under their current names, to tests/live/tmdb-access.sh, step tmdb-unfiltered. The step runs after restart_lampa, as scenario 2's WHEN requires.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Task 1.2 records 'no RED: живая проверка, не pytest (check_red её не запускает)' and still requires a live RED: tmdb-access.sh run before the flag change fails on beta.l-vid.online. That run also shows restart_lampa's 15 s wait is long enough for tmdbproxy to load, so the post-fix pass cannot be a timing artefact. The RED output goes into before/ (task 2.1). Decision 2 prints addresses without the token.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Proposal Why: the overridden URL and raw proxy responses were observed via cdp.py on 2026-11-19. The proxy-vs-api.themoviedb.org table has a failing record (1325734) and a valid one (550 / 1756237) from the same responses. Direct reachability from the box was observed with fetch. design.md Context: module content and optionalEnabled() reading alcopac_plug_<key> were read on the box. Standard approach cites the on.js comment (URL and sentence) and lampa-source tmdb.js lines 21–35 at a pinned sha. 'The loader reads the flag only at start' is inferred, but it is moot: Decision 1 restarts and task 2.2 verifies after restart.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "No project-declared input is replaced. What is dropped is a third-party TMDB proxy, which also guarded against TMDB being blocked for the box. design.md Risks lists the failure mode (catalogue and posters stop loading), the mitigation (Lampa's own TMDB proxy settings) and the rollback (the flag back on).",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Risk 'Модуль нужен чему-то ещё': task 2.3 reaches it on the delivery head (kp-trailers.sh, now-watching.sh, screencap). Risk 'sync puts the flag back at restart': task 2.2 reaches it, because tmdb-access.sh restarts Lampa itself. Risk 'Флажок вернётся сам': tmdb-access.sh is now reached through the instruction task 3.1 writes into the on.js row and the TMDB line of docs/lampa-config-review.md. That instruction says to run it after any on.js or Lampac account change and before changing a plugin that uses TMDB, which is the existing practice for plugin changes recorded in snapshots/*/NOTES.md. A flip between such runs is named in design.md Risks as an accepted, unseen risk, with the runtime alarm recorded as a separate decision. Every catcher named is traced or explicitly bounded.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Requirement 'TMDB без чужой фильтрации': 24 words. The test asserts the SHALL NOT sentence (13 words: no request via beta.l-vid.online, for both api and image). The MUST sentence (11 words) is asserted through its one named instance, 1325734 found by find; that is the scenario's job. Scenario 1: WHEN 10 / THEN 7 words, all asserted. Scenario 2: WHEN names the exact paths built, api('find/tt33071426') and image('t/p/w200/x.jpg'); THEN 7 words, asserted. Decision 2 says the actual default addresses are printed, not checked.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "The ## Standard approach in design.md is the vendor's own supported switch (on.js: optional modules are controlled by alcopac_plug_<key> in Lampa.Storage), Lampa's default address builder (lampa-source tmdb.js), and the repo's standard settings path (Lampa.Storage.set via tools/cdp.py). The design follows all three. The new script tests/live/tmdb-access.sh has Decision 2: it closes #73 (an invisible filter). It follows the repo's standard for device state (tests/live/<scenario>.sh plus JS steps via lib.sh), and says why pytest does not fit and why it is not a kp-trailers.sh step.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "tmdb-access",
+      "scenario": "Тайтл, скрытый прокси Lampac, находится",
+      "reason": "Live check on the device (tests/live/tmdb-access.sh); not a pytest test, check_red does not run it (tasks.md 1.2)."
+    },
+    {
+      "capability": "tmdb-access",
+      "scenario": "Адреса TMDB не ведут на прокси Lampac",
+      "reason": "Live check on the device after a Lampa restart (tests/live/tmdb-access.sh); not a pytest test, check_red does not run it (tasks.md 1.2)."
+    }
+  ]
+}
