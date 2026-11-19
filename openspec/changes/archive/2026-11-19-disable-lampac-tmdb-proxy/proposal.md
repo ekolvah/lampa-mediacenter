@@ -45,7 +45,7 @@ Lampa на приставке не находит в TMDB «Вот это дра
 ## Impact
 
 - Конфигурация приставки (не в репозитории): `alcopac_plug_tmdbproxy` в `Lampa.Storage`, снапшот
-  по [docs/snapshots-convention.md](../../../docs/snapshots-convention.md).
+  по [docs/snapshots-convention.md](../../../../docs/snapshots-convention.md).
 - `tests/live/tmdb-access.sh` — новый.
 - `tests/live/tmdb-access/tmdb-unfiltered.js` — новый шаг.
 - `docs/lampa-config-review.md` — правка (отдельная группа задач).

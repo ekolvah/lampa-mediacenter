@@ -14,7 +14,7 @@
 
 ## 2. Приставка
 
-- [x] 2.1 Снапшот по [docs/snapshots-convention.md](../../../docs/snapshots-convention.md):
+- [x] 2.1 Снапшот по [docs/snapshots-convention.md](../../../../docs/snapshots-convention.md):
   `snapshots/<дата>_disable-tmdbproxy/NOTES.md` (что, зачем, проверка, откат из design.md),
   `before/` — `alcopac_plug_tmdbproxy` и вывод RED из 1.2.
 - [x] 2.2 `Lampa.Storage.set('alcopac_plug_tmdbproxy', false)` через `tools/cdp.py`. Проверка —
@@ -35,13 +35,13 @@
 
 ## 4. Verify
 
-- [ ] 4.1 `/simplify`, коммит правок.
-- [ ] 4.2 `openspec validate --strict --all`.
-- [ ] 4.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 4.1 `/simplify`, коммит правок.
+- [x] 4.2 `openspec validate --strict --all`: change валиден; `card-buttons` падает на main с #71 (placeholder Purpose) — вне скоупа, в отчёте PR.
+- [x] 4.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 5. Deliver
 
-- [ ] 5.1 `agent-process archive_change disable-lampac-tmdb-proxy`, затем
+- [x] 5.1 `agent-process archive_change disable-lampac-tmdb-proxy`, затем
   `gh pr create --title "fix: disable-lampac-tmdb-proxy" --body-file <отчёт>`. Отчёт ссылается на
   #73 простой ссылкой.
 - [ ] 5.2 `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`, не больше трёх раундов

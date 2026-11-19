@@ -27,7 +27,7 @@ TMDB-тайтла (#72).
   строки 21–35). На приставке `tmdb_proxy_api` и `tmdb_proxy_image` — `null`. Сборка на `lampa.mx`
   может отличаться, фактические адреса печатает шаг проверки (задача 2.2).
 - Настройки Lampa из CLI меняются через `Lampa.Storage.set` и `tools/cdp.py`
-  ([tools/README.md](../../../tools/README.md)).
+  ([tools/README.md](../../../../tools/README.md)).
 
 ## Decisions
 
@@ -75,6 +75,6 @@ TMDB-тайтла (#72).
 Снапшот, правка и проверка — задачи группы 2.
 
 **Откат:** `Lampa.Storage.set('alcopac_plug_tmdbproxy', true)` через `cdp.py`, затем
-`location.reload()` ([tools/README.md](../../../tools/README.md)). Не `force-stop`: сразу после
+`location.reload()` ([tools/README.md](../../../../tools/README.md)). Не `force-stop`: сразу после
 `set` он теряет запись — WebView пишет localStorage на диск с задержкой (наблюдалось при
 применении, снапшот `2026-11-19_disable-tmdbproxy`).
