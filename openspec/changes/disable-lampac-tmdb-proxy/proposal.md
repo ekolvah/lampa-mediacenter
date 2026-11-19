@@ -49,4 +49,6 @@ Lampa на приставке не находит в TMDB «Вот это дра
 - `tests/live/tmdb-access.sh` — новый.
 - `tests/live/tmdb-access/tmdb-unfiltered.js` — новый шаг.
 - `docs/lampa-config-review.md` — правка (отдельная группа задач).
+- `tools/README.md` — правка: применять `Storage.set` через `reload`, не `force-stop` (найдено при
+  применении: запись localStorage теряется).
 - Затрагивает #72, см. design.md, риски.

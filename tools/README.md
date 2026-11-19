@@ -98,6 +98,9 @@ python tools/cdp.py script.js     # или JS из stdin
 echo "window.location.reload(); 'ok'" | python tools/cdp.py
 ```
 
+Применять через `reload`, а не `force-stop`: WebView пишет localStorage на диск с задержкой,
+и `force-stop` сразу после `Storage.set` теряет запись — после рестарта значение старое.
+
 ### Batch-режим — несколько выражений за одно обращение
 
 Типовой сценарий «прочитать → изменить → перечитать → перезагрузить» — это четыре
