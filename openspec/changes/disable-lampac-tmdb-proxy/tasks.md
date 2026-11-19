@@ -14,19 +14,19 @@
 
 ## 2. Приставка
 
-- [ ] 2.1 Снапшот по [docs/snapshots-convention.md](../../../docs/snapshots-convention.md):
+- [x] 2.1 Снапшот по [docs/snapshots-convention.md](../../../docs/snapshots-convention.md):
   `snapshots/<дата>_disable-tmdbproxy/NOTES.md` (что, зачем, проверка, откат из design.md),
   `before/` — `alcopac_plug_tmdbproxy` и вывод RED из 1.2.
-- [ ] 2.2 `Lampa.Storage.set('alcopac_plug_tmdbproxy', false)` через `tools/cdp.py`. Проверка —
+- [x] 2.2 `Lampa.Storage.set('alcopac_plug_tmdbproxy', false)` через `tools/cdp.py`. Проверка —
   сценарии `tmdb-access`: `bash tests/live/tmdb-access.sh` (сам перезапускает Lampa) →
   `OK: tmdb-access`; напечатанные префиксы — в `NOTES.md`.
-- [ ] 2.3 Регрессии (design.md, риски): `bash tests/live/kp-trailers.sh` → `OK: kp-trailers`,
+- [x] 2.3 Регрессии (design.md, риски): `bash tests/live/kp-trailers.sh` → `OK: kp-trailers`,
   `bash tests/live/now-watching.sh` → OK, Главная KP и постеры — `screencap` (вопрос визуальный).
   `after/` и итог в `NOTES.md`.
 
 ## 3. Доки (отдельный коммит)
 
-- [ ] 3.1 `docs/lampa-config-review.md`: строку про TMDB в «Текущем состоянии», строку
+- [x] 3.1 `docs/lampa-config-review.md`: строку про TMDB в «Текущем состоянии», строку
   `beta.l-vid.online/on.js` таблицы плагинов и абзац о служебном бандле привести к состоянию
   «`tmdbproxy` выключен, его прокси вырезает тайтлы (#73)»; старый текст удалить. В строке `on.js`
   и строке про TMDB — «Живая проверка — `bash tests/live/tmdb-access.sh`»: после любой правки

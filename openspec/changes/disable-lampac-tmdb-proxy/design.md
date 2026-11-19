@@ -74,4 +74,6 @@ TMDB-тайтла (#72).
 
 Снапшот, правка и проверка — задачи группы 2.
 
-**Откат:** `Lampa.Storage.set('alcopac_plug_tmdbproxy', true)` через `cdp.py`, рестарт Lampa.
+**Откат:** `Lampa.Storage.set('alcopac_plug_tmdbproxy', true)` через `cdp.py`, через минуту —
+рестарт Lampa. Без паузы `force-stop` теряет запись: WebView сбрасывает localStorage на диск
+с задержкой (наблюдалось при применении, снапшот `2026-11-19_disable-tmdbproxy`).
