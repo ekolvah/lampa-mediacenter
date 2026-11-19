@@ -5,11 +5,11 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/live/tmdb-access.sh` по образцу `now-watching.sh` (`restart_lampa`,
+- [x] 1.1 `tests/live/tmdb-access.sh` по образцу `now-watching.sh` (`restart_lampa`,
   `step tmdb-unfiltered`, `OK: tmdb-access`) и шаг `tests/live/tmdb-access/tmdb-unfiltered.js`
   (design.md, решение 2). `find` — обёрткой над `Lampa.Api.sources.tmdb.get` в стиле `kpFull`
   из `tests/live/kp-trailers/lib.js`, вызов как в `plugins/kp-reactions-fix.js:250`.
-- [ ] 1.2 no RED: живая проверка, не pytest (`check_red` её не запускает). RED: `bash
+- [x] 1.2 no RED: живая проверка, не pytest (`check_red` её не запускает). RED: `bash
   tests/live/tmdb-access.sh` до правки флажка падает с адресом `beta.l-vid.online`. Коммит RED.
 
 ## 2. Приставка
