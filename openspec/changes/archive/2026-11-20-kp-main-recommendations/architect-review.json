@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 3,
+  "reviewer": "architect-reviewer",
+  "reasoning": "The round-2 length finding is closed: scenario «Нет функции рекомендаций ядра» and test «missing recomends get fails visibly» (tasks 1.1 drop option, 2.2) now cover all three functions in the install-time check. No class has a finding.",
+  "classes": {
+    "simpler": {
+      "evidence": "Unchanged from round 2. design.md decisions 1 and 3 reject ContentRows.call/add, reading recomends_list directly, a second waiter, a key Set, persisted keys, an unbounded wait and a parallel pass, each for a stated reason. The measured race rules out not waiting at all. Moving from one slot to a callback list (decision 3) is the smallest form that does not depend on how many times KP.main is called.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md «Scenario → test map» maps all 11 scenarios. «Проход закончился после прихода порции» now also maps to «two mains wait for one pass» (task 3.1). «Ряды на приставке» maps to tests/live/main-recs.sh step main-recs (task 5.1 checks 1-3).",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Task 1.1 now makes home() default to a finished pass. With appready:true, patch() calls historyRecs at load (plugins/kp-reactions-fix.js:586), and empty KP history sets historyDone at once, so the old main tests get the portion without fire() and without « · неполный». The task names the adjustment (recs:[] gives no rows and two `no recommendations` warnings; old warn-count asserts such as :298/:557 follow from that). calls.fireMs(5000) avoids the pass's 60000 ms timer, which waiter() registers at creation (:323) and so before the main timer. Group 1 ends in check_red (1.2).",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "design.md decision 3 no longer depends on the call count. Callbacks go in a list that is cleared after firing, so any number of KP.main calls during a pass works. The «late callback is dropped» claim is observed in waiter() (:338, `if (finished || settled) return`). The core facts (recomend.js, get$4, the `recomend` route, sources tmdb:114, kp_source main$1) and the race measurement are still observed, as in round 1.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Unchanged from round 2. filterRows' waiter and the ROWS_TIMEOUT_MS deadline move into the KP.main wrapper, and the rowsFailed branch keeps returning parts. The existing now-watching tests that task 3.2 reruns carry the proofs over.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Risk 1: the « · неполный» marker and console.warn fire at the 5000 ms deadline (decision 3). Risk 2 (source) and Risk 4 (`recomend` route) are now accepted gaps, caught only when tests/live/main-recs.sh is run. That is honest, because the core updates itself independently of the pin. Risk 3: decision 4's install-time check inside patch() runs on every plugin load and uses guarded `X && X.fn` checks, so a core self-update that drops an export reaches recsFailed (Noty + console.error) while the KP.main wrapper and historyRecs are still installed.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Requirement «Без просмотренного в рядах» is about 58 words, all asserted by scenarios 1-4. Requirement «Пустые рекомендации и сбой видны» is about 60 words. Its SHALL names `Lampa.Recomends.get`, `Lampa.Router.call` and `Lampa.Arrays.shuffle`. The scenario «Нет функции рекомендаций ядра» WHEN now covers all three, and its THEN requires the reason to name the missing functions. Task 1.1's `drop` option ('Recomends', 'Recomends.get', 'Router', 'Arrays') and task 2.2's three cases assert, for each case, no recs rows, new-release rows present, and the missing functions named in the reason. So every word of the SHALL is asserted. design.md decision 4 (:123-125) lists the same three guarded checks.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "Unchanged from round 2. «Standard approach» cites the core source, kp_source and a GitHub code search, and its «none found» for ready-made plugins is convincing. The only added script, tests/live/main-recs.sh, follows the repo's tests/live pattern and reuses kp-history-recs/lib.js.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
