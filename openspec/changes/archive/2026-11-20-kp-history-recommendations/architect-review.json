@@ -1,0 +1,47 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "All five round-1 findings are answered in the artifacts: the pass is sequential with a deadline sized to the job, the sync claim is removed and the remaining unknown is stated, the core-replacement case has a runtime marker with a test, and every spec sentence now has a scenario mapped to a test.",
+  "classes": {
+    "simpler": {
+      "evidence": "Design.md decision 2 now looks titles up one at a time, in history order, within one pass bounded by RECS_TIMEOUT_MS = 60000. The existing waiter() gains a timeout parameter (task 2.1; existing callers keep ROWS_TIMEOUT_MS). 'Все запросы сразу под ROWS_TIMEOUT_MS' is rejected because of the Main-row burst (archive R12) and because 5 s is a screen budget. The deadline stays for a reason that was observed: a Lampa.Reguest call removed by clear() gets no callback (Standard approach, quoted from the bundle). Other rejections still hold (own array, history write, kp->tmdb map, wrapping Recomends.get). 'меньше первого тика ядра' assumes the timer's first-tick phase without observing it, but nothing depends on it: an early core tick only delays our first scan to the next tick, still inside the live step's 150 s window.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "The spec delta has 13 scenarios and tasks.md '## Scenario → test map' has 13 entries. Twelve are named node tests in tests/js/kp-reactions-fix.test.js, including the new 'queue filled once after app ready', 'replaced core queue warns' and 'pass deadline counts rest as unresolved'. 'Очередь на приставке' maps to tests/live/kp-history-recs.sh, step `scan`. Its THEN (KP ids at the head, the first marked scanned, no KP-history titles in recomends_list, entries survive a restart) now matches live steps 1-3 in task 5.1. Step 2 additionally checks that no replacement warning appears. Both live files are in proposal Impact.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Group 1 (tasks 1.1-1.2) writes the mapped node tests against the extended load() double (one shared object per key, listener, Favorite.get, window.appready) and runs `agent-process check_red tests/test_plugin_js.py::test_plugin_js` before implementation. Task 2.1 (waiter timeout parameter) is a refactor of an untested internal signature, and the existing row tests check it.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Observed: core recomend.js functions, Timer periodicity, startApp order (cdp source dump of app.min.js?v=1994617 matched to yumata/lampa-source). Observed by probe: the shared recomends_scan object ('probe' index -1 -> 25 after a tick, get()===get() true) and the Storage.listener change events (x2/x2 per tick). From the downloaded bundle: recomends_list is re-read and pushed every tick; the recomends_* keys appear only in recomend.js and the clear-cache list; settings_cub_sync_recomends is a dictionary string only; Lampa.Reguest drops callbacks of cleared calls. The earlier 'account syncs these keys' claim is gone from proposal and design. What the Lampac `sync` module does is explicitly unverified (it loads from a token URL), and Risks plus decision 5 cover the case where it replaces the array. Nothing in the plan rests on an asserted behaviour.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "No project-declared input is replaced and no guard is dropped. The plugin adds writes to two core-owned keys. The core state each write must keep is stated in decisions 2-3 and asserted by 'Очередь ядра не тронута' and 'Просмотренный KP-фильм убран'. The only change to an existing signature is waiter's timeout becoming a parameter, and existing callers pass the old constant.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Risk 1 (a core update or the Lampac sync module stops sharing the recomends_scan object) is now caught at runtime by decision 5. On the first core change of recomends_scan after insertion, the plugin warns if the inserted ids are missing from e.value (spec sentence, scenario 'Ядро подменило очередь', test 'replaced core queue warns'). This fires on every launch whether or not the plugin pin changed, and live step 2 checks for its absence when the pin changes. The spec says 'запись очереди ядром', so a listener that took the plugin's own Storage.set as the first write would fail that test. Risk 2 (front truncation at 300) relies on idempotent re-insertion each launch ('Очередь ядра не тронута'). The pass deadline shows up in the summary warning ('Проход не успел').",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Requirement 'KP-история в очереди рекомендаций': 120 words. 'по одной ... один раз за запуск, когда приложение готово' is asserted by 'Один раз, когда приложение готово'. The replacement-warning sentence is asserted by 'Ядро подменило очередь'. Search type, insert form, untouched core entries and survival of a core write are asserted by the unit scenarios. 'после перезапуска' is asserted by the live step. 'тем же способом, что для трейлеров' is asserted through the existing kp-card-trailers tests of resolveTitle. Requirement 'Просмотренное через KP не в ряду': 50 words, all asserted by its four scenarios. Requirement 'Ненайденная KP-история видна': 41 words, all asserted by 'Тайтл не найден или TMDB не ответил' ('2 of 4') and 'Проход не успел' ('2 of 3'). The quoted wording matches decision 4's English text.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "`## Standard approach` cites the core module source (yumata/lampa-source src/core/recomend.js), the live probes and the bundle reading. The ready-made-solutions search (GitHub code search for recomends_scan, recomends_list, Lampa.Recomends, plus web search) found two plugins (nb557 kp_source.js, BazZziliuS smart_recommend.js), and the design explains why neither fits. The design builds on the core's own scan and row instead of replacing them. No workflow script or gate is added. tests/live/kp-history-recs.sh is a scenario test that follows the existing tests/live/*.sh pattern.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "kp-history-recommendations",
+      "scenario": "Очередь на приставке",
+      "reason": "It depends on the real core timer, the shared Storage object and a process restart on the device. tasks.md maps it to the live test tests/live/kp-history-recs.sh, step `scan`, run in tasks 5.2 and 7.2."
+    }
+  ]
+}

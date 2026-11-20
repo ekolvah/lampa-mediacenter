@@ -15,7 +15,9 @@
   // первый ролик этого списка.
   // Плагин держит и Главную KP: штатные ряды «Сейчас смотрят фильмы/сериалы» и их полный список
   // по «Ещё» показывают только новинки (обёртки KP.main и KP.list, тот же поиск TMDB-тайтла,
-  // что для трейлеров).
+  // что для трейлеров). Тем же поиском KP-история попадает в ряд ядра «Рекомендуем посмотреть»:
+  // её TMDB-тайтлы встают в очередь recomends_scan, а из recomends_list убираются (spec
+  // kp-history-recommendations).
 
   var DAY = 60 * 24; // life кэша движка — в минутах
   var WEEK = DAY * 7;
@@ -24,6 +26,8 @@
   var TRAILER_TIMEOUT_MS = 10000;
   // Сколько Главная или страница полного списка ждёт новинок: дольше экран пуст.
   var ROWS_TIMEOUT_MS = 5000;
+  // Предел прохода по KP-истории для рекомендаций: меньше первого тика ядра (120 с).
+  var RECS_TIMEOUT_MS = 60000;
   // Страниц коллекции на ряд Главной и на одну страницу полного списка.
   var BATCH = 5;
   // Штатные ряды kp_source по url, который кладёт его getList.
@@ -311,12 +315,12 @@
 
     // Ожидание ответов одного сбора. pending() — один ожидаемый ответ: settle = pending(),
     // settle(fn) — его колбэк (успех или ошибка). done() зовётся, когда пришли все ответы, но не
-    // позже ROWS_TIMEOUT_MS; поздние колбэки после него не вызываются. start() — запросы
+    // позже ms; поздние колбэки после него не вызываются. start() — запросы
     // поставлены: ответы из кэша приходят синхронно, раньше него.
-    function waiter(done) {
+    function waiter(done, ms) {
       var finished = false;
       var waiting = 1;
-      var timer = setTimeout(finish, ROWS_TIMEOUT_MS);
+      var timer = setTimeout(finish, ms);
       function finish() {
         if (finished) return;
         finished = true;
@@ -423,7 +427,7 @@
           return listBatch(spec, params, oncomplite, onerror);
         }
         oncomplite({ results: batch.results, page: params.page, total_pages: total });
-      });
+      }, ROWS_TIMEOUT_MS);
       build = collectPages(spec, first, last, null, noveltyRule(new Date()), wait.pending);
       wait.start();
     }
@@ -450,7 +454,7 @@
           if (row) out.push(row);
         });
         oncomplite(out);
-      });
+      }, ROWS_TIMEOUT_MS);
       rows = NOW_WATCHING.map(function (spec, i) {
         var original = originals[i];
         return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, wait.pending);
@@ -480,6 +484,107 @@
         }, onerror);
       };
     }
+
+    // KP-история в ряду «Рекомендуем посмотреть» (spec kp-history-recommendations). Ядро ставит в
+    // очередь recomends_scan только историю cub/tmdb и отсеивает просмотренное сравнением id с
+    // историей, где у KP-тайтла id «KP_<n>». Найденные TMDB-тайтлы KP-истории встают в начало
+    // очереди, а из recomends_list убираются.
+    function isTv(card) {
+      return !!(card.number_of_seasons || card.first_air_date);
+    }
+
+    // Тайтл очереди и списка — id и тип. Признак сериала в очереди ядра — число сезонов, search()
+    // проверяет только истинность.
+    function recKey(id, tv) {
+      return id + ':' + (tv ? 'tv' : 'movie');
+    }
+
+    function queueKeys(queue) {
+      var keys = {};
+      queue.forEach(function (e) { keys[recKey(e.id, e.tv)] = true; });
+      return keys;
+    }
+
+    // Убирает из списка рекомендаций на месте тайтлы watched; возвращает число убранных.
+    function cleanRecs(list, watched) {
+      var removed = 0;
+      for (var i = list.length - 1; i >= 0; i--) {
+        if (watched[recKey(list[i].id, isTv(list[i]))]) {
+          list.splice(i, 1);
+          removed++;
+        }
+      }
+      return removed;
+    }
+
+    // Чистка списка после каждой его записи ядром; на первой записи очереди ядром — проверка, что
+    // вставленное в ней осталось (решение 5). Зовётся после своих записей: первая запись здесь — ядра.
+    function followRecs(watched, keys) {
+      var checked = false;
+      Lampa.Storage.listener.follow('change', function (e) {
+        if (e.name === 'recomends_list') cleanRecs(e.value, watched);
+        else if (e.name === 'recomends_scan' && !checked) {
+          checked = true;
+          var inQueue = queueKeys(e.value);
+          var kept = keys.every(function (k) { return inQueue[k]; });
+          if (!kept) console.warn('kp-reactions-fix: recommendations: core rewrote recomends_scan without KP history titles');
+        }
+      });
+    }
+
+    // Массив очереди — тот же объект, что держит и пишет на каждом тике ядро (design.md, решение 2),
+    // поэтому вставка правится на месте.
+    function applyRecs(found) {
+      var queue = Lampa.Storage.get('recomends_scan', '[]');
+      var inQueue = queueKeys(queue);
+      var watched = {};
+      var missing = [];
+      found.forEach(function (rec) {
+        var key = recKey(rec.id, rec.tv);
+        if (watched[key]) return;
+        watched[key] = true;
+        if (!inQueue[key]) missing.push(rec);
+      });
+      if (missing.length) {
+        queue.unshift.apply(queue, missing);
+        Lampa.Storage.set('recomends_scan', queue);
+      }
+
+      var list = Lampa.Storage.get('recomends_list', '[]');
+      if (cleanRecs(list, watched)) Lampa.Storage.set('recomends_list', list);
+      var keys = Object.keys(watched);
+      followRecs(watched, keys);
+      KP.__history_recs = keys.slice(); // только для живой проверки tests/live/kp-history-recs.sh
+    }
+
+    // KP-записи ищутся по одной (не залпом поверх рядов Главной), весь проход — не дольше
+    // RECS_TIMEOUT_MS: недошедшие считаются ненайденными. Один раз за запуск.
+    var recsStarted = false;
+    function historyRecs() {
+      if (recsStarted) return;
+      recsStarted = true;
+      var kp = Lampa.Favorite.get({ type: 'history' }).filter(function (e) { return e.source === 'KP'; });
+      if (!kp.length) return;
+      var found = [];
+      var wait = waiter(function () {
+        var unresolved = kp.length - found.length;
+        if (unresolved) console.warn('kp-reactions-fix: recommendations: ' + unresolved + ' of ' + kp.length + ' KP history titles unresolved');
+        if (found.length) applyRecs(found);
+      }, RECS_TIMEOUT_MS);
+      (function next(i) {
+        if (i >= kp.length) return;
+        // У записи истории нет type, а resolveTitle берёт тип поиска из него.
+        var card = Object.assign({}, kp[i], { type: isTv(kp[i]) ? 'tv' : 'movie' });
+        resolveTitle(card, wait.pending()(function (title) {
+          if (title) found.push({ id: title.id, tv: title.method === 'tv' });
+          next(i + 1);
+        }));
+      })(0);
+      wait.start();
+    }
+
+    if (window.appready) historyRecs();
+    else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') historyRecs(); });
 
     KP.__reactions_patched = true;
   }
