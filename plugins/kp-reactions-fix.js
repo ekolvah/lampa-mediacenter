@@ -30,6 +30,11 @@
   var RECS_TIMEOUT_MS = 60000;
   // Страниц коллекции на ряд Главной и на одну страницу полного списка.
   var BATCH = 5;
+  // Карточек в ряду рекомендаций Главной (у ядра 20) и карточек на странице его экрана «Ещё».
+  var REC_ROW_LIMIT = 40;
+  var REC_PAGE = 20;
+  // Добавка к заголовку ряда, собранного не до конца.
+  var INCOMPLETE = ' · неполный';
   // Штатные ряды kp_source по url, который кладёт его getList.
   var NOW_WATCHING = [
     { url: 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', name: 'Сейчас смотрят фильмы' },
@@ -407,7 +412,7 @@
       for (var key in original) row[key] = original[key];
       row.results = batch.results;
       row.total_pages = Math.ceil((original.total_pages || 1) / BATCH);
-      if (batch.gaps) row.title += ' · неполный';
+      if (batch.gaps) row.title += INCOMPLETE;
       return row;
     }
 
@@ -432,33 +437,88 @@
       wait.start();
     }
 
-    // Первая порция Главной: штатные ряды NOW_WATCHING заменены отфильтрованными. Порция уходит
-    // Главной, когда собраны оба ряда, но не позже ROWS_TIMEOUT_MS.
-    function filterRows(parts, oncomplite) {
+    // Первая порция Главной: штатные ряды NOW_WATCHING заменены отфильтрованными. Ответы ждёт
+    // pending того waiter, что отдаёт порцию; возвращает build() — ряды порции.
+    function filterRows(parts, pending) {
       var originals = NOW_WATCHING.map(function (spec) {
         return parts.filter(function (p) { return p && p.url === spec.url; })[0];
       });
       var missing = NOW_WATCHING.filter(function (spec, i) { return !originals[i]; });
       if (missing.length) {
         rowsFailed('no row ' + missing.map(function (spec) { return spec.name; }).join(', '));
-        return oncomplite(parts);
+        return function () { return parts.slice(); };
       }
 
       var rule = noveltyRule(new Date());
-      var rows;
-      var wait = waiter(function () {
+      var rows = NOW_WATCHING.map(function (spec, i) {
+        var original = originals[i];
+        return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, pending);
+      });
+      return function () {
         var out = [];
         parts.forEach(function (p) {
           var i = originals.indexOf(p);
           var row = i === -1 ? p : filteredRow(NOW_WATCHING[i], p, rows[i]());
           if (row) out.push(row);
         });
+        return out;
+      };
+    }
+
+    function recsFailed(reason) {
+      console.error('kp-reactions-fix: recommendation rows not built', reason);
+      Lampa.Noty.show('Ряды рекомендаций не построены: ' + reason);
+    }
+
+    // Ряд рекомендаций ядра типа media по образцу его ряда recomend_watch (spec
+    // kp-main-recommendations): «Ещё» — штатный экран recomend. Рекомендаций нет — ряда нет.
+    function recsRow(media, title) {
+      var all = Lampa.Recomends.get(media);
+      if (!all.length) {
+        console.warn('kp-reactions-fix: no recommendations', media);
+        return null;
+      }
+      var pages = Math.ceil(all.length / REC_PAGE);
+      return {
+        results: Lampa.Arrays.shuffle(all).slice(0, REC_ROW_LIMIT),
+        title: title,
+        total_pages: pages,
+        page: 1,
+        params: { emit: { onlyMore: function () { Lampa.Router.call('recomend', { media: media, total_pages: pages }); } } }
+      };
+    }
+
+    // Ряды рекомендаций встают перед первым рядом исходной порции за последним рядом NOW_WATCHING
+    // (без них — перед первым рядом): он не из NOW_WATCHING и есть в out тем же объектом.
+    function recsIndex(parts, out) {
+      var last = -1;
+      parts.forEach(function (p, i) {
+        if (NOW_WATCHING.some(function (spec) { return p && p.url === spec.url; })) last = i;
+      });
+      for (var i = last + 1; i < parts.length; i++) if (parts[i]) return out.indexOf(parts[i]);
+      return out.length;
+    }
+
+    function addRecs(parts, out) {
+      var rows = [recsRow('movie', 'Рекомендуем посмотреть фильмы'), recsRow('tv', 'Рекомендуем посмотреть сериалы')].filter(Boolean);
+      if (!historyDone) {
+        console.warn('kp-reactions-fix: recommendations: KP history not resolved before main');
+        rows.forEach(function (row) { row.title += INCOMPLETE; });
+      }
+      out.splice.apply(out, [recsIndex(parts, out), 0].concat(rows));
+    }
+
+    // Первая порция Главной уходит, когда собраны ряды новинок и закончен проход по KP-истории
+    // (рекомендации без её тайтлов), но не позже ROWS_TIMEOUT_MS.
+    function mainPortion(parts, oncomplite) {
+      var build;
+      var wait = waiter(function () {
+        var out = build();
+        if (recsReady) addRecs(parts, out);
         oncomplite(out);
       }, ROWS_TIMEOUT_MS);
-      rows = NOW_WATCHING.map(function (spec, i) {
-        var original = originals[i];
-        return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, wait.pending);
-      });
+      build = filterRows(parts, wait.pending);
+      if (recsReady && !historyDone) historyWaiting.push(wait.pending()(function () {}));
       wait.start();
     }
 
@@ -478,9 +538,15 @@
     if (typeof orgMain === 'function') {
       var active = Lampa.Activity.active();
       if (active && active.component === 'main' && active.source === 'KP') rowsFailed('main screen built before patch');
+      var recsMissing = ['Recomends.get', 'Router.call', 'Arrays.shuffle'].filter(function (path) {
+        var p = path.split('.');
+        return !(Lampa[p[0]] && typeof Lampa[p[0]][p[1]] === 'function');
+      });
+      var recsReady = !recsMissing.length;
+      if (!recsReady) recsFailed('no ' + recsMissing.map(function (path) { return 'Lampa.' + path; }).join(', '));
       KP.main = function (params, oncomplite, onerror) {
         return orgMain.call(KP, params, function (parts) {
-          filterRows(parts, oncomplite);
+          mainPortion(parts, oncomplite);
         }, onerror);
       };
     }
@@ -557,6 +623,16 @@
       KP.__history_recs = keys.slice(); // только для живой проверки tests/live/kp-history-recs.sh
     }
 
+    // Конец прохода: его ждут первые порции Главной, открытые во время прохода.
+    var historyDone = false;
+    var historyWaiting = [];
+    function historyFinished() {
+      historyDone = true;
+      var waiting = historyWaiting;
+      historyWaiting = [];
+      waiting.forEach(function (fn) { fn(); });
+    }
+
     // KP-записи ищутся по одной (не залпом поверх рядов Главной), весь проход — не дольше
     // RECS_TIMEOUT_MS: недошедшие считаются ненайденными. Один раз за запуск.
     var recsStarted = false;
@@ -564,12 +640,13 @@
       if (recsStarted) return;
       recsStarted = true;
       var kp = Lampa.Favorite.get({ type: 'history' }).filter(function (e) { return e.source === 'KP'; });
-      if (!kp.length) return;
+      if (!kp.length) return historyFinished();
       var found = [];
       var wait = waiter(function () {
         var unresolved = kp.length - found.length;
         if (unresolved) console.warn('kp-reactions-fix: recommendations: ' + unresolved + ' of ' + kp.length + ' KP history titles unresolved');
         if (found.length) applyRecs(found);
+        historyFinished();
       }, RECS_TIMEOUT_MS);
       (function next(i) {
         if (i >= kp.length) return;

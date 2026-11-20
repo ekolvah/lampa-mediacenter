@@ -27,11 +27,11 @@
 
 ## 2. Ряды (решения 1, 2, 4)
 
-- [ ] 2.1 Сборка ряда типа из одного `Lampa.Recomends.get(type)` (решение 1). Пустой тип даёт
+- [x] 2.1 Сборка ряда типа из одного `Lampa.Recomends.get(type)` (решение 1). Пустой тип даёт
   `null` и `console.warn('kp-reactions-fix: no recommendations', type)`. Проверка:
   `node --test tests/js/kp-reactions-fix.test.js`, тесты «recs row capped at 40, pages counted»,
   «recs tv more opens core screen», «no tv recs warns».
-- [ ] 2.2 Проверка `Recomends.get`, `Router.call`, `Arrays.shuffle` при установке обёртки без
+- [x] 2.2 Проверка `Recomends.get`, `Router.call`, `Arrays.shuffle` при установке обёртки без
   исключения при отсутствии объекта и `recsFailed(reason)` (решение 4). Проверка: та же, тест
   «missing recomends get fails visibly» — случаи «нет `Lampa.Recomends`», «нет `get`» и «нет
   `Router` и `Arrays`». Во всех случаях ряды новинок на месте, а в причине `Noty`/`console.error`
@@ -39,10 +39,10 @@
 
 ## 3. Первая порция (решения 2, 3)
 
-- [ ] 3.1 Признак конца прохода в `historyRecs`: `historyDone` и список колбэков, очищаемый после
+- [x] 3.1 Признак конца прохода в `historyRecs`: `historyDone` и список колбэков, очищаемый после
   вызова. Ставится в `done` его `waiter` и сразу без KP-истории. Проверка: та же, тест «two mains
   wait for one pass» и старые тесты прохода зелёные.
-- [ ] 3.2 `filterRows(parts, pending)` возвращает `build()`, ветка без рядов `NOW_WATCHING` — тоже.
+- [x] 3.2 `filterRows(parts, pending)` возвращает `build()`, ветка без рядов `NOW_WATCHING` — тоже.
   Обёртка `KP.main` заводит один `waiter`, слот прохода — его `pending()`. `done` ставит ряды
   рекомендаций по решению 2, без признака — « · неполный» (общая константа с `filteredRow`) и
   `console.warn`. Проверка: та же, тесты «recs rows after now watching», «recs rows keep place of
