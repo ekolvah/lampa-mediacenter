@@ -552,8 +552,9 @@
 
       var list = Lampa.Storage.get('recomends_list', '[]');
       if (cleanRecs(list, watched)) Lampa.Storage.set('recomends_list', list);
-      KP.__history_recs = Object.keys(watched); // найденное — для tests/live/kp-history-recs.sh
-      followRecs(watched, KP.__history_recs);
+      var keys = Object.keys(watched);
+      followRecs(watched, keys);
+      KP.__history_recs = keys.slice(); // только для живой проверки tests/live/kp-history-recs.sh
     }
 
     // KP-записи ищутся по одной (не залпом поверх рядов Главной), весь проход — не дольше
