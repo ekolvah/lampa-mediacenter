@@ -503,7 +503,7 @@
 
     function addRecs(parts, out) {
       var rows = [recsRow('movie', 'Рекомендуем посмотреть фильмы'), recsRow('tv', 'Рекомендуем посмотреть сериалы')].filter(Boolean);
-      if (!historyDone) {
+      if (historyWaiting) {
         console.warn('kp-reactions-fix: recommendations: KP history not resolved before main');
         rows.forEach(function (row) { row.title += INCOMPLETE; });
       }
@@ -520,7 +520,7 @@
         oncomplite(out);
       }, ROWS_TIMEOUT_MS);
       build = filterRows(parts, wait.pending);
-      if (recsReady && !historyDone) historyWaiting.push(wait.pending()(function () {}));
+      if (recsReady && historyWaiting) historyWaiting.push(wait.pending()(function () {}));
       wait.start();
     }
 
@@ -625,13 +625,11 @@
       KP.__history_recs = keys.slice(); // только для живой проверки tests/live/kp-history-recs.sh
     }
 
-    // Конец прохода: его ждут первые порции Главной, открытые во время прохода.
-    var historyDone = false;
+    // Конца прохода ждут первые порции Главной, открытые во время прохода; null — проход закончен.
     var historyWaiting = [];
     function historyFinished() {
-      historyDone = true;
       var waiting = historyWaiting;
-      historyWaiting = [];
+      historyWaiting = null;
       waiting.forEach(function (fn) { fn(); });
     }
 

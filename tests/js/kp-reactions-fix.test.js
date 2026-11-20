@@ -148,14 +148,15 @@ function load(over) {
 // истории нет. c.main() открывает Главную ещё раз и возвращает массив её порций.
 function home(over) {
   const c = load(Object.assign({ open: false, appready: true }, over));
+  const open = (sink) => c.ctx.Lampa.Api.sources.KP.main({}, sink, () => {});
   c.main = () => {
     const got = [];
-    c.ctx.Lampa.Api.sources.KP.main({}, (parts) => got.push(plain(parts)), () => {});
+    open((parts) => got.push(plain(parts)));
     return got;
   };
   c.home = [];
   c.raw = [];
-  c.next = c.ctx.Lampa.Api.sources.KP.main({}, (parts) => { c.raw.push(parts); c.home.push(plain(parts)); }, () => {});
+  c.next = open((parts) => { c.raw.push(parts); c.home.push(plain(parts)); });
   return c;
 }
 
