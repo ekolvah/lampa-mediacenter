@@ -57,7 +57,7 @@
 
 ## 5. Живая проверка
 
-- [ ] 5.1 `tests/live/main-recs.sh` с `DIR=tests/live/kp-history-recs` и шагом
+- [x] 5.1 `tests/live/main-recs.sh` с `DIR=tests/live/kp-history-recs` и шагом
   `tests/live/kp-history-recs/main-recs.js`. Шаг берёт `isTv`/`recKey`/`kpKeys` из его `lib.js`, а
   ряды Главной — как `lines()` в `tests/live/now-watching/rows.js`. Скрипт делает `restart_lampa`,
   потом шаг. Шаг ждёт рядов через `Live.waitFor` и проверяет:
@@ -70,7 +70,7 @@
 
   Если у рядов « · неполный», шаг отвечает `wait:`. Это холодный кэш движка (Risks в design.md):
   скрипт делает ещё один `restart_lampa` и повторяет шаг. Второй `wait:` — FAIL.
-- [ ] 5.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
+- [x] 5.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
   затем `bash tests/live/main-recs.sh` → OK. После него `screencap` Главной: процесс уже
   перезапущен скриптом. Коммит скрипта.
 
