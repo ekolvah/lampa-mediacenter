@@ -52,7 +52,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 `docs/lampa-config-review.md`: в строку `kp-reactions-fix.js` добавить ряды рекомендаций
+- [x] 4.1 `docs/lampa-config-review.md`: в строку `kp-reactions-fix.js` добавить ряды рекомендаций
   на Главной KP. Обновить шапку `plugins/kp-reactions-fix.js`. Коммит.
 
 ## 5. Живая проверка

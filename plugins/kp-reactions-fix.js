@@ -17,7 +17,9 @@
   // по «Ещё» показывают только новинки (обёртки KP.main и KP.list, тот же поиск TMDB-тайтла,
   // что для трейлеров). Тем же поиском KP-история попадает в ряд ядра «Рекомендуем посмотреть»:
   // её TMDB-тайтлы встают в очередь recomends_scan, а из recomends_list убираются (spec
-  // kp-history-recommendations).
+  // kp-history-recommendations). За рядами «Сейчас смотрят» обёртка KP.main ставит ряды
+  // рекомендаций ядра фильмов и сериалов: kp_source их на Главную не ставит (spec
+  // kp-main-recommendations).
 
   var DAY = 60 * 24; // life кэша движка — в минутах
   var WEEK = DAY * 7;
