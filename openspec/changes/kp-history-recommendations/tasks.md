@@ -43,7 +43,7 @@
   2. в пределах 150 с видимого окна первая из них получает `scan: 1`, в `recomends_list` нет
      тайтлов KP-истории, а в консоли нет предупреждения о подмене очереди;
   3. после ещё одного `restart_lampa` вставленные записи на месте.
-- [ ] 5.2 Снапшот `recomends_scan`/`recomends_list` и пина по `docs/snapshots-convention.md`. Пин
+- [x] 5.2 Снапшот `recomends_scan`/`recomends_list` и пина по `docs/snapshots-convention.md`. Пин
   `kp-reactions-fix.js` на sha ветки, затем `bash tests/live/kp-history-recs.sh` → OK. После него
   `screencap` ряда «Рекомендуем посмотреть» на «Фильмах» (проверка после живых рестартов из
   CLAUDE.md). Коммит скрипта.
@@ -51,8 +51,8 @@
 ## 6. Verify
 
 - [x] 6.1 `/simplify`, коммит его правок.
-- [ ] 6.2 `openspec validate --strict --all`.
-- [ ] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 6.2 `openspec validate --strict --all`.
+- [x] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 7. Deliver
 

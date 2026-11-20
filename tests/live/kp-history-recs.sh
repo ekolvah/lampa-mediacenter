@@ -35,6 +35,9 @@ echo "== тик ядра (раз в 120 с): первый вставленный
 scanned=$(retry_step 10 scanned | sed -n 's/.*scanned \([^,]*\),.*/\1/p')
 
 echo "== рестарт Lampa: отметка скана на месте"
+# WebView пишет localStorage на диск с задержкой: force-stop сразу после тика ядра теряет его запись
+# (проверено на приставке: без паузы отметки скана нет, с паузой 15 с — есть).
+sleep 15
 restart_lampa
 step persisted "var SCANNED = '$scanned';"
 

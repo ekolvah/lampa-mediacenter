@@ -5,12 +5,13 @@
   var q = scanQueue();
   var missing = keys.filter(function (k) { return !queued(q, k); });
   Live.check(!missing.length, 'нет в recomends_scan: ' + missing.join(', '));
-  // Плагин ставит не больше записей, чем KP-записей в истории, все — в начало очереди.
-  var kp = Lampa.Favorite.get({ type: 'history' }).filter(function (e) { return e.source === 'KP'; }).length;
-  var last = Math.max.apply(null, keys.map(function (k) { return q.indexOf(queued(q, k)); }));
-  Live.check(last < kp, 'KP-тайтлы не в начале очереди: последний на ' + last + ', KP-записей ' + kp);
+  // Недостающие плагин ставит в начало; бывшие в очереди ядра остаются на своих местах.
+  var lead = 0;
+  while (lead < q.length && keys.indexOf(recKey(q[lead].id, q[lead].tv)) !== -1) lead++;
+  var allScanned = keys.every(function (k) { return queued(q, k).scan; });
+  Live.check(lead || allScanned, 'в начале recomends_scan нет KP-тайтлов, первая запись ' + JSON.stringify(q[0]));
   var first = keys.filter(function (k) { return !queued(q, k).scan; })[0];
   window.__recsFirst = first || null;
-  return 'ok: ' + keys.length + ' KP-тайтлов в первых ' + (last + 1) + ' из ' + q.length +
-    ' записей очереди; ждём скана ' + (first || 'любой записи (все отсканированы)');
+  return 'ok: ' + keys.length + ' KP-тайтлов в очереди из ' + q.length + ', первые ' + lead +
+    ' записей — KP-тайтлы; ждём скана ' + (first || 'любой записи (все отсканированы)');
 })()
