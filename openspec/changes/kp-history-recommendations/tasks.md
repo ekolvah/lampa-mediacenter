@@ -15,18 +15,18 @@
 
 ## 2. Очередь сканирования (решения 1, 2, 4, 5)
 
-- [ ] 2.1 `waiter(done, ms)`: таймаут параметром, существующие вызовы передают `ROWS_TIMEOUT_MS`.
+- [x] 2.1 `waiter(done, ms)`: таймаут параметром, существующие вызовы передают `ROWS_TIMEOUT_MS`.
   Проверка: `node --test tests/js/kp-reactions-fix.test.js` (старые тесты рядов зелёные).
-- [ ] 2.2 Из `patch()` по готовности приложения, один раз: KP-записи истории по одной → копия с
+- [x] 2.2 Из `patch()` по готовности приложения, один раз: KP-записи истории по одной → копия с
   `type` → `resolveTitle`, под `waiter(…, RECS_TIMEOUT_MS)`. Затем `unshift` недостающих `{id, tv}` в
   массив `Storage.get('recomends_scan')`, `Storage.set` им же и итоговый `console.warn` о пропущенных.
   Проверка: та же.
-- [ ] 2.3 Проверка первого `change` `recomends_scan` после вставки и `console.warn` при подмене.
+- [x] 2.3 Проверка первого `change` `recomends_scan` после вставки и `console.warn` при подмене.
   Проверка: та же. Коммит группы.
 
 ## 3. Чистка списка (решение 3)
 
-- [ ] 3.1 `Set` `<id>:<тип>`, одна функция `splice` над `Storage.get('recomends_list')`. После поиска —
+- [x] 3.1 `Set` `<id>:<тип>`, одна функция `splice` над `Storage.get('recomends_list')`. После поиска —
   `Storage.set`, если что-то убрано; на `Storage.listener` `change` с `e.name === 'recomends_list'` —
   только `splice`. Проверка: `node --test tests/js/kp-reactions-fix.test.js`. Коммит группы.
 
