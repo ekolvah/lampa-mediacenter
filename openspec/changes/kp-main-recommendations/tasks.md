@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`. Фикстуры — существующие
+- [x] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`. Фикстуры — существующие
   `home()`, `row()`, `names()` с опциями `recs()` (`appready`, `history`, `find`, `defer`). Двойник в
   `load()` расширить:
   - `Recomends.get(type)` повторяет `get$4` ядра над `Storage.get('recomends_list')` из опции
@@ -23,7 +23,7 @@
 
   Конец прохода задаёт существующий `defer` (`calls.late`). Предупреждения проверяются через
   `assertWarned`/`warnedWith`.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Ряды (решения 1, 2, 4)
 

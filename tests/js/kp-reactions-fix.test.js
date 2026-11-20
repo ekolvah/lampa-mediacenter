@@ -30,10 +30,18 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // appready — window.appready; scan, recs — ключи recomends_scan и recomends_list. Storage.get отдаёт
 // один объект на ключ, как ядро; Storage.set шлёт change в Storage.listener, записи — в calls.sets.
 // defer: find/ и search/ отвечают, когда тест зовёт колбэк из calls.late.
+// Рекомендации на Главной (design.md kp-main-recommendations): Recomends.get повторяет get$4 ядра над
+// recomends_list, Router.call пишет вызовы в calls.routes, Arrays.shuffle — копия без перестановки;
+// drop — что убрать из двойника: 'Recomends', 'Recomends.get', 'Router', 'Arrays'. fireMs(ms) запускает
+// только таймеры с этим ms.
 function load(over) {
-  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false }, over);
-  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [] };
+  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [] }, over);
+  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [] };
   calls.fire = () => calls.timers.splice(0).forEach((t) => t.fn());
+  calls.fireMs = (ms) => calls.timers.filter((t) => t.ms === ms).forEach((t) => {
+    calls.timers.splice(calls.timers.indexOf(t), 1);
+    t.fn();
+  });
   function Reguest() { this.ms = null; }
   Reguest.prototype.timeout = function (ms) { this.ms = ms; };
   Reguest.prototype.silent = function (url, ok, err) {
@@ -97,12 +105,21 @@ function load(over) {
   const Favorite = { get(params) { return params.type === 'history' ? plain(opts.history) : []; } };
   const Noty = { show(text) { calls.noty.push(text); } };
   const Activity = { active() { return opts.active; } };
+  const Recomends = {
+    get(type) {
+      const tv = type === 'tv';
+      return store.recomends_list.filter((e) => !!(e.number_of_seasons || e.first_air_date) === tv).reverse()
+        .filter((e) => !opts.history.find((h) => h.id == e.id));
+    },
+  };
+  const Router = { call(name, params) { calls.routes.push([name, plain(params)]); } };
+  const Arrays = { shuffle(list) { return list.slice(); } };
   const now = new Date(opts.today).getTime();
   class FakeDate extends Date {
     constructor(...args) { if (args.length) super(...args); else super(now); }
   }
   const ctx = {
-    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Favorite, Noty, Activity },
+    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Favorite, Noty, Activity, Recomends, Router, Arrays },
     appready: opts.appready,
     $: element,
     Date: FakeDate,
@@ -111,6 +128,11 @@ function load(over) {
     setTimeout(fn, ms) { const t = { fn, ms }; calls.timers.push(t); return t; },
     clearTimeout(t) { const i = calls.timers.indexOf(t); if (i !== -1) calls.timers.splice(i, 1); },
   };
+  for (const d of opts.drop) {
+    const [obj, fn] = d.split('.');
+    if (fn) delete ctx.Lampa[obj][fn];
+    else delete ctx.Lampa[obj];
+  }
   ctx.window = ctx;
   calls.ctx = ctx;
   calls.originalShow = Select.show;
@@ -121,11 +143,19 @@ function load(over) {
   return calls;
 }
 
-// Главная KP открыта: Lampa зовёт KP.main, порции — в c.home, возвращённая подгрузка — c.next.
+// Главная KP открыта: Lampa зовёт KP.main, порции — в c.home (c.raw — те же объекты с функциями),
+// возвращённая подгрузка — c.next. По умолчанию проход по KP-истории закончен: приложение готово,
+// истории нет. c.main() открывает Главную ещё раз и возвращает массив её порций.
 function home(over) {
-  const c = load(Object.assign({ open: false }, over));
+  const c = load(Object.assign({ open: false, appready: true }, over));
+  c.main = () => {
+    const got = [];
+    c.ctx.Lampa.Api.sources.KP.main({}, (parts) => got.push(plain(parts)), () => {});
+    return got;
+  };
   c.home = [];
-  c.next = c.ctx.Lampa.Api.sources.KP.main({}, (parts) => c.home.push(plain(parts)), () => {});
+  c.raw = [];
+  c.next = c.ctx.Lampa.Api.sources.KP.main({}, (parts) => { c.raw.push(parts); c.home.push(plain(parts)); }, () => {});
   return c;
 }
 
@@ -1065,4 +1095,116 @@ test('pass deadline counts rest as unresolved', () => {
   c.fire();
   assert.deepStrictEqual(scanOf(c), [{ id: 550, tv: false }]);
   assert.ok(warnedWith(c, RECS_WARN, '2 of 3'), JSON.stringify(c.warn));
+});
+
+// --- Рекомендации на Главной (spec kp-main-recommendations) ---
+
+const REC_MOVIES = 'Рекомендуем посмотреть фильмы';
+const REC_SERIES = 'Рекомендуем посмотреть сериалы';
+const TOP_ROW = HOME[2].title;
+const recMovie = (n) => ({ id: n, source: 'tmdb', title: 'Фильм ' + n, release_date: '2020-01-01' });
+const recShow = (n) => ({ id: n, source: 'tmdb', title: 'Сериал ' + n, name: 'Сериал ' + n, first_air_date: '2020-01-01' });
+const BOTH_RECS = [recMovie(1), recShow(2)];
+const titlesOf = (portion) => portion.map((p) => p.title);
+const recIds = (part) => part.results.map((card) => card.id);
+const MAIN_WARN = 'kp-reactions-fix: recommendations: KP history not resolved before main';
+
+test('recs rows after now watching', () => {
+  const c = home({ recs: BOTH_RECS });
+  assert.strictEqual(c.home.length, 1);
+  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, REC_MOVIES, REC_SERIES, TOP_ROW]);
+  assert.deepStrictEqual(recIds(row(c, REC_MOVIES)), [1]);
+  assert.deepStrictEqual(recIds(row(c, REC_SERIES)), [2]);
+});
+
+test('recs rows keep place of hidden row', () => {
+  const parts = [part(MOVIES_ROW, MOVIES_URL, [AVATAR]), part(SERIES_ROW, SERIES_URL, [STRANGER]), HOME[2]];
+  const c = home({ parts, recs: BOTH_RECS, find: findTv, tv: () => aired('2025-06-01') });
+  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, REC_MOVIES, REC_SERIES, TOP_ROW]);
+});
+
+test('recs rows first without now watching', () => {
+  const parts = [HOME[2], part('Популярные фильмы', 'api/v2.2/films/collections?type=POPULAR', [INTERSTELLAR])];
+  const c = home({ parts, recs: BOTH_RECS });
+  assert.deepStrictEqual(titlesOf(c.home[0]), [REC_MOVIES, REC_SERIES, TOP_ROW, 'Популярные фильмы']);
+});
+
+test('recs row capped at 40, pages counted', () => {
+  const list = Array.from({ length: 50 }, (_, i) => recMovie(i + 1));
+  const c = home({ recs: list });
+  const r = row(c, REC_MOVIES);
+  assert.deepStrictEqual(recIds(r), list.map((e) => e.id).reverse().slice(0, 40));
+  assert.deepStrictEqual([r.total_pages, r.page], [3, 1]);
+});
+
+test('recs tv more opens core screen', () => {
+  const c = home({ recs: BOTH_RECS });
+  const tv = c.raw[0].find((p) => p.title === REC_SERIES);
+  tv.params.emit.onlyMore();
+  assert.deepStrictEqual(c.routes, [['recomend', { media: 'tv', total_pages: 1 }]]);
+});
+
+test('main waits for history pass', () => {
+  const c = home({ history: [KP_FIGHT], find: findByImdb, defer: true, recs: [recMovie(1), recMovie(550)] });
+  assert.strictEqual(c.home.length, 0);
+  c.late.shift()();
+  assert.strictEqual(c.home.length, 1);
+  assert.deepStrictEqual(recIds(row(c, REC_MOVIES)), [1]);
+  assert.strictEqual(row(c, REC_MOVIES).title, REC_MOVIES);
+  assert.ok(!warnedWith(c, MAIN_WARN), JSON.stringify(c.warn));
+});
+
+test('two mains wait for one pass', () => {
+  const c = home({ history: [KP_FIGHT], find: findByImdb, defer: true, recs: [recMovie(1), recMovie(550)] });
+  const second = c.main();
+  assert.deepStrictEqual([c.home.length, second.length], [0, 0]);
+  c.late.shift()();
+  assert.deepStrictEqual([c.home.length, second.length], [1, 1]);
+  assert.deepStrictEqual(recIds(second[0].find((p) => p.title === REC_MOVIES)), [1]);
+  assert.strictEqual(c.main().length, 1);
+});
+
+test('main not delayed after pass', () => {
+  const c = home({ history: [KP_FIGHT], find: findByImdb, recs: [recMovie(1), recMovie(550)] });
+  assert.strictEqual(c.home.length, 1);
+  assert.deepStrictEqual(recIds(row(c, REC_MOVIES)), [1]);
+  assert.deepStrictEqual(c.timers, []);
+});
+
+test('recs incomplete after deadline', () => {
+  const c = home({ history: [KP_FIGHT], find: findByImdb, defer: true, recs: BOTH_RECS.concat([recMovie(550)]) });
+  assert.strictEqual(c.home.length, 0);
+  c.fireMs(5000);
+  assert.strictEqual(c.home.length, 1);
+  assert.strictEqual(row(c, REC_MOVIES).title, REC_MOVIES + ' · неполный');
+  assert.strictEqual(row(c, REC_SERIES).title, REC_SERIES + ' · неполный');
+  assert.deepStrictEqual(recIds(row(c, REC_MOVIES)), [550, 1]);
+  assert.ok(warnedWith(c, MAIN_WARN), JSON.stringify(c.warn));
+});
+
+test('no tv recs warns', () => {
+  const c = home({ recs: [recMovie(1)] });
+  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, REC_MOVIES, TOP_ROW]);
+  assert.ok(warnedWith(c, 'kp-reactions-fix: no recommendations', 'tv'), JSON.stringify(c.warn));
+  assert.ok(!warnedWith(c, 'kp-reactions-fix: no recommendations', 'movie'), JSON.stringify(c.warn));
+});
+
+test('missing recomends get fails visibly', () => {
+  const cases = [
+    [['Recomends'], ['Lampa.Recomends.get']],
+    [['Recomends.get'], ['Lampa.Recomends.get']],
+    [['Router', 'Arrays'], ['Lampa.Router.call', 'Lampa.Arrays.shuffle']],
+  ];
+  for (const [drop, missing] of cases) {
+    const c = home({ drop, recs: BOTH_RECS });
+    assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, TOP_ROW], drop.join());
+    assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title], drop.join());
+    assert.strictEqual(c.noty.length, 1, drop.join());
+    assert.ok(c.noty[0].includes('Ряды рекомендаций не построены'), c.noty[0]);
+    assert.strictEqual(c.error.length, 1, drop.join());
+    for (const m of missing) {
+      assert.ok(c.noty[0].includes(m), c.noty[0]);
+      assert.ok(c.error[0].join(' ').includes(m), JSON.stringify(c.error));
+    }
+  }
 });
