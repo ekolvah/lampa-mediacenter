@@ -37,7 +37,7 @@
 
 ## 5. Живая проверка
 
-- [ ] 5.1 `tests/live/kp-history-recs.sh` и `tests/live/kp-history-recs/scan.js` по образцу
+- [x] 5.1 `tests/live/kp-history-recs.sh` и `tests/live/kp-history-recs/scan.js` по образцу
   `tests/live/now-watching.sh`, ожидание через `Live.waitFor`. Шаги:
   1. после `restart_lampa` в начале `recomends_scan` есть TMDB id KP-тайтлов истории;
   2. в пределах 150 с видимого окна первая из них получает `scan: 1`, в `recomends_list` нет
