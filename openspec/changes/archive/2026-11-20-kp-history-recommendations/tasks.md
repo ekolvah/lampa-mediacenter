@@ -56,7 +56,7 @@
 
 ## 7. Deliver
 
-- [ ] 7.1 `agent-process archive_change kp-history-recommendations`, затем
+- [x] 7.1 `agent-process archive_change kp-history-recommendations`, затем
   `gh pr create --title "feat: kp-history-recommendations" --body-file <отчёт>` (issue #77 простой
   ссылкой), `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`.
 - [ ] 7.2 После merge — Migration Plan из design.md: пин на sha `main` со снапшотом, затем
