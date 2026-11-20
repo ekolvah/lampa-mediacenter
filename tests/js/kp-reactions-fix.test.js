@@ -26,9 +26,13 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // Главная (design.md, решение 7): parts — первая порция KP.main; pages(url, page) — ответ KP.list,
 // 'error' или 'never'; active — Lampa.Activity.active(); today — «сейчас» для Date; open: false —
 // без KP.full в конце load().
+// Рекомендации (design.md kp-history-recommendations): history — ответ Favorite.get истории;
+// appready — window.appready; scan, recs — ключи recomends_scan и recomends_list. Storage.get отдаёт
+// один объект на ключ, как ядро; Storage.set шлёт change в Storage.listener, записи — в calls.sets.
+// defer: find/ и search/ отвечают, когда тест зовёт колбэк из calls.late.
 function load(over) {
-  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true }, over);
-  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [] };
+  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false }, over);
+  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [] };
   calls.fire = () => calls.timers.splice(0).forEach((t) => t.fn());
   function Reguest() { this.ms = null; }
   Reguest.prototype.timeout = function (ms) { this.ms = ms; };
@@ -57,7 +61,8 @@ function load(over) {
       }
       calls.get.push(plain({ url, cache }));
       const a = url.startsWith('find/') ? answer(opts.find, url) : url.startsWith('search/') ? answer(opts.search, url) : 'error';
-      reply(a, ok, err);
+      if (opts.defer) calls.late.push(() => reply(a, ok, err));
+      else reply(a, ok, err);
     },
   };
   if (opts.videos !== null) {
@@ -77,7 +82,19 @@ function load(over) {
   // Lampa.Select.show движка: список на экране.
   const Select = { show(params) { calls.shown.push(params); } };
   const Listener = { follow(name, fn) { calls.listeners[name] = fn; } };
-  const Storage = { field(name) { return name === 'tmdb_lang' ? 'ru' : undefined; } };
+  const store = { recomends_scan: plain(opts.scan), recomends_list: plain(opts.recs) };
+  const changes = [];
+  const Storage = {
+    field(name) { return name === 'tmdb_lang' ? 'ru' : undefined; },
+    get(name, empty) { return name in store ? store[name] : JSON.parse(empty); },
+    set(name, value) {
+      store[name] = value;
+      calls.sets.push(name);
+      changes.forEach((fn) => fn({ name, value }));
+    },
+    listener: { follow(type, fn) { if (type === 'change') changes.push(fn); } },
+  };
+  const Favorite = { get(params) { return params.type === 'history' ? plain(opts.history) : []; } };
   const Noty = { show(text) { calls.noty.push(text); } };
   const Activity = { active() { return opts.active; } };
   const now = new Date(opts.today).getTime();
@@ -85,7 +102,8 @@ function load(over) {
     constructor(...args) { if (args.length) super(...args); else super(now); }
   }
   const ctx = {
-    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Noty, Activity },
+    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Favorite, Noty, Activity },
+    appready: opts.appready,
     $: element,
     Date: FakeDate,
     console: { warn(...args) { calls.warn.push(args); }, error(...args) { calls.error.push(args); }, log() {} },
@@ -96,6 +114,8 @@ function load(over) {
   ctx.window = ctx;
   calls.ctx = ctx;
   calls.originalShow = Select.show;
+  calls.store = store;
+  calls.ready = () => calls.listeners.app({ type: 'ready' });
   vm.runInNewContext(SRC, ctx);
   if (opts.open) KP.full({ id: 'KP_1', method: 'movie' }, (result) => calls.done.push(result), () => {});
   return calls;
@@ -918,4 +938,129 @@ test('other lists untouched', () => {
   const r = fullList(c, TOP_URL, 3);
   assert.deepStrictEqual(r.asked, [3]);
   assert.deepStrictEqual(r.got, [answer]);
+});
+
+// --- KP-история в рекомендациях (spec kp-history-recommendations) ---
+
+// Записи истории KP — в форме, снятой с приставки 2026-11-20 (design.md, Standard approach): без type,
+// сериал — по number_of_seasons / first_air_date.
+const kp = (n, fields) => Object.assign({ id: 'KP_' + n, source: 'KP' }, fields);
+const KP_FIGHT = kp(361, { title: 'Бойцовский клуб', original_title: 'Fight Club', imdb_id: 'tt0137523', release_date: '1999-10-15' });
+const KP_THRONES = kp(464963, { title: 'Игра престолов', original_title: 'Game of Thrones', imdb_id: 'tt0944947', number_of_seasons: 8, first_air_date: '2011-04-17' });
+const KP_PULP = kp(342, { title: 'Криминальное чтиво', original_title: 'Pulp Fiction', imdb_id: 'tt0110912', release_date: '1994-05-21' });
+const KP_LOST = kp(5146946, { title: 'Операция «Возмездие»', original_title: 'The Fix', imdb_id: 'tt9999999', release_date: '2026-09-11' });
+const KP_FAIL = kp(1, { title: 'Сбой', original_title: 'Failure', imdb_id: 'tt0000001', release_date: '2020-01-01' });
+const TMDB_MATRIX = { id: 603, source: 'tmdb', title: 'Матрица' };
+const FIND_BY_IMDB = {
+  tt0137523: { movie_results: [{ id: 550 }], tv_results: [] },
+  tt0944947: { movie_results: [{ id: 999001 }], tv_results: [{ id: 1399 }] },
+  tt0110912: { movie_results: [{ id: 680 }], tv_results: [] },
+  tt9999999: NOT_FOUND,
+  tt0000001: 'error',
+};
+const findByImdb = (url) => FIND_BY_IMDB[/find\/(tt\d+)/.exec(url)[1]];
+
+// Приложение уже готово: проход по KP-истории идёт при загрузке плагина.
+function recs(over) {
+  return load(Object.assign({ open: false, appready: true, find: findByImdb }, over));
+}
+
+const scanOf = (c) => plain(c.store.recomends_scan);
+const listIds = (c) => plain(c.store.recomends_list).map((e) => e.id);
+const setsOf = (c, name) => c.sets.filter((n) => n === name).length;
+const RECS_WARN = 'kp-reactions-fix: recommendations:';
+
+test('kp movie queued first', () => {
+  const c = recs({ history: [KP_FIGHT, TMDB_MATRIX], scan: [{ id: 603, tv: 0, scan: 1 }] });
+  assert.deepStrictEqual(scanOf(c), [{ id: 550, tv: false }, { id: 603, tv: 0, scan: 1 }]);
+  assert.deepStrictEqual(c.get.map((g) => g.url), ['find/tt0137523?external_source=imdb_id']);
+  assert.strictEqual(setsOf(c, 'recomends_scan'), 1);
+  assert.deepStrictEqual(c.warn, []);
+});
+
+test('kp series queued as tv', () => {
+  const c = recs({ history: [KP_THRONES] });
+  assert.deepStrictEqual(scanOf(c), [{ id: 1399, tv: true }]);
+});
+
+test('core queue kept, no duplicate', () => {
+  const core = [{ id: 100, tv: 0 }, { id: 550, tv: 0, scan: 1 }, { id: 1399, tv: 8 }];
+  const c = recs({ history: [KP_THRONES, KP_FIGHT, KP_PULP], scan: core });
+  assert.deepStrictEqual(scanOf(c), [{ id: 680, tv: false }].concat(core));
+});
+
+test('queue filled once after app ready', () => {
+  const c = load({ open: false, find: findByImdb, history: [KP_FIGHT, KP_THRONES], defer: true });
+  assert.strictEqual(c.get.length, 0);
+  c.ready();
+  assert.strictEqual(c.get.length, 1);
+  c.late.shift()();
+  assert.strictEqual(c.get.length, 2);
+  assert.strictEqual(setsOf(c, 'recomends_scan'), 0);
+  c.late.shift()();
+  c.ready();
+  assert.strictEqual(c.get.length, 2);
+  assert.strictEqual(setsOf(c, 'recomends_scan'), 1);
+  assert.deepStrictEqual(scanOf(c), [{ id: 550, tv: false }, { id: 1399, tv: true }]);
+});
+
+test('queue insert survives core write', () => {
+  const c = load({ open: false, find: findByImdb, history: [KP_FIGHT], scan: [{ id: 603, tv: 0 }] });
+  const core = c.ctx.Lampa.Storage.get('recomends_scan', '[]');
+  c.ready();
+  core.push({ id: 604, tv: 0 });
+  c.ctx.Lampa.Storage.set('recomends_scan', core);
+  assert.deepStrictEqual(scanOf(c), [{ id: 550, tv: false }, { id: 603, tv: 0 }, { id: 604, tv: 0 }]);
+  assert.deepStrictEqual(c.warn, []);
+});
+
+test('replaced core queue warns', () => {
+  const c = recs({ history: [KP_FIGHT], scan: [{ id: 603, tv: 0 }] });
+  assert.deepStrictEqual(c.warn, []);
+  c.ctx.Lampa.Storage.set('recomends_scan', [{ id: 603, tv: 0 }]);
+  assertWarned(c, RECS_WARN + ' core rewrote recomends_scan without KP history titles');
+  c.ctx.Lampa.Storage.set('recomends_scan', [{ id: 603, tv: 0 }]);
+  assert.strictEqual(c.warn.length, 1);
+});
+
+test('watched kp movie removed, order kept', () => {
+  const list = [{ id: 1, title: 'A' }, { id: 550, title: 'Бойцовский клуб' }, { id: 2, title: 'B' }, { id: 1399, number_of_seasons: 8 }];
+  const c = recs({ history: [KP_FIGHT, KP_THRONES], recs: list });
+  assert.deepStrictEqual(listIds(c), [1, 2]);
+  assert.strictEqual(setsOf(c, 'recomends_list'), 1);
+});
+
+test('same id other type kept in list', () => {
+  const list = [{ id: 550, name: 'Сериал', first_air_date: '2020-01-01' }, { id: 550, number_of_seasons: 1 }, { id: 1399, title: 'Фильм' }];
+  const c = recs({ history: [KP_FIGHT, KP_THRONES], recs: list });
+  assert.deepStrictEqual(plain(c.store.recomends_list), list);
+});
+
+test('list cleaned after core write', () => {
+  const c = recs({ history: [KP_FIGHT] });
+  c.ctx.Lampa.Storage.set('recomends_list', [{ id: 1 }, { id: 550 }, { id: 2 }]);
+  assert.deepStrictEqual(listIds(c), [1, 2]);
+  assert.strictEqual(setsOf(c, 'recomends_list'), 1);
+});
+
+test('clean list not rewritten', () => {
+  const c = recs({ history: [KP_FIGHT], recs: [{ id: 1 }, { id: 2 }] });
+  assert.deepStrictEqual(listIds(c), [1, 2]);
+  assert.strictEqual(setsOf(c, 'recomends_list'), 0);
+});
+
+test('unresolved and failed kp counted in warning', () => {
+  const c = recs({ history: [KP_FIGHT, KP_LOST, KP_FAIL, KP_THRONES] });
+  assert.deepStrictEqual(scanOf(c), [{ id: 550, tv: false }, { id: 1399, tv: true }]);
+  assert.ok(warnedWith(c, RECS_WARN, '2 of 4'), JSON.stringify(c.warn));
+});
+
+test('pass deadline counts rest as unresolved', () => {
+  const find = (url) => (url.includes('tt0944947') ? 'never' : findByImdb(url));
+  const c = recs({ history: [KP_FIGHT, KP_THRONES, KP_PULP], find });
+  assert.deepStrictEqual(c.timers.map((t) => t.ms), [60000]);
+  assert.strictEqual(setsOf(c, 'recomends_scan'), 0);
+  c.fire();
+  assert.deepStrictEqual(scanOf(c), [{ id: 550, tv: false }]);
+  assert.ok(warnedWith(c, RECS_WARN, '2 of 3'), JSON.stringify(c.warn));
 });

@@ -5,13 +5,13 @@
 
 ## 1. RED
 
-- [ ] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`. Двойник `Storage` в `load()`
+- [x] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`. Двойник `Storage` в `load()`
   расширить `get/set` с одним объектом на ключ (как в ядре) и `listener`; добавить
   `Favorite.get({type: 'history'})` и `window.appready`. Ответы TMDB по записям — существующие
   `opts.find`/`opts.search`, предупреждения — `assertWarned`/`warnedWith`. «Ядро перезаписывает
   очередь» тест моделирует так: держит ссылку на массив из `Storage.get` до вставки и после неё зовёт
   `Storage.set` с этой ссылкой.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Очередь сканирования (решения 1, 2, 4, 5)
 
