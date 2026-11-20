@@ -32,7 +32,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 `docs/lampa-config-review.md`: в строке `kp-reactions-fix.js` написать, что плагин пишет в
+- [x] 4.1 `docs/lampa-config-review.md`: в строке `kp-reactions-fix.js` написать, что плагин пишет в
   `recomends_scan` и `recomends_list`. Обновить шапку `plugins/kp-reactions-fix.js`. Коммит.
 
 ## 5. Живая проверка
