@@ -8,7 +8,7 @@
 
   var rewrote = window.__recsWarns.filter(function (w) { return w.indexOf('core rewrote recomends_scan') !== -1; });
   Live.check(!rewrote.length, 'ядро подменило очередь: ' + rewrote.join('; '));
-  var watched = window.__recsExpected;
+  var watched = kpKeys();
   var shown = Lampa.Storage.get('recomends_list', '[]').filter(function (e) {
     return watched.indexOf(recKey(e.id, isTv(e))) !== -1;
   });

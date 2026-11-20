@@ -262,7 +262,8 @@ const THRONES = show('Игра престолов', '2011', 'tt0944947');
 const STRANGER = show('Очень странные дела', '2016', 'tt4574334');
 const NEVSKY = show('Невский', '2015');
 const TV_ID = { tt0944947: 1399, tt4574334: 66732 };
-const findTv = (url) => ({ movie_results: [], tv_results: [{ id: TV_ID[/find\/(tt\d+)/.exec(url)[1]] }] });
+const imdbOf = (url) => /find\/(tt\d+)/.exec(url)[1];
+const findTv = (url) => ({ movie_results: [], tv_results: [{ id: TV_ID[imdbOf(url)] }] });
 const aired = (date) => ({ last_episode_to_air: { season_number: 2, air_date: date } });
 const HOME = [
   part(MOVIES_ROW, MOVIES_URL, [AVATAR, ZOOTOPIA]),
@@ -958,7 +959,7 @@ const FIND_BY_IMDB = {
   tt9999999: NOT_FOUND,
   tt0000001: 'error',
 };
-const findByImdb = (url) => FIND_BY_IMDB[/find\/(tt\d+)/.exec(url)[1]];
+const findByImdb = (url) => FIND_BY_IMDB[imdbOf(url)];
 
 // Приложение уже готово: проход по KP-истории идёт при загрузке плагина.
 function recs(over) {
@@ -981,6 +982,7 @@ test('kp movie queued first', () => {
 test('kp series queued as tv', () => {
   const c = recs({ history: [KP_THRONES] });
   assert.deepStrictEqual(scanOf(c), [{ id: 1399, tv: true }]);
+  assert.deepStrictEqual(plain(c.ctx.Lampa.Api.sources.KP.__history_recs), ['1399:tv']);
 });
 
 test('core queue kept, no duplicate', () => {

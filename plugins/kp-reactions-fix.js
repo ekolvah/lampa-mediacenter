@@ -493,13 +493,16 @@
       return !!(card.number_of_seasons || card.first_air_date);
     }
 
+    // Тайтл очереди и списка — id и тип. Признак сериала в очереди ядра — число сезонов, search()
+    // проверяет только истинность.
     function recKey(id, tv) {
       return id + ':' + (tv ? 'tv' : 'movie');
     }
 
-    // Признак сериала у ядра — число сезонов, search() проверяет только истинность.
-    function hasRec(queue, rec) {
-      return queue.some(function (e) { return e.id === rec.id && !!e.tv === rec.tv; });
+    function queueKeys(queue) {
+      var keys = {};
+      queue.forEach(function (e) { keys[recKey(e.id, e.tv)] = true; });
+      return keys;
     }
 
     // Убирает из списка рекомендаций на месте тайтлы watched; возвращает число убранных.
@@ -514,39 +517,51 @@
       return removed;
     }
 
+    // Чистка списка после каждой его записи ядром; на первой записи очереди ядром — проверка, что
+    // вставленное в ней осталось (решение 5). Зовётся после своих записей: первая запись здесь — ядра.
+    function followRecs(watched, keys) {
+      var checked = false;
+      Lampa.Storage.listener.follow('change', function (e) {
+        if (e.name === 'recomends_list') cleanRecs(e.value, watched);
+        else if (e.name === 'recomends_scan' && !checked) {
+          checked = true;
+          var inQueue = queueKeys(e.value);
+          var kept = keys.every(function (k) { return inQueue[k]; });
+          if (!kept) console.warn('kp-reactions-fix: recommendations: core rewrote recomends_scan without KP history titles');
+        }
+      });
+    }
+
     // Массив очереди — тот же объект, что держит и пишет на каждом тике ядро (design.md, решение 2),
     // поэтому вставка правится на месте.
     function applyRecs(found) {
       var queue = Lampa.Storage.get('recomends_scan', '[]');
+      var inQueue = queueKeys(queue);
+      var watched = {};
       var missing = [];
       found.forEach(function (rec) {
-        if (!hasRec(queue, rec) && !hasRec(missing, rec)) missing.push(rec);
+        var key = recKey(rec.id, rec.tv);
+        if (watched[key]) return;
+        watched[key] = true;
+        if (!inQueue[key]) missing.push(rec);
       });
       if (missing.length) {
         queue.unshift.apply(queue, missing);
         Lampa.Storage.set('recomends_scan', queue);
       }
 
-      var watched = {};
-      found.forEach(function (rec) { watched[recKey(rec.id, rec.tv)] = true; });
       var list = Lampa.Storage.get('recomends_list', '[]');
       if (cleanRecs(list, watched)) Lampa.Storage.set('recomends_list', list);
-
-      // Подписка после своих записей: первая запись очереди здесь — ядра (решение 5).
-      var checked = false;
-      Lampa.Storage.listener.follow('change', function (e) {
-        if (e.name === 'recomends_list') cleanRecs(e.value, watched);
-        else if (e.name === 'recomends_scan' && !checked) {
-          checked = true;
-          var kept = found.every(function (rec) { return hasRec(e.value, rec); });
-          if (!kept) console.warn('kp-reactions-fix: recommendations: core rewrote recomends_scan without KP history titles');
-        }
-      });
+      KP.__history_recs = Object.keys(watched); // найденное — для tests/live/kp-history-recs.sh
+      followRecs(watched, KP.__history_recs);
     }
 
     // KP-записи ищутся по одной (не залпом поверх рядов Главной), весь проход — не дольше
-    // RECS_TIMEOUT_MS: недошедшие считаются ненайденными.
+    // RECS_TIMEOUT_MS: недошедшие считаются ненайденными. Один раз за запуск.
+    var recsStarted = false;
     function historyRecs() {
+      if (recsStarted) return;
+      recsStarted = true;
       var kp = Lampa.Favorite.get({ type: 'history' }).filter(function (e) { return e.source === 'KP'; });
       if (!kp.length) return;
       var found = [];
@@ -568,14 +583,7 @@
     }
 
     if (window.appready) historyRecs();
-    else {
-      var recsStarted = false;
-      Lampa.Listener.follow('app', function (e) {
-        if (e.type !== 'ready' || recsStarted) return;
-        recsStarted = true;
-        historyRecs();
-      });
-    }
+    else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') historyRecs(); });
 
     KP.__reactions_patched = true;
   }
