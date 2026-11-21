@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 no RED: docs-only, `skip_specs`. Воспроизведение — proposal.md, Why:
+- [x] 1.1 no RED: docs-only, `skip_specs`. Воспроизведение — proposal.md, Why:
   `openspec validate --strict --all` → `7 passed, 3 failed`.
 
 ## 2. Purpose
@@ -14,13 +14,13 @@
 предложением. Проверка каждой: `openspec validate <spec> --type spec --strict` без предупреждения
 о заглушке.
 
-- [ ] 2.1 `openspec/specs/card-buttons/spec.md`: «Плагин `kp-reactions-fix.js` открывает список
+- [x] 2.1 `openspec/specs/card-buttons/spec.md`: «Плагин `kp-reactions-fix.js` открывает список
   торрентов из карточки одним нажатием: кнопка «Торренты» стоит первой в строке кнопок, а «Смотреть»
   перенесена в меню «…».»
-- [ ] 2.2 `openspec/specs/tmdb-access/spec.md`: «Lampa на приставке ходит в TMDB напрямую, а не через
+- [x] 2.2 `openspec/specs/tmdb-access/spec.md`: «Lampa на приставке ходит в TMDB напрямую, а не через
   TMDB-прокси Lampac, который вырезает часть тайтлов, поэтому тайтл, который есть в TMDB, находится и в
   Lampa.»
-- [ ] 2.3 `openspec/specs/kp-main-recommendations/spec.md`: «Плагин `kp-reactions-fix.js` добавляет на
+- [x] 2.3 `openspec/specs/kp-main-recommendations/spec.md`: «Плагин `kp-reactions-fix.js` добавляет на
   Главную источника `KP` ряды «Рекомендуем посмотреть» для фильмов и сериалов, которых `kp_source` сам
   не строит, без уже просмотренного.»
   Коммит группы.

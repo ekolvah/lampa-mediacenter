@@ -1,7 +1,7 @@
 # kp-main-recommendations Specification
 
 ## Purpose
-TBD - created by archiving change kp-main-recommendations. Update Purpose after archive.
+Плагин `kp-reactions-fix.js` добавляет на Главную источника `KP` ряды «Рекомендуем посмотреть» для фильмов и сериалов, которых `kp_source` сам не строит, без уже просмотренного.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # tmdb-access Specification
 
 ## Purpose
-TBD - created by archiving change disable-lampac-tmdb-proxy. Update Purpose after archive.
+Lampa на приставке ходит в TMDB напрямую, а не через TMDB-прокси Lampac, который вырезает часть тайтлов, поэтому тайтл, который есть в TMDB, находится и в Lampa.
 
 ## Requirements
 

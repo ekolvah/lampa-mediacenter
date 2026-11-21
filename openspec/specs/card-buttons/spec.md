@@ -1,7 +1,7 @@
 # card-buttons Specification
 
 ## Purpose
-TBD - created by archiving change torrents-button. Update Purpose after archive.
+Плагин `kp-reactions-fix.js` открывает список торрентов из карточки одним нажатием: кнопка «Торренты» стоит первой в строке кнопок, а «Смотреть» перенесена в меню «…».
 
 ## Requirements
 
