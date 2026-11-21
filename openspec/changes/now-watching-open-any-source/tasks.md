@@ -42,7 +42,7 @@
 
 ## 5. Живая проверка
 
-- [ ] 5.1 `tests/live/now-watching/new-first.js` забывает карточку не с первого места с непустым
+- [x] 5.1 `tests/live/now-watching/new-first.js` забывает карточку не с первого места с непустым
   `imdb_id`, если такая есть, иначе вторую. `tests/live/now-watching/new-first-check.js` при
   `OPENED = false` открывает карточку не через `KP.full`, а через
   `Lampa.Api.sources.tmdb.full({ method, id }, …)` по её `t`: `t` ждётся `Live.waitFor` до 15 с
