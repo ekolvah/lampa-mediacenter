@@ -52,15 +52,15 @@
 ## 6. Verify
 
 - [x] 6.1 `/simplify`, коммит его правок.
-- [ ] 6.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
+- [x] 6.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
   `bash tests/live/kp-trailers.sh` → `OK`, затем `screencap` карточки «Чёрного лотоса» (процесс уже
   перезапущен скриптом).
-- [ ] 6.3 `openspec validate --strict --all`.
-- [ ] 6.4 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 6.3 `openspec validate --strict --all`.
+- [x] 6.4 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 7. Deliver
 
-- [ ] 7.1 `agent-process archive_change card-trailers-any-source`, `gh pr create --title "fix:
+- [x] 7.1 `agent-process archive_change card-trailers-any-source`, `gh pr create --title "fix:
   card-trailers-any-source" --body-file <report>`, `gh pr merge <PR> --auto --squash`,
   `agent-process wait_for_pr <PR>`.
 
