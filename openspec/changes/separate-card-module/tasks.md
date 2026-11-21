@@ -19,7 +19,7 @@
 
 ## 3. Живая проверка (design.md, решение 3)
 
-- [ ] 3.1 Снапшот по `docs/snapshots-convention.md`. Запушить ветку, пин `kp-reactions-fix.js` на
+- [x] 3.1 Снапшот по `docs/snapshots-convention.md`. Запушить ветку, пин `kp-reactions-fix.js` на
   её sha. `bash tests/live/kp-trailers.sh`, `bash tests/live/now-watching.sh`,
   `bash tests/live/main-recs.sh` → `OK` каждый. `screencap` Главной, затем закрыть снапшот
   (`after/`) по конвенции.
