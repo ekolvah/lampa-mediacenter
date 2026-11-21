@@ -1449,8 +1449,8 @@ test('recs broken stored list warns', () => {
   const c = recs({ recsMovie: 'строка', recsTv: [{ title: 'без id' }], recs: movies(1, 5).concat(shows(1001, 3)) });
   assert.deepStrictEqual(idsOf(c, 'kp_recs_movie'), range(1, 5));
   assert.deepStrictEqual(idsOf(c, 'kp_recs_tv'), range(1001, 3));
-  assertWarned(c, RECS_WARN, 'kp_recs_movie');
-  assertWarned(c, RECS_WARN, 'kp_recs_tv');
+  assert.strictEqual(c.warn.length, 2, JSON.stringify(c.warn));
+  assert.ok(warnedWith(c, RECS_WARN, 'bad kp_recs_movie') && warnedWith(c, RECS_WARN, 'bad kp_recs_tv'), JSON.stringify(c.warn));
 });
 
 test('recs get drops watched', () => {

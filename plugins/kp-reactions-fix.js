@@ -37,6 +37,8 @@
   // Карточек в ряду рекомендаций Главной (у ядра 20) и карточек на странице его экрана «Ещё».
   var REC_ROW_LIMIT = 40;
   var REC_PAGE = 20;
+  // Тайтлов в списке рекомендаций одного типа — как общий лимит ядра (spec kp-main-recommendations).
+  var REC_TYPE_LIMIT = 100;
   // Добавка к заголовку ряда, собранного не до конца.
   var INCOMPLETE = ' · неполный';
   // Штатные ряды kp_source по url, который кладёт его getList.
@@ -643,16 +645,71 @@
 
     // Главная зовёт KP.main один раз и через его oncomplite получает первую порцию рядов;
     // подгрузку при прокрутке (возвращённую функцию) обёртка не трогает.
+    // Отдельные списки фильмов и сериалов (design.md kp-split-recommendations, решение 1): ядро
+    // держит общий recomends_list на 100, и сериалы вытесняют из него фильмы.
+    var REC_KEYS = { movie: 'kp_recs_movie', tv: 'kp_recs_tv' };
+    function readRecs(key) {
+      var list = Lampa.Storage.get(key, '[]');
+      if (Array.isArray(list) && list.every(function (e) { return isObject(e) && e.id != null; })) return list;
+      console.warn('kp-reactions-fix: recommendations: bad ' + key, String(JSON.stringify(list)).slice(0, 200));
+      return [];
+    }
+    var recLists = { movie: readRecs(REC_KEYS.movie), tv: readRecs(REC_KEYS.tv) };
+    var idsKey = function (list) { return list.map(function (e) { return e.id; }).join(','); };
+
+    // Тайтлы записи ядра встают в конец списка своего типа в её порядке; пишется изменившийся список.
+    function mergeRecs(coreList) {
+      var before = { movie: idsKey(recLists.movie), tv: idsKey(recLists.tv) };
+      coreList.forEach(function (card) {
+        var type = isTv(card) ? 'tv' : 'movie';
+        recLists[type] = recLists[type].filter(function (e) { return e.id != card.id; });
+        recLists[type].push(card);
+      });
+      Object.keys(REC_KEYS).forEach(function (type) {
+        recLists[type] = recLists[type].slice(-REC_TYPE_LIMIT);
+        if (idsKey(recLists[type]) !== before[type]) Lampa.Storage.set(REC_KEYS[type], recLists[type]);
+      });
+    }
+    mergeRecs(Lampa.Storage.get('recomends_list', '[]'));
+    Lampa.Storage.listener.follow('change', function (e) {
+      if (e.name === 'recomends_list') mergeRecs(e.value);
+    });
+
+    // Найденные TMDB-тайтлы KP-истории (applyRecs) — просмотренное вдобавок к истории tmdb/cub.
+    var kpWatched = {};
+    // Замена Recomends.get ядра над списком типа (решение 2): id и тип, а не только id, как у ядра.
+    function recsGet(type) {
+      var seen = Object.assign({}, kpWatched);
+      Lampa.Favorite.get({ type: 'history' }).forEach(function (h) {
+        if (h.source === 'tmdb' || h.source === 'cub') seen[recKey(h.id, isTv(h))] = true;
+      });
+      var tv = type == 'tv';
+      return recLists[tv ? 'tv' : 'movie'].slice().reverse().filter(function (e) { return !seen[recKey(e.id, tv)]; });
+    }
+    recsGet.__kp_split = true; // только для живой проверки tests/live/main-recs.sh
+    // Копия page ядра над recsGet: её зовёт экран «Ещё».
+    function recsPage(object, call, empty) {
+      var all = recsGet(object.media);
+      var page = object.page || 1;
+      var result = all.slice((page - 1) * REC_PAGE, page * REC_PAGE);
+      if (!result.length) return empty({ status: 404 });
+      call({ results: result, title: Lampa.Lang.translate('title_recomend_watch'), total_pages: Math.ceil(all.length / REC_PAGE), page: page });
+    }
+
     var orgMain = KP.main;
     if (typeof orgMain === 'function') {
       var active = Lampa.Activity.active();
       if (active && active.component === 'main' && active.source === 'KP') rowsFailed('main screen built before patch');
-      var recsMissing = ['Recomends.get', 'Router.call', 'Arrays.shuffle'].filter(function (path) {
+      var recsMissing = ['Recomends.get', 'Recomends.page', 'Router.call', 'Arrays.shuffle'].filter(function (path) {
         var p = path.split('.');
         return !(Lampa[p[0]] && typeof Lampa[p[0]][p[1]] === 'function');
       });
       var recsReady = !recsMissing.length;
       if (!recsReady) recsFailed('no ' + recsMissing.map(function (path) { return 'Lampa.' + path; }).join(', '));
+      else {
+        Lampa.Recomends.get = recsGet;
+        Lampa.Recomends.page = recsPage;
+      }
       KP.main = function (params, oncomplite, onerror) {
         return orgMain.call(KP, params, function (parts) {
           mainPortion(parts, oncomplite);
@@ -727,6 +784,7 @@
 
       var list = Lampa.Storage.get('recomends_list', '[]');
       if (cleanRecs(list, watched)) Lampa.Storage.set('recomends_list', list);
+      kpWatched = watched;
       var keys = Object.keys(watched);
       followRecs(watched, keys);
       KP.__history_recs = keys.slice(); // только для живой проверки tests/live/kp-history-recs.sh

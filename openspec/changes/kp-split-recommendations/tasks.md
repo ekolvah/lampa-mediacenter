@@ -18,7 +18,7 @@
 
 ## 2. Списки типа (решение 1)
 
-- [ ] 2.1 `mergeRecs` и подписка на `change` `recomends_list` при установке патча, засев из текущего
+- [x] 2.1 `mergeRecs` и подписка на `change` `recomends_list` при установке патча, засев из текущего
   `recomends_list`, запись `kp_recs_movie`/`kp_recs_tv`, срез до 100. Проверка:
   `node --test tests/js/kp-reactions-fix.test.js`, тесты «recs lists keep movies when core writes
   series», «recs list capped at 100 per type», «recs repeated title moves to end», «recs lists seeded
@@ -27,11 +27,11 @@
 
 ## 3. get/page и проверка функций (решения 2, 3)
 
-- [ ] 3.1 Замена `Lampa.Recomends.get` (список типа, последние первыми, без просмотренного по
+- [x] 3.1 Замена `Lampa.Recomends.get` (список типа, последние первыми, без просмотренного по
   `recKey` истории `tmdb`/`cub` и KP-множества) и `Lampa.Recomends.page`. Проверка: та же, тесты
   «recs get drops watched», «recs get keeps other type with watched id», «recs page slices list».
   У замены `get` метка `__kp_split = true`.
-- [ ] 3.2 `Recomends.page` в `recsMissing`. Проверка: та же, тест «missing recomends get fails
+- [x] 3.2 `Recomends.page` в `recsMissing`. Проверка: та же, тест «missing recomends get fails
   visibly» с новым случаем «нет `page`»; старые тесты рядов зелёные. Коммит группы.
 
 ## 4. Доки
