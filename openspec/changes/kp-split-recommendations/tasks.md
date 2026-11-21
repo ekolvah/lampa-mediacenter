@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`. Двойник `load()`:
+- [x] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`. Двойник `load()`:
   - `Storage.get`/`set` уже держат один объект на ключ; добавить опции `recsMovie`, `recsTv` —
     начальные `kp_recs_movie`, `kp_recs_tv` (по умолчанию ключей нет).
   - `Recomends` двойника — объект с `get` (как `get$4` ядра) и `page`; тесты читают замену через
@@ -14,7 +14,7 @@
   - Запись ядра — `Storage.set('recomends_list', list)` двойника, который шлёт `change`.
   Старые тесты рядов идут через опцию `recs` (список ядра) и после засева списков типа остаются
   зелёными без правок порядка.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Списки типа (решение 1)
 

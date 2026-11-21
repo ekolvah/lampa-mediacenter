@@ -33,7 +33,9 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // defer: find/ и search/ отвечают, когда тест зовёт колбэк из calls.late.
 // Рекомендации на Главной (design.md kp-main-recommendations): Recomends.get повторяет get$4 ядра над
 // recomends_list, Router.call пишет вызовы в calls.routes, Arrays.shuffle — копия без перестановки;
-// drop — что убрать из двойника: 'Recomends', 'Recomends.get', 'Router', 'Arrays'. fireMs(ms) запускает
+// Отдельные списки (design.md kp-split-recommendations): recsMovie, recsTv — сохранённые kp_recs_movie,
+// kp_recs_tv (по умолчанию ключей нет); Recomends.page двойника — заглушка ядра, Lang.translate отдаёт ключ.
+// drop — что убрать из двойника: 'Recomends', 'Recomends.get', 'Recomends.page', 'Router', 'Arrays'. fireMs(ms) запускает
 // только таймеры с этим ms.
 function load(over) {
   const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [] }, over);
@@ -93,6 +95,8 @@ function load(over) {
   const Listener = { follow(name, fn) { calls.listeners[name] = fn; } };
   const store = { recomends_scan: plain(opts.scan), recomends_list: plain(opts.recs) };
   if (opts.seen !== undefined) store.kp_now_watching_seen = plain(opts.seen);
+  if (opts.recsMovie !== undefined) store.kp_recs_movie = plain(opts.recsMovie);
+  if (opts.recsTv !== undefined) store.kp_recs_tv = plain(opts.recsTv);
   const changes = [];
   const Storage = {
     field(name) { return name === 'tmdb_lang' ? 'ru' : undefined; },
@@ -113,7 +117,9 @@ function load(over) {
       return store.recomends_list.filter((e) => !!(e.number_of_seasons || e.first_air_date) === tv).reverse()
         .filter((e) => !opts.history.find((h) => h.id == e.id));
     },
+    page() { throw new Error('core page called'); },
   };
+  const Lang = { translate(key) { return key; } };
   const Router = { call(name, params) { calls.routes.push([name, plain(params)]); } };
   const Arrays = { shuffle(list) { return list.slice(); } };
   const now = new Date(opts.today).getTime();
@@ -121,7 +127,7 @@ function load(over) {
     constructor(...args) { if (args.length) super(...args); else super(now); }
   }
   const ctx = {
-    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Favorite, Noty, Activity, Recomends, Router, Arrays },
+    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Favorite, Noty, Activity, Recomends, Router, Arrays, Lang },
     appready: opts.appready,
     $: element,
     Date: FakeDate,
@@ -1381,6 +1387,7 @@ test('missing recomends get fails visibly', () => {
   const cases = [
     [['Recomends'], ['Lampa.Recomends.get']],
     [['Recomends.get'], ['Lampa.Recomends.get']],
+    [['Recomends.page'], ['Lampa.Recomends.page']],
     [['Router', 'Arrays'], ['Lampa.Router.call', 'Lampa.Arrays.shuffle']],
   ];
   for (const [drop, missing] of cases) {
@@ -1395,4 +1402,84 @@ test('missing recomends get fails visibly', () => {
       assert.ok(c.error[0].join(' ').includes(m), JSON.stringify(c.error));
     }
   }
+});
+
+// --- Отдельные списки фильмов и сериалов (spec kp-main-recommendations) ---
+
+const movies = (from, n) => Array.from({ length: n }, (_, i) => recMovie(from + i));
+const shows = (from, n) => Array.from({ length: n }, (_, i) => recShow(from + i));
+const range = (from, n) => Array.from({ length: n }, (_, i) => from + i);
+const idsOf = (c, key) => plain(c.store[key]).map((e) => e.id);
+const coreWrite = (c, list) => c.ctx.Lampa.Storage.set('recomends_list', list);
+const recIdsOf = (list) => plain(list).map((e) => e.id);
+
+test('recs lists keep movies when core writes series', () => {
+  const c = recs({ recsMovie: movies(1, 30) });
+  coreWrite(c, shows(1001, 100));
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_movie'), range(1, 30));
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_tv'), range(1001, 100));
+  assert.strictEqual(c.ctx.Lampa.Recomends.get('movie').length, 30);
+});
+
+test('recs list capped at 100 per type', () => {
+  const c = recs({ recsMovie: movies(1, 90) });
+  coreWrite(c, movies(101, 20));
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_movie'), range(11, 80).concat(range(101, 20)));
+});
+
+test('recs repeated title moves to end', () => {
+  const c = recs({ recsMovie: [recMovie(550), recMovie(1), recMovie(2)] });
+  coreWrite(c, [recMovie(3), recMovie(550)]);
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_movie'), [1, 2, 3, 550]);
+});
+
+test('recs lists seeded from core list', () => {
+  const c = recs({ recs: movies(1, 3).concat(shows(1001, 100), movies(4, 12)) });
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_movie'), range(1, 15));
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_tv'), range(1001, 100));
+  assert.deepStrictEqual(c.warn, []);
+});
+
+test('recs lists merged on restart', () => {
+  const c = recs({ recsMovie: movies(1, 30), recs: movies(101, 10) });
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_movie'), range(1, 30).concat(range(101, 10)));
+});
+
+test('recs broken stored list warns', () => {
+  const c = recs({ recsMovie: 'строка', recsTv: [{ title: 'без id' }], recs: movies(1, 5).concat(shows(1001, 3)) });
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_movie'), range(1, 5));
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_tv'), range(1001, 3));
+  assertWarned(c, RECS_WARN, 'kp_recs_movie');
+  assertWarned(c, RECS_WARN, 'kp_recs_tv');
+});
+
+test('recs get drops watched', () => {
+  const history = [
+    { id: 550, source: 'tmdb', title: 'Фильм 550' },
+    { id: 553, source: 'tmdb', name: 'Сериал 553', number_of_seasons: 1 },
+    KP_FIGHT,
+  ];
+  const find = () => ({ movie_results: [{ id: 551 }], tv_results: [] });
+  const c = recs({ history, find, recsMovie: [recMovie(550), recMovie(551), recMovie(552)], recsTv: [recShow(553), recShow(554)] });
+  const R = c.ctx.Lampa.Recomends;
+  assert.deepStrictEqual(recIdsOf(R.get('movie')), [552]);
+  assert.deepStrictEqual(recIdsOf(R.get()), [552]);
+  assert.deepStrictEqual(recIdsOf(R.get('tv')), [554]);
+});
+
+test('recs get keeps other type with watched id', () => {
+  const c = recs({ history: [{ id: 550, source: 'tmdb', title: 'Фильм 550' }], recsTv: [recShow(550)] });
+  assert.deepStrictEqual(recIdsOf(c.ctx.Lampa.Recomends.get('tv')), [550]);
+});
+
+test('recs page slices list', () => {
+  const c = recs({ recsMovie: movies(1, 30) });
+  const R = c.ctx.Lampa.Recomends;
+  assert.strictEqual(R.get.__kp_split, true);
+  const got = [];
+  const empty = [];
+  for (const page of [1, 2, 3]) R.page({ media: 'movie', page }, (data) => got.push(plain(data)), (e) => empty.push(plain(e)));
+  assert.deepStrictEqual(got.map((d) => d.results.map((e) => e.id)), [range(11, 20).reverse(), range(1, 10).reverse()]);
+  assert.deepStrictEqual(got.map((d) => [d.total_pages, d.page, d.title]), [[2, 1, 'title_recomend_watch'], [2, 2, 'title_recomend_watch']]);
+  assert.deepStrictEqual(empty, [{ status: 404 }]);
 });
