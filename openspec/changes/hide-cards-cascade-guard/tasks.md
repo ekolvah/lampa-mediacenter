@@ -5,16 +5,16 @@
 
 ## 1. RED
 
-- [ ] 1.1 no RED: правится только живой тест, pytest-теста нет. Воспроизведение — proposal.md, Why:
+- [x] 1.1 no RED: правится только живой тест, pytest-теста нет. Воспроизведение — proposal.md, Why:
   `bash tests/live/hide-cards.sh` падает на шаге 3 с «карточек N вместо 3». Перед правкой уточнить у
   пользователя, включён ли Wireless debugging и актуален ли IP приставки (CLAUDE.md), и
   воспроизвести падение на текущем `main`.
 
 ## 2. Живой тест
 
-- [ ] 2.1 `tests/live/hide-cards/cascade-to-three.js` по design.md, решение 1: лимит цикла — длина
+- [x] 2.1 `tests/live/hide-cards/cascade-to-three.js` по design.md, решение 1: лимит цикла — длина
   `line.data.results` на входе в шаг; обновить комментарий шага.
-- [ ] 2.2 Там же, решение 2: после цикла `HC.check(results.length <= 3, ...)` с числом оставшихся и
+- [x] 2.2 Там же, решение 2: после цикла `HC.check(results.length <= 3, ...)` с числом оставшихся и
   исходных результатов — до проверки числа карточек.
   Проверка: `bash tests/live/hide-cards.sh` → `OK: hide-cards`, затем `restart_lampa` и screencap
   (CLAUDE.md, после серии `location`/`Activity`-пересборок). Коммит группы.
