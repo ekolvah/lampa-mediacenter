@@ -55,12 +55,12 @@
 ## 6. Verify
 
 - [x] 6.1 `/simplify`, коммит его правок.
-- [ ] 6.2 `openspec validate --strict --all`.
-- [ ] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 6.2 `openspec validate --strict --all`.
+- [x] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 7. Deliver
 
-- [ ] 7.1 `agent-process archive_change now-watching-open-any-source`, затем
+- [x] 7.1 `agent-process archive_change now-watching-open-any-source`, затем
   `gh pr create --title "fix: now-watching-open-any-source" --body-file <отчёт>` (issue #95 простой
   ссылкой), `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`.
 - [ ] 7.2 После merge — Migration Plan из design.md: пин на sha `main` со снапшотом, затем
