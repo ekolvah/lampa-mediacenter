@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 3,
+  "reviewer": "architect-reviewer",
+  "reasoning": "The round-2 length finding is closed: scenarios now assert the stored-entry-without-id case and get() without a type, and no class has an open finding.",
+  "classes": {
+    "simpler": {
+      "evidence": "Unchanged from round 2. design.md decisions 1-2 reject an own TMDB scan, raising the core cap, a delta against the previous write and writing filtered lists back into recomends_list, each for a stated reason. Swapping get and page globally leaves recsRow and «Ещё» unchanged. The shape check reuses the readSeen pattern (plugins/kp-reactions-fix.js:483-492). «Write only if changed» is optional and does not block.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md «Scenario → test map» maps all 17 delta scenarios. «Испорченный сохранённый список» maps to «recs broken stored list warns» and «Просмотренное не отдаётся» to «recs get drops watched», both with the round-3 THEN clauses. «Списки на приставке» maps to tests/live/main-recs.sh (task 5.1). The scenarios of the MODIFIED requirements map to the existing tests at tests/js/kp-reactions-fix.test.js:1298-1380.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Unchanged. Task 1.1 adds the double options (recsMovie/recsTv, Recomends.page, Lang.translate, 'Recomends.page' in drop) and the mapped tests. Task 1.2 runs check_red on tests/test_plugin_js.py::test_plugin_js. The new tests fail against the current plugin, which has no kp_recs_* lists, no shape check, and a double of get that compares only id.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Unchanged. The single core list and its cap of 100 rest on device output of String(Lampa.Storage.cache) and the quoted source (proposal.md Why, design.md Context). That the screen calls Recomends.page through the exported object rests on bundle lines 54571/54586/54589/67577. That the listener receives the full array rests on archive/2026-11-20-kp-history-recommendations/design.md:50-53. Task 5.1's page recorder asserts on the device that «Ещё» reaches the swapped page.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Unchanged from round 2. Decision 1 adds the readSeen-style shape check on kp_recs_*: anything other than an array of objects with an id leads to console.warn and an empty list, so no exception reaches the listener during the core write. Decision 2 states that type == 'tv' gives series and anything else gives movies, as get$4. Risks list the page copy drifting from the core contract, caught by the live page recorder and «recs page slices list».",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Unchanged from round 2. Task 5.1's recorder requires a page call with media 'tv' and total_pages == ceil(get('tv').length/20), and asserts get.__kp_split, so both failure cases fail the live step. recsMissing leads to recsFailed at every load (decision 3). The shape-check warnings are reached at install. design.md Risks states that the live catcher runs only on a pin change.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Requirement «Отдельные списки фильмов и сериалов»: every sentence is now asserted. The shape-check sentence is asserted for both forms, a string in kp_recs_movie and an array with an object without id in kp_recs_tv. Both lists are rebuilt from the core list, and warnings name both keys («Испорченный сохранённый список»). «Тип `tv` … любой другой — фильмы» is asserted by get() without a type equalling get('movie') («Просмотренное не отдаётся»). The rest of the requirement is asserted as in rounds 1-2. The MODIFIED requirements change only the source clause and add Lampa.Recomends.page. The existing row tests and task 3.2's new «нет page» case assert these.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "Unchanged. design.md «Standard approach»: the core has no per-type split. The issue #77 search found only plugins that read Lampa.Recomends.get or build a separate menu, so «none found» is convincing. The plan adds no new script. Task 5.1 extends the existing live step tests/live/kp-history-recs/main-recs.js.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
