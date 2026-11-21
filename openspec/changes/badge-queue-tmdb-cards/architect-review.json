@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "All three round-1 findings are fixed in the artifacts: the live wait now fits cdp.py's 20 s socket limit, the per-task done flag keeps one finishTask per active++, and a test now asserts the error reason; the rest of the plan was already sound.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md Decisions 1 and 2 weigh the simpler options. A try/catch alone (Decision 2 without Decision 1) is ruled out by scenario 'Карточка TMDB без жанров', which needs a verdict. 'genres: []' costs the same and drops anime category 5070. Patching rows in kp-reactions-fix.js misses the «Ещё» grid and the TMDB-source grids. Fetching the full card with Lampa.Api.full adds a TMDB request per card. Mutating the card's data has a side effect on the engine. The new done flag is the smallest guard that keeps the invariant Decision 2 states. Nothing simpler satisfies all three scenarios.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md '## Scenario → test map' has an entry for each of the 3 delta scenarios. 'Карточка TMDB без жанров' maps to the JS test 'tmdb card without genres is checked'. 'Проверка карточки не началась' maps to 'parser throws keep cards and do not stall queue'. 'Очередь на приставке' maps to tests/live/hide-cards.sh steps queue-cold, rebuild-main and queue-drains, an exit-code script run in tasks 3.2 and 5.2. The JS tests drive the shared checkItems/enqueue/pump path through attached(fullGrid()) (tests/js/torrent-quality-badge.test.js:325-330), so they also cover the 'в ряду' half of the scenario wording.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Group 1 task 1.1 adds both JS tests with a cold-cache Storage.cache double and a Parser.get double that calls movie.genres.map synchronously, like jackett(). The double also throws for configured cards, and for one case calls oncomplete and then throws. Task 1.2 runs check_red on tests/test_plugin_js.py::test_plugin_js, which runs the whole node --test suite. On current code the TypeError from pump() is caught by batchOnOwner's .catch (plugins/torrent-quality-badge.js:588), so no verdict is applied, and both tests fail for the defect itself, not because of the doubles. The oncomplete-then-throw case does not fail on current code, which has no catch that could release a slot twice. It guards the new done flag. Its enclosing test still fails in RED on the stalled queue.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "The jackett() genres.map TypeError is observed: proposal Why reproduces it on «Мэнди» on the device. The isAnimeMovie g.id check is quoted from app.min.js?v=1994719. That JacRed ignores genres and the category is observed: 4 queries returned the same 41 results. Decision 3 now cites cdp.py's 20 s socket limit (tools/cdp.py:47, timeout=20). Each queue-drains call waits at most 15 s, and the step runs up to four times, as warm-cache does (hide-cards.sh:20-22). That gives the scenario's 60 s across calls, and each call stays under the transport limit.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "The plan replaces no project-declared input and drops no guard. Decision 1 passes the parser a shallow copy of the engine's card. The card itself and the cache key (movie.id, type flag, filter signature) are unchanged. Decision 2 adds guards (try/catch and the done flag) and removes none. MAX_CONCURRENT, the TTL and the async-error path stay as they are (Non-Goals).",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Named catchers: (a) the try/catch in pump(), which completes the task with results = null through the per-task done flag (Decision 2); (b) queue-cold.js failing when fewer than 3 TMDB cards are on screen, and queue-drains.js with up to four 15 s calls (Decision 3). (a) is reached when a card fails to start its check, which the JS test runs in Group 1/2. The done flag routes both parser callbacks and the catch through one finish, so a synchronous oncomplete followed by a throw releases the slot only once. The oncomplete-then-throw case in task 1.1 asserts this by checking that a third card still waits while two are in flight. (b) is reached in the device runs of tasks 3.2 and 5.2 and is traced. Risk 1 (no «Рекомендуем» rows) is caught by queue-cold's failure message. Risk 2 (an indexer that reads genre names) names no catcher and is an accepted trade-off.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "The added requirement 'Проверка не встаёт' is 55 words. Scenario 1 WHEN is 27 words, THEN 5. Scenario 2 WHEN is 22, THEN 20 (now 'с названием каждой и причиной'). Scenario 3 WHEN is 22, THEN 14. The JS tests assert: the card is checked and removed; two cards stay unchanged; console.error contains each card's title and the thrown message; the queue continues and is not widened. The live steps assert a verdict for every TMDB card in the rows. Every clause of the requirement is now asserted.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "design.md '## Standard approach' cites the TMDB reference pages: list endpoints return genre_ids, movie details return genres. That is the source of the data difference. It records what the engine does with genres (jackett, isAnimeMovie) and an observed JacRed query showing genres are ignored. The design follows that evidence. The try/catch and the finish-once guard follow the standard rule that a semaphore slot is released exactly once on every path. No new tool is added. The new live steps queue-cold.js and queue-drains.js are justified in Decision 3 by the issue's device criterion. They reuse the project's existing live harness (tests/live/lib.sh step, HC.until, HC.plugin().verdictKey, the warm-cache retry pattern).",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
