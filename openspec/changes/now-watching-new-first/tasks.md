@@ -58,7 +58,7 @@
   2. `restart_lampa`, `new-first-check.js` с `ID`: карточка первая в ряду. Затем `KP.full` с её
      `card`.
   3. `restart_lampa`, `new-first-check.js` с `ID` и режимом «открыта»: карточка на месте по коллекции.
-- [ ] 6.3 Снапшот пина и ключа по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha
+- [x] 6.3 Снапшот пина и ключа по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha
   ветки, затем `bash tests/live/now-watching.sh` → OK. После него рестарт процесса и `screencap`
   Главной (проверка после живых рестартов из CLAUDE.md). Коммит скриптов.
 
