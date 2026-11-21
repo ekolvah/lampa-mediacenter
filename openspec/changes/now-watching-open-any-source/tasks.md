@@ -36,7 +36,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 `docs/lampa-config-review.md`, строка `kp-reactions-fix.js`: память ряда `{ f, s, l, t }`,
+- [x] 4.1 `docs/lampa-config-review.md`, строка `kp-reactions-fix.js`: память ряда `{ f, s, l, t }`,
   поиск тайтла новых карточек после сборки, снятие метки открытием карточки `tmdb`/`cub`. Шапка
   `plugins/kp-reactions-fix.js`. Коммит.
 
