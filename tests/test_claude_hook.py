@@ -18,7 +18,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 # находит WSL, а Claude Code запускает хуки через Git Bash.
 _BASH = shutil.which("bash") or "bash"
 _VALUE = "Zq9" + "probeValue77"
-_SECRET_LINE = "http://host/?" + "token=" + _VALUE + "\n"
+_LEAK_LINE = "http://host/?" + "token=" + _VALUE + "\n"
 
 
 def _hook_command() -> str:
@@ -34,9 +34,9 @@ def project(tmp_path: Path) -> Path:
         _ROOT / "scripts", tmp_path / "scripts", ignore=shutil.ignore_patterns("__pycache__")
     )
     (tmp_path / "snapshots").mkdir()
-    (tmp_path / "snapshots" / "dump.txt").write_text(_SECRET_LINE, encoding="utf-8")
+    (tmp_path / "snapshots" / "dump.txt").write_text(_LEAK_LINE, encoding="utf-8")
     (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "a.md").write_text(_SECRET_LINE, encoding="utf-8")
+    (tmp_path / "docs" / "a.md").write_text(_LEAK_LINE, encoding="utf-8")
     (tmp_path / "openspec").mkdir()
     return tmp_path
 
