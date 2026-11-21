@@ -14,3 +14,4 @@ pr,change,task_id,start,merged_at,hours,agent_hours,lines,plan_rounds,code_round
 82,kp-main-recommendations,issue-81,2026-11-20T18:07:58Z,2026-11-20T19:24:38Z,1.28,0.79,833,3,1,15.9862,236,7,6,3,
 84,fix-claude-hook-cwd,issue-78,2026-11-21T07:51:26Z,2026-11-21T08:20:10Z,0.48,0.27,328,1,1,4.7575,102,0,1,0,
 86,badge-queue-tmdb-cards,issue-83,2026-11-21T07:55:04Z,2026-11-21T08:49:52Z,0.91,0.52,453,2,1,12.0086,237,6,0,2,
+87,hide-cards-cascade-guard,issue-85,2026-11-21T08:51:36Z,2026-11-21T09:16:11Z,0.41,0.31,193,1,1,2.3554,69,3,0,0,
