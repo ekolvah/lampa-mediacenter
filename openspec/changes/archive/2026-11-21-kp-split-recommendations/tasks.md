@@ -61,12 +61,12 @@
 ## 6. Verify
 
 - [x] 6.1 `/simplify`, коммит его правок.
-- [ ] 6.2 `openspec validate --strict --all`.
-- [ ] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 6.2 `openspec validate --strict --all`.
+- [x] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 7. Deliver
 
-- [ ] 7.1 `agent-process archive_change kp-split-recommendations`, `gh pr create --title "fix:
+- [x] 7.1 `agent-process archive_change kp-split-recommendations`, `gh pr create --title "fix:
   kp-split-recommendations" --body-file <report>`, `gh pr merge <PR> --auto --squash`,
   `agent-process wait_for_pr <PR>`.
 
