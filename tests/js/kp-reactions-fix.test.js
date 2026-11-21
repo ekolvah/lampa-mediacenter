@@ -1141,8 +1141,10 @@ test('unseen series raised without season request', () => {
   const c = homeWith(Object.assign({ seen }, seriesOnly(1, 1)));
   assert.deepStrictEqual(names(row(c, SERIES_ROW)), [FRESH.title, NEWER.title]);
   assert.deepStrictEqual(c.tv.map((t) => t.url), ['tv/8']);
-  assert.ok(!c.get.some((g) => g.url.includes('tt9')), JSON.stringify(c.get));
+  // Один find — поиск тайтла новой карточки после сборки (design.md now-watching-open-any-source, решение 2).
+  assert.strictEqual(c.get.filter((g) => g.url.includes('tt9')).length, 1, JSON.stringify(c.get));
   assert.strictEqual(seenOf(c)[SERIES_URL][FRESH.id].s, null);
+  assert.strictEqual(seenOf(c)[SERIES_URL][FRESH.id].t, 'tv/9');
 });
 
 test('first run seeds memory', () => {

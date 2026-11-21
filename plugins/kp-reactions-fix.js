@@ -52,8 +52,9 @@
     { url: 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', name: 'Сейчас смотрят фильмы' },
     { url: 'api/v2.2/films/collections?type=POPULAR_SERIES', name: 'Сейчас смотрят сериалы' },
   ];
-  // Память рядов NOW_WATCHING в Lampa.Storage: { <url ряда>: { <id карточки>: { f, s, l } } };
-  // f — мс появления (0 — не новая), s — сезон сериала или null, l — день последней сборки с ней.
+  // Память рядов NOW_WATCHING в Lampa.Storage: { <url ряда>: { <id карточки>: { f, s, l, t } } };
+  // f — мс появления (0 — не новая), s — сезон сериала или null, l — день последней сборки с ней,
+  // t — TMDB-тайтл новой карточки titleKey(), если найден: по нему её снимает открытие карточки tmdb/cub.
   var SEEN_KEY = 'kp_now_watching_seen';
   var DAY_MS = 24 * 60 * 60 * 1000;
   // Сколько дней карточка стоит в начале ряда и через сколько дней отсутствия её забывают.
@@ -136,7 +137,7 @@
       else if (film) cb({ method: 'movie', id: film.id });
       else searchByTitle(movie, cb);
     }, function () {
-      console.warn('kp-reactions-fix: find failed, no reactions and trailers', movie.imdb_id);
+      console.warn('kp-reactions-fix: find failed, no reactions and trailers', cardName(movie), movie.imdb_id);
       cb(null);
     }, { life: WEEK });
   }
@@ -155,6 +156,34 @@
       console.warn('kp-reactions-fix: tv details failed', title.id);
       cb(null);
     }, { life: DAY });
+  }
+
+  function isObject(x) {
+    return !!x && typeof x === 'object' && !Array.isArray(x);
+  }
+
+  // Ключ TMDB-тайтла в памяти рядов: id фильма и сериала в TMDB из разных пространств.
+  function titleKey(title) {
+    return title.method + '/' + title.id;
+  }
+
+  // Память рядов (SEEN_KEY) копией. Не той формы — предупреждение и пустая память, т. е. первый
+  // запуск.
+  function readSeen() {
+    var seen = Lampa.Storage.get(SEEN_KEY, '{}');
+    var ok = isObject(seen) && Object.keys(seen).every(function (url) {
+      var row = seen[url];
+      return isObject(row) && Object.keys(row).every(function (id) { return isObject(row[id]); });
+    });
+    if (ok) return JSON.parse(JSON.stringify(seen));
+    console.warn('kp-reactions-fix: ' + SEEN_KEY + ' corrupt, starting over', String(JSON.stringify(seen)).slice(0, 200));
+    return {};
+  }
+
+  // Правка памяти рядов: fn(seen) меняет копию и возвращает true, если что-то изменила.
+  function editSeen(fn) {
+    var seen = readSeen();
+    if (fn(seen)) Lampa.Storage.set(SEEN_KEY, seen);
   }
 
   // ---- Карточка: реакции, трейлеры, кнопки ----
@@ -596,36 +625,19 @@
       wait.start();
     }
 
-    function isObject(x) {
-      return !!x && typeof x === 'object' && !Array.isArray(x);
-    }
-
-    // Память рядов (SEEN_KEY) копией. Не той формы — предупреждение и пустая память, т. е. первый
-    // запуск.
-    function readSeen() {
-      var seen = Lampa.Storage.get(SEEN_KEY, '{}');
-      var ok = isObject(seen) && Object.keys(seen).every(function (url) {
-        var row = seen[url];
-        return isObject(row) && Object.keys(row).every(function (id) { return isObject(row[id]); });
-      });
-      if (ok) return JSON.parse(JSON.stringify(seen));
-      console.warn('kp-reactions-fix: ' + SEEN_KEY + ' corrupt, starting over', String(JSON.stringify(seen)).slice(0, 200));
-      return {};
-    }
-
     // Порядок ряда (spec now-watching-new-releases, «Новые карточки первыми», «Память ряда»): новые —
     // появившиеся за NEW_DAYS — первыми по убыванию времени появления, остальные за ними в порядке
     // коллекции. batch — build() collectPages; rowMemory — запись ряда в памяти или undefined.
-    // Возвращает { results, memory }: memory — новая запись ряда, undefined — ряд не
-    // запоминается (первый запуск с неполным рядом).
+    // Возвращает { results, memory, fresh }: memory — новая запись ряда, undefined — ряд не
+    // запоминается (первый запуск с неполным рядом); fresh — новые сейчас карточки ряда.
     function orderByNovelty(batch, rowMemory, now) {
-      if (!rowMemory && batch.gaps) return { results: batch.results, memory: undefined };
+      if (!rowMemory && batch.gaps) return { results: batch.results, memory: undefined, fresh: [] };
       var nowMs = now.getTime();
       var today = Math.floor(nowMs / DAY_MS);
       var memory = {};
       for (var id in rowMemory) {
         var old = rowMemory[id];
-        if (today - old.l <= FORGET_DAYS) memory[id] = { f: old.f, s: old.s == null ? null : old.s, l: old.l };
+        if (today - old.l <= FORGET_DAYS) memory[id] = Object.assign({}, old, { s: old.s == null ? null : old.s });
       }
       batch.results.forEach(function (card) {
         var season = card.id in batch.seasons ? batch.seasons[card.id] : null;
@@ -645,12 +657,14 @@
         return { card: card, i: i, f: f > 0 && nowMs - f < NEW_DAYS * DAY_MS ? f : 0 };
       });
       order.sort(function (a, b) { return b.f - a.f || a.i - b.i; });
-      return { results: order.map(function (o) { return o.card; }), memory: memory };
+      var fresh = order.filter(function (o) { return o.f; }).map(function (o) { return o.card; });
+      return { results: order.map(function (o) { return o.card; }), memory: memory, fresh: fresh };
     }
 
     // Первая порция Главной: штатные ряды NOW_WATCHING заменены отфильтрованными, новые карточки
     // первыми. Ответы ждёт pending того waiter, что отдаёт порцию. Возвращает build() — ряды порции
-    // и save() — запись памяти рядов, если сборка её изменила.
+    // и save() — запись памяти рядов, если сборка её изменила, и поиск TMDB-тайтлов новых карточек
+    // без t: каждый ответ пишется в память сам, Главную он не держит.
     function filterRows(parts, pending) {
       var originals = NOW_WATCHING.map(function (spec) {
         return parts.filter(function (p) { return p && p.url === spec.url; })[0];
@@ -665,6 +679,7 @@
       var rule = noveltyRule(now);
       var seen = readSeen();
       var changed = false;
+      var fresh = [];
       var rows = NOW_WATCHING.map(function (spec, i) {
         var original = originals[i];
         var remembered = function (card) { return !!(seen[spec.url] && seen[spec.url][card.id]); };
@@ -676,6 +691,9 @@
           seen[spec.url] = next.memory;
           changed = true;
         }
+        next.fresh.forEach(function (card) {
+          if (!seen[spec.url][card.id].t) fresh.push({ url: spec.url, card: card });
+        });
         return filteredRow(spec, original, { results: next.results, gaps: batch.gaps });
       }
       return {
@@ -690,6 +708,17 @@
         },
         save: function () {
           if (changed) Lampa.Storage.set(SEEN_KEY, seen);
+          fresh.forEach(function (item) {
+            resolveTitle(item.card, function (title) {
+              if (!title) return;
+              editSeen(function (mem) {
+                var entry = mem[item.url] && mem[item.url][item.card.id];
+                if (!entry) return false;
+                entry.t = titleKey(title);
+                return true;
+              });
+            });
+          });
         }
       };
     }

@@ -22,7 +22,7 @@
 
 ## 2. Тайтл новой карточки (решения 1, 2)
 
-- [ ] 2.1 `titleKey`, `readSeen` и `editSeen` в разделе «Общее». `orderByNovelty` копирует запись
+- [x] 2.1 `titleKey`, `readSeen` и `editSeen` в разделе «Общее». `orderByNovelty` копирует запись
   целиком и возвращает `fresh`. `filterRows` после `save()` — `resolveTitle` для `fresh` без `t`,
   запись `t` через `editSeen` на каждый ответ. Название в предупреждении сбоя `find`
   (`cardName`). Комментарий к `SEEN_KEY` — поле `t`. Проверка:
