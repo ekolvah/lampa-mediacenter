@@ -48,7 +48,7 @@
   `Lampa.Api.sources.tmdb.full({ method, id }, …)` по её `t`: `t` ждётся `Live.waitFor` до 15 с
   (нет — `Live.check` с названием), затем `f === 0`. `tests/live/now-watching.sh` — только тексты
   `echo`. Открытие `KP.full` остаётся в unit-тесте «opened card back in place».
-- [ ] 5.2 Снапшот пина и ключа по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha
+- [x] 5.2 Снапшот пина и ключа по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha
   ветки, затем `bash tests/live/now-watching.sh` → OK. После него рестарт процесса и `screencap`
   Главной (CLAUDE.md, проверка после живых рестартов). Коммит скриптов.
 
