@@ -43,14 +43,47 @@
     });
   });
 
-  // 3. «Ещё» сериалов — штатный экран рекомендаций ядра для сериалов.
-  recs[1].data.params.emit.onlyMore();
-  var opened = await Live.waitFor(function () { return Lampa.Activity.active().component === 'recomend'; }, 5000);
+  // 4. Отдельные списки типа (change kp-split-recommendations): есть, не больше 100, тип совпадает,
+  // фильмов не меньше, чем в общем списке ядра; ряд фильмов — из своего списка; get — замена плагина.
+  var lists = { movie: Lampa.Storage.get('kp_recs_movie', '[]'), tv: Lampa.Storage.get('kp_recs_tv', '[]') };
+  Object.keys(lists).forEach(function (type) {
+    var list = lists[type];
+    Live.check(Array.isArray(list) && list.length && list.length <= 100, 'kp_recs_' + type + ': ' + (Array.isArray(list) ? list.length : typeof list));
+    Live.check(list.every(function (e) { return isTv(e) === (type === 'tv'); }), 'в kp_recs_' + type + ' тайтл другого типа');
+  });
+  var coreMovies = Lampa.Storage.get('recomends_list', '[]').filter(function (e) { return !isTv(e); }).length;
+  Live.check(lists.movie.length >= coreMovies, 'фильмов в kp_recs_movie ' + lists.movie.length + ' < ' + coreMovies + ' в recomends_list');
+  var movieIds = lists.movie.map(function (e) { return e.id; });
+  recs[0].data.results.forEach(function (card) {
+    Live.check(movieIds.indexOf(card.id) !== -1, (card.title || card.name) + ' ' + card.id + ' не из kp_recs_movie');
+  });
+  Live.check(Lampa.Recomends.get.__kp_split === true, 'Lampa.Recomends.get — не замена плагина');
+
+  // 3. «Ещё» сериалов — штатный экран рекомендаций ядра для сериалов; экран берёт страницу через
+  // Lampa.Recomends.page (замену плагина), запись её вызовов снимается после.
+  var orgPage = Lampa.Recomends.page;
+  var pageCalls = [];
+  Lampa.Recomends.page = function (object, call, empty) {
+    return orgPage.call(this, object, function (data) {
+      pageCalls.push({ media: object.media, total_pages: data.total_pages });
+      call(data);
+    }, empty);
+  };
+  try {
+    recs[1].data.params.emit.onlyMore();
+    var opened = await Live.waitFor(function () { return Lampa.Activity.active().component === 'recomend' && pageCalls.length; }, 5000);
+  } finally {
+    Lampa.Recomends.page = orgPage;
+  }
   var more = Lampa.Activity.active();
   Live.check(opened && more.media === 'tv', '«Ещё» сериалов открыл ' + more.component + ', media ' + more.media);
+  var tvPages = Math.ceil(Lampa.Recomends.get('tv').length / 20);
+  Live.check(pageCalls.some(function (p) { return p.media === 'tv' && p.total_pages === tvPages; }),
+    'экран «Ещё» не взял страницу из Lampa.Recomends.page tv с ' + tvPages + ' стр.: ' + JSON.stringify(pageCalls));
   Lampa.Activity.backward();
 
   return 'ok: ' + recs.map(function (line) {
     return line.data.title + ': ' + line.data.results.length + ', страниц ' + line.data.total_pages;
-  }).join('; ') + '; KP-тайтлов истории ' + kp.length + '; «Ещё» сериалов — recomend tv';
+  }).join('; ') + '; списки: фильмов ' + lists.movie.length + ', сериалов ' + lists.tv.length +
+    ' (в recomends_list фильмов ' + coreMovies + '); KP-тайтлов истории ' + kp.length + '; «Ещё» сериалов — recomend tv';
 })()
