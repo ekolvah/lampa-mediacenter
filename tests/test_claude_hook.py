@@ -25,15 +25,14 @@ def _hook_command() -> str:
     settings = json.loads((_ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
     (entry,) = [e for e in settings["hooks"]["PostToolUse"] if e["matcher"] == "Edit|Write"]
     (hook,) = entry["hooks"]
-    command: str = hook["command"]
-    return command
+    return str(hook["command"])
 
 
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
-    (tmp_path / "scripts").mkdir()
-    for name in ("claude_hook.py", "ci_check.py"):
-        shutil.copy(_ROOT / "scripts" / name, tmp_path / "scripts" / name)
+    shutil.copytree(
+        _ROOT / "scripts", tmp_path / "scripts", ignore=shutil.ignore_patterns("__pycache__")
+    )
     (tmp_path / "snapshots").mkdir()
     (tmp_path / "snapshots" / "dump.txt").write_text(_SECRET_LINE, encoding="utf-8")
     (tmp_path / "docs").mkdir()

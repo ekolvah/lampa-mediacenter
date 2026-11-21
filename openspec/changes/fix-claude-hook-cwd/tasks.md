@@ -19,8 +19,8 @@
 
 ## 3. Verify
 
-- [ ] 3.1 `/simplify`, коммит его правок.
-- [ ] 3.2 `openspec validate --strict --all`.
+- [x] 3.1 `/simplify`, коммит его правок.
+- [x] 3.2 `openspec validate --strict --all`.
 - [ ] 3.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 4. Deliver
