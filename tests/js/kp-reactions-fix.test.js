@@ -1045,7 +1045,7 @@ test('incomplete first run not seeded', () => {
 });
 
 test('returning card not new', () => {
-  const movies = Object.assign(memo([AVATAR], 0, dayOf(TODAY) - 1), memo([ZOOTOPIA], 0, dayOf(TODAY) - 3));
+  const movies = Object.assign(memo([AVATAR], 0, null, dayOf(TODAY) - 1), memo([ZOOTOPIA], 0, null, dayOf(TODAY) - 3));
   const c = homeWith({ movies: [AVATAR, ZOOTOPIA], seen: seenWith(movies, SERIES_SEEN) });
   assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title]);
   assert.deepStrictEqual(seenOf(c)[MOVIES_URL], memo([AVATAR, ZOOTOPIA], 0));
@@ -1053,7 +1053,7 @@ test('returning card not new', () => {
 
 test('absent 31 days forgotten', () => {
   const gone = film('Ушедший', '2026');
-  const movies = Object.assign(memo([AVATAR], 0), memo([ZOOTOPIA, gone], 0, dayOf(TODAY) - 31));
+  const movies = Object.assign(memo([AVATAR], 0), memo([ZOOTOPIA, gone], 0, null, dayOf(TODAY) - 31));
   const c = homeWith({ movies: [AVATAR, ZOOTOPIA], seen: seenWith(movies, SERIES_SEEN) });
   assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [ZOOTOPIA.title, AVATAR.title]);
   assert.deepStrictEqual(Object.keys(seenOf(c)[MOVIES_URL]).sort(), [AVATAR.id, ZOOTOPIA.id].sort());
@@ -1061,7 +1061,7 @@ test('absent 31 days forgotten', () => {
 
 test('absent 29 days remembered', () => {
   const kept = film('Ушедший', '2026');
-  const movies = Object.assign(memo([AVATAR], 0), memo([ZOOTOPIA, kept], 0, dayOf(TODAY) - 29));
+  const movies = Object.assign(memo([AVATAR], 0), memo([ZOOTOPIA, kept], 0, null, dayOf(TODAY) - 29));
   const c = homeWith({ movies: [AVATAR, ZOOTOPIA], seen: seenWith(movies, SERIES_SEEN) });
   assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title]);
   assert.ok(kept.id in seenOf(c)[MOVIES_URL]);
