@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Живая проверка трейлеров в KP-карточках (plugins/kp-reactions-fix.js, change
 # kp-card-trailers, design.md решение 9; change kp-trailers-ru-youtube — русский трейлер
-# сервиса 127.0.0.1:9118; change trailers-external-player — трейлер играет SmartTube).
+# сервиса 127.0.0.1:9118; change trailers-external-player — трейлер играет SmartTube;
+# change card-trailers-any-source — русский трейлер карточки tmdb).
 # Код выхода — итог: JS-шаг бросает исключение -> cdp.py выходит с 1, ui.py не туда -> 1,
 # trailer_plays не дождался -> 1 -> set -e.
 #
@@ -84,6 +85,10 @@ play_trailer_button
 
 echo "== «Джентльмены» (сериал, вышло 2 сезона): кнопка «Трейлер» играет трейлер 2-го сезона"
 step open-card-season
+play_trailer_button
+
+echo "== «Чёрный лотос» (карточка tmdb, видео TMDB только en): кнопка «Трейлер» играет русский трейлер сервиса"
+step open-card-tmdb
 play_trailer_button
 
 echo "OK: kp-trailers"
