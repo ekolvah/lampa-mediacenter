@@ -279,7 +279,7 @@
     }
 
     KP.full = function (params, oncomplite, onerror) {
-      return orgFull.call(KP, params, function (result) {
+      var answer = orgFull.call(KP, params, function (result) {
         var movie = result && result.movie;
         if (!movie) return oncomplite(result);
 
@@ -288,7 +288,24 @@
           else oncomplite(result);
         });
       }, onerror);
+      if (params && params.card) markOpened(params.card.id);
+      return answer;
     };
+
+    // Открытая карточка (откуда угодно) больше не новая в рядах NOW_WATCHING — со следующей сборки
+    // Главной. У ядра и kp_source это тот же id, что у карточки ряда.
+    function markOpened(id) {
+      var seen = readSeen();
+      var changed = false;
+      for (var url in seen) {
+        var entry = seen[url][id];
+        if (entry && entry.f !== 0) {
+          entry.f = 0;
+          changed = true;
+        }
+      }
+      if (changed) Lampa.Storage.set(SEEN_KEY, seen);
+    }
 
     // Новинка (spec now-watching-new-releases): год по Кинопоиску не раньше прошлого; у сериала
     // со старым стартом — последний эпизод по TMDB за 365 дней. 'episode' — нужна дата эпизода
