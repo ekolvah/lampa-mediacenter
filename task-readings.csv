@@ -18,3 +18,4 @@ pr,change,task_id,start,merged_at,hours,agent_hours,lines,plan_rounds,code_round
 89,fill-spec-purposes,issue-88,2026-11-21T09:54:30Z,2026-11-21T10:22:54Z,0.47,0.14,154,3,1,0.6444,17,1,0,0,
 90,now-watching-new-first,issue-79,2026-11-21T07:52:09Z,2026-11-21T12:44:44Z,4.88,0.59,1116,2,1,15.2244,250,8,2,2,
 92,kp-split-recommendations,issue-91,2026-11-21T13:22:48Z,2026-11-21T15:41:46Z,2.32,0.57,769,3,1,11.0977,190,9,1,2,
+97,separate-card-module,issue-93,2026-11-21T16:06:42Z,2026-11-21T17:04:34Z,0.96,0.60,709,1,1,9.2268,200,5,0,1,
