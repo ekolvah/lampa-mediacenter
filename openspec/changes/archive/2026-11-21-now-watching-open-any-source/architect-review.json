@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Round-1 finding resolved: tasks.md 1.1 now asserts the film is still first at build 2 after the tv/<id> open, and proposal.md Impact lists tests/live/now-watching/new-first.js; every class is ok.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md decisions 1–2 weigh imdb_id matching (Kinopoisk new releases often have no imdb_id; fixtures BEAST and FOREST), the core's original-title hash (fails on transliteration and remakes), titles for every row card (hundreds of requests), lookup under pending() in the same build (holds Main and needs a second wait round), and reusing the lastEpisode title (a second write path for `t`). Resolving at open time would need card data that the memory does not keep. Each simpler option fails a scenario or a stated goal; the chosen design reuses resolveTitle and its 7-day cache.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "All 9 delta scenarios map to named tests in the tasks.md map; «Открыта карточка TMDB» and «Тайтл TMDB не найден» go to the new tests in task 1.1, the unchanged scenarios keep their existing tests. «Другой тип с тем же id»: task 1.1 build 2 now asserts the film is still first after opening { method: 'tv', id }, the scenario's THEN. proposal.md Impact lists tests/live/now-watching/new-first.js, which task 5.1 edits.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Group 1 task 1.1 writes «opened tmdb card back in place» (the reproduction under proposal **Why**) and «no tmdb title warns, kp open still works». Task 1.2 runs `agent-process check_red tests/test_plugin_js.py::test_plugin_js` and commits RED. `.github/agent-process-quality.json` declares `test`. The existing helpers the tasks rely on are in tests/js/kp-reactions-fix.test.js: `openSource` (:168), `defer`/`calls.late` (:33, :82), `nextHome` (:362), `memo` (:350).",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Observation 6 (openspec/changes/archive/2026-11-21-card-trailers-any-source/design.md:25-30) shows tmdb/cub `full` called with `{method, id}` exactly on open, with no calls on return or on Main. Observation 3 (:18) shows the sources are tmdb, cub, KP. The KP card id `KP_<n>` comes from the Standard approach of the archived now-watching-new-first change. The core's matching by `Utils.hash(original_title)` is cited at lampa-source src/interaction/timeline.js:248. Decision 3 declines the unobserved `full` Listener event in favour of the observed `source.full` wrapper.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "`markOpened` now matches its key against the row id or against `t`, which comes from the fuzzy `resolveTitle`. Risks lists the new input's failure modes: a wrong title unmarks the card early, a title that arrives after the open leaves the mark, and a title not found means only a KP open unmarks the card. `orderByNovelty` changes from a field-by-field copy to a whole-entry copy, so the `readSeen` shape check is unchanged. No guard is dropped: the `patchSourceCards` missing-function guard stays, and its error text gains the novelty consequence.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Title not found: `console.warn('no title match', …, movie.title)` at plugins/kp-reactions-fix.js:106, plus `cardName` added to the find-failure warning at :139 (task 2.1). Both are asserted by «no tmdb title warns…». Wrapper not installed: the `console.error` in `patchSourceCards` (:367), which runs from startPlugin (:964), with its text extended (task 3.1). Live run: `Live.check` with the card name when `t` does not arrive within 15 s (task 5.1). A missing `t` is caught by the retry on the next build. That includes a `t` written during the ≤5 s build window and then overwritten by `filterRows` save(), which writes the snapshot read before the wait (:666, :692). The retry is reached and the cache serves it; design.md decision 2 and Risks now name that save() window.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Added spec sentence 1, «Открытием карточки ряда SHALL считаться … (тип и id)»: 19 words. The tests assert all of them: source tmdb and cub in a loop, method mismatch and match, same id, row card unmarked. Added spec sentence 2, «Если TMDB-тайтл новой карточки не найден, … с её названием»: 14 words. The tests assert all of them: search miss and find failure each warn with the name. No other spec sentence is edited.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "design.md `## Standard approach` cites the core's own cross-source matching (`Utils.hash(original_title)`, lampa-source timeline.js:248, read via gh api). Decision 1 explains the departure: transliteration and remakes. It also records why no ready-made plugin exists: the novelty mark is this plugin's own feature. The plan adds no new script or check; tests/live/now-watching/* are edits to existing live scripts.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}

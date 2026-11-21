@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Живая проверка рядов новинок на Главной KP (plugins/kp-reactions-fix.js, changes
-# now-watching-new-releases и now-watching-new-first). Код выхода — итог: JS-шаг бросает
+# now-watching-new-releases, now-watching-new-first и now-watching-open-any-source). Код выхода — итог: JS-шаг бросает
 # исключение -> cdp.py выходит с 1 -> set -e.
 #
 # Требует: ADB к приставке (UGOOS, по умолчанию 192.168.10.5:5555), источник Главной KP,
@@ -29,7 +29,7 @@ echo "$out"
 id=$(printf '%s' "$out" | sed -n 's/.*id \(KP_[0-9]*\).*/\1/p')
 [ -n "$id" ] || { echo "FAIL: new-first не вернул id" >&2; exit 1; }
 
-echo "== рестарт Lampa: $id первая в ряду, её карточка открывается"
+echo "== рестарт Lampa: $id первая в ряду, открывается карточка её TMDB-тайтла"
 restart_after_write
 step new-first-check "var ID = '$id', OPENED = false;"
 

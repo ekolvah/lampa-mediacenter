@@ -347,7 +347,8 @@ const SEEN = 'kp_now_watching_seen';
 const DAY_MS = 864e5;
 const at = (iso) => new Date(iso).getTime();
 const dayOf = (iso) => Math.floor(at(iso) / DAY_MS);
-const memo = (cards, f, s, l) => Object.fromEntries(cards.map((card) => [card.id, { f, s: s === undefined ? null : s, l: l === undefined ? dayOf(TODAY) : l }]));
+// t — TMDB-тайтл новой карточки 'movie/<id>' (design.md now-watching-open-any-source, решение 1).
+const memo = (cards, f, s, l, t) => Object.fromEntries(cards.map((card) => [card.id, Object.assign({ f, s: s === undefined ? null : s, l: l === undefined ? dayOf(TODAY) : l }, t ? { t } : {})]));
 const seenWith = (movies, series) => ({ [MOVIES_URL]: movies, [SERIES_URL]: series });
 const seenOf = (c) => plain(c.store[SEEN]);
 const FRESH = show('Свежий', '2026', 'tt9');
@@ -1037,6 +1038,50 @@ test('opened card back in place', () => {
   assert.deepStrictEqual(names(row(next, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title]);
 });
 
+// Карточка TMDB того же тайтла (spec now-watching-new-releases, «Открыта карточка TMDB», «Другой тип с
+// тем же id»): тайтл новой карточки ищется после сборки, ключ — метод и id.
+const PREMIERE = Object.assign(film('Премьера', '2026'), { imdb_id: 'tt7' });
+const findPremiere = (url) => (url.includes('tt7') ? { movie_results: [{ id: 1399 }], tv_results: [] } : NOT_FOUND);
+const premiereHome = (over) => Object.assign({ movies: [AVATAR, PREMIERE], series: [], find: findPremiere }, over);
+
+test('opened tmdb card back in place', () => {
+  for (const source of ['tmdb', 'cub']) {
+    const c = homeWith(premiereHome({ seen: seenWith(memo([AVATAR], 0), {}), defer: true }));
+    assert.strictEqual(c.home.length, 1, source);
+    assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [PREMIERE.title, AVATAR.title], source);
+    assert.strictEqual(seenOf(c)[MOVIES_URL][PREMIERE.id].t, undefined, source);
+    c.late.splice(0).forEach((fn) => fn());
+    assert.deepStrictEqual(seenOf(c)[MOVIES_URL][PREMIERE.id], memo([PREMIERE], at(TODAY), null, undefined, 'movie/1399')[PREMIERE.id], source);
+    openSource(c, source, { method: 'tv', id: 1399 });
+    assert.notStrictEqual(seenOf(c)[MOVIES_URL][PREMIERE.id].f, 0, source);
+
+    const next = nextHome(c, premiereHome());
+    assert.deepStrictEqual(names(row(next, MOVIES_ROW)), [PREMIERE.title, AVATAR.title], source);
+    assert.strictEqual(seenOf(next)[MOVIES_URL][PREMIERE.id].t, 'movie/1399', source);
+    assert.ok(!next.get.some((g) => g.url.includes('tt7')), JSON.stringify(next.get));
+    openSource(next, source, { method: 'movie', id: 1399 });
+    assert.strictEqual(seenOf(next)[MOVIES_URL][PREMIERE.id].f, 0, source);
+
+    const third = nextHome(next, premiereHome());
+    assert.deepStrictEqual(names(row(third, MOVIES_ROW)), [AVATAR.title, PREMIERE.title], source);
+  }
+});
+
+test('no tmdb title warns, kp open still works', () => {
+  const seen = seenWith(memo([AVATAR], 0), {});
+  const c = homeWith({ movies: [AVATAR, FILM_A], series: [], seen, search: NO_RESULTS });
+  assert.ok(warnedWith(c, 'no title match', FILM_A.title), JSON.stringify(c.warn));
+  assert.strictEqual(seenOf(c)[MOVIES_URL][FILM_A.id].t, undefined);
+  openSource(c, 'tmdb', { method: 'movie', id: 1399 });
+  assert.notStrictEqual(seenOf(c)[MOVIES_URL][FILM_A.id].f, 0);
+  c.ctx.Lampa.Api.sources.KP.full({ card: { id: FILM_A.id, source: 'KP' } }, () => {}, () => {});
+  assert.strictEqual(seenOf(c)[MOVIES_URL][FILM_A.id].f, 0);
+
+  const failed = homeWith(premiereHome({ seen, find: 'error' }));
+  assert.ok(warnedWith(failed, 'find failed', PREMIERE.title), JSON.stringify(failed.warn));
+  assert.strictEqual(seenOf(failed)[MOVIES_URL][PREMIERE.id].t, undefined);
+});
+
 test('full list keeps collection order', () => {
   const pages = (url, page) => ({ results: url === MOVIES_URL && page === 1 ? [AVATAR, ZOOTOPIA] : [] });
   const c = homeWith({ movies: [AVATAR, ZOOTOPIA], pages, seen: seenWith(memo([AVATAR], 0), SERIES_SEEN) });
@@ -1096,8 +1141,10 @@ test('unseen series raised without season request', () => {
   const c = homeWith(Object.assign({ seen }, seriesOnly(1, 1)));
   assert.deepStrictEqual(names(row(c, SERIES_ROW)), [FRESH.title, NEWER.title]);
   assert.deepStrictEqual(c.tv.map((t) => t.url), ['tv/8']);
-  assert.ok(!c.get.some((g) => g.url.includes('tt9')), JSON.stringify(c.get));
+  // Один find — поиск тайтла новой карточки после сборки (design.md now-watching-open-any-source, решение 2).
+  assert.strictEqual(c.get.filter((g) => g.url.includes('tt9')).length, 1, JSON.stringify(c.get));
   assert.strictEqual(seenOf(c)[SERIES_URL][FRESH.id].s, null);
+  assert.strictEqual(seenOf(c)[SERIES_URL][FRESH.id].t, 'tv/9');
 });
 
 test('first run seeds memory', () => {
