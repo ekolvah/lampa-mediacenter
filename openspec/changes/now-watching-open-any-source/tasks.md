@@ -30,7 +30,7 @@
 
 ## 3. Снятие метки из любого источника (решение 3)
 
-- [ ] 3.1 `markOpened(key)` через `editSeen` — в раздел «Общее». `KP.full` зовёт её с id карточки,
+- [x] 3.1 `markOpened(key)` через `editSeen` — в раздел «Общее». `KP.full` зовёт её с id карточки,
   обёртка `full` в `patchSourceCards` — с `titleKey(title)`; текст `console.error`
   `patchSourceCards` дополнен. Проверка: та же. Коммит группы.
 

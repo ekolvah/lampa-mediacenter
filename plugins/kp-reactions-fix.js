@@ -186,6 +186,24 @@
     if (fn(seen)) Lampa.Storage.set(SEEN_KEY, seen);
   }
 
+  // Открытая карточка больше не новая в рядах NOW_WATCHING — со следующей сборки Главной. key — id
+  // карточки ряда (KP_<n>, его же отдаёт KP.full) или titleKey() её TMDB-тайтла (карточки tmdb/cub).
+  function markOpened(key) {
+    editSeen(function (seen) {
+      var changed = false;
+      for (var url in seen) {
+        for (var id in seen[url]) {
+          var entry = seen[url][id];
+          if ((id === key || entry.t === key) && entry.f !== 0) {
+            entry.f = 0;
+            changed = true;
+          }
+        }
+      }
+      return changed;
+    });
+  }
+
   // ---- Карточка: реакции, трейлеры, кнопки ----
 
   // Реакции и трейлеры одного тайтла параллельно; oncomplite — когда готовы оба.
@@ -393,7 +411,7 @@
       .filter(function (f) { return typeof f[1] !== 'function'; })
       .map(function (f) { return f[0]; });
     if (missing.length) {
-      return console.error('kp-reactions-fix: no trailers for tmdb and cub cards, missing', missing.join(', '));
+      return console.error('kp-reactions-fix: no trailers for tmdb and cub cards, opening does not clear new mark, missing', missing.join(', '));
     }
 
     [tmdb, cub].forEach(function (source) {
@@ -410,6 +428,7 @@
           trailers(result, title, result.videos, season, function () { oncomplite(result); });
         }
 
+        markOpened(titleKey(title));
         trailerSeason(title, function (last) {
           season = last;
           ready();
@@ -444,21 +463,6 @@
       if (params && params.card) markOpened(params.card.id);
       return answer;
     };
-
-    // Открытая карточка (откуда угодно) больше не новая в рядах NOW_WATCHING — со следующей сборки
-    // Главной. У ядра и kp_source это тот же id, что у карточки ряда.
-    function markOpened(id) {
-      var seen = readSeen();
-      var changed = false;
-      for (var url in seen) {
-        var entry = seen[url][id];
-        if (entry && entry.f !== 0) {
-          entry.f = 0;
-          changed = true;
-        }
-      }
-      if (changed) Lampa.Storage.set(SEEN_KEY, seen);
-    }
 
     // Новинка (spec now-watching-new-releases): год по Кинопоиску не раньше прошлого; у сериала
     // со старым стартом — последний эпизод по TMDB за 365 дней. 'episode' — нужна дата эпизода
