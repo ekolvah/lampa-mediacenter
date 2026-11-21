@@ -64,13 +64,13 @@
 
 ## 7. Verify
 
-- [ ] 7.1 `/simplify`, коммит его правок.
-- [ ] 7.2 `openspec validate --strict --all`.
-- [ ] 7.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 7.1 `/simplify`, коммит его правок.
+- [x] 7.2 `openspec validate --strict --all`.
+- [x] 7.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 8. Deliver
 
-- [ ] 8.1 `agent-process archive_change now-watching-new-first`, затем
+- [x] 8.1 `agent-process archive_change now-watching-new-first`, затем
   `gh pr create --title "feat: now-watching-new-first" --body-file <отчёт>` (issue #79 простой
   ссылкой), `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`.
 - [ ] 8.2 После merge — Migration Plan из design.md: пин на sha `main` со снапшотом, затем
