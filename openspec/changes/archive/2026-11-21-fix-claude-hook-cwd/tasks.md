@@ -25,7 +25,7 @@
 
 ## 4. Deliver
 
-- [ ] 4.1 `agent-process archive_change fix-claude-hook-cwd`, затем
+- [x] 4.1 `agent-process archive_change fix-claude-hook-cwd`, затем
   `gh pr create --title "fix: fix-claude-hook-cwd" --body-file <отчёт>` (issue #78 простой ссылкой,
   карта сценариев, принципы §I, §II, §VII), `gh pr merge <PR> --auto --squash`,
   `agent-process wait_for_pr <PR>`. В отчёте — живая проверка после мерджа: новая сессия, Edit из
