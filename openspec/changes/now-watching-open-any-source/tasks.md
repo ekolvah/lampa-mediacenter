@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`.
+- [x] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`.
   - `memo` получает необязательный аргумент `t`.
   - Поиск тайтла — опции `find`/`search` двойника `tmdb.get` (как в тестах новизны сериалов);
     отложенный ответ — `defer` и `c.late`.
@@ -18,7 +18,7 @@
   - «no tmdb title warns, kp open still works»: `search` без совпадения — предупреждение с
     названием, `t` нет, открытие `tmdb` метку не снимает, открытие `KP.full` снимает. Сбой `find` —
     предупреждение с названием.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Тайтл новой карточки (решения 1, 2)
 
