@@ -34,7 +34,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 Шапка `plugins/kp-reactions-fix.js` (трейлеры — у карточек KP, `tmdb`, `cub`);
+- [x] 4.1 Шапка `plugins/kp-reactions-fix.js` (трейлеры — у карточек KP, `tmdb`, `cub`);
   `docs/lampa-config-review.md`, строка `kp-reactions-fix.js`: русский трейлер и трейлер сезона у
   карточек `tmdb`/`cub` с тайтлом из карточки; `docs/jacred-on-ugoos.md:49` — «русский трейлер
   карточки» вместо «KP-карточки»; Purpose `openspec/specs/kp-card-trailers/spec.md` — трейлеры
