@@ -392,18 +392,15 @@
       function addPage(page, json) {
         if (json && json.total_pages) srcPages[spec.url] = json.total_pages;
         pages[page - first] = ((json && json.results) || []).map(function (card) {
-          var item = { card: card, verdict: isNewRelease(card, rule), reason: 'no year', season: null, seasonReason: 'timeout' };
+          var item = { card: card, verdict: isNewRelease(card, rule), reason: 'no year', season: null };
           var episode = item.verdict === 'episode';
           item.asked = card.type === 'tv' && !!needSeason && needSeason(card);
           if (!episode && !(item.asked && item.verdict === 'new')) return item;
-          if (episode) item.reason = 'timeout';
+          item.reason = 'timeout';
           lastEpisode(card, pending()(function (last, reason) {
-            if (episode) {
-              item.verdict = isNewRelease(card, rule, (last && last.date) || null);
-              item.reason = reason;
-            }
+            if (episode) item.verdict = isNewRelease(card, rule, (last && last.date) || null);
             item.season = last ? last.number : null;
-            item.seasonReason = reason;
+            item.reason = reason;
           }));
           return item;
         });
@@ -432,7 +429,7 @@
             if (item.verdict === 'old') return;
             if (item.verdict !== 'new') console.warn('kp-reactions-fix: new release not checked', cardName(item.card), item.reason);
             if (item.season !== null) seasons[item.card.id] = item.season;
-            else if (item.asked) console.warn('kp-reactions-fix: season unknown', cardName(item.card), item.seasonReason);
+            else if (item.asked) console.warn('kp-reactions-fix: season unknown', cardName(item.card), item.reason);
             results.push(item.card);
           });
         }
@@ -496,10 +493,10 @@
 
     // Порядок ряда (spec now-watching-new-releases, «Новые карточки первыми», «Память ряда»): новые —
     // появившиеся за NEW_DAYS — первыми по убыванию времени появления, остальные за ними в порядке
-    // коллекции. rowMemory — запись ряда в памяти или undefined; seasons — id → сезон, полученный
-    // при сборке. Возвращает { results, memory }: memory — новая запись ряда, undefined — ряд не
+    // коллекции. batch — build() collectPages; rowMemory — запись ряда в памяти или undefined.
+    // Возвращает { results, memory }: memory — новая запись ряда, undefined — ряд не
     // запоминается (первый запуск с неполным рядом).
-    function orderByNovelty(batch, rowMemory, seasons, now) {
+    function orderByNovelty(batch, rowMemory, now) {
       if (!rowMemory && batch.gaps) return { results: batch.results, memory: undefined };
       var nowMs = now.getTime();
       var today = Math.floor(nowMs / DAY_MS);
@@ -509,7 +506,7 @@
         if (today - old.l <= FORGET_DAYS) memory[id] = { f: old.f, s: old.s == null ? null : old.s, l: old.l };
       }
       batch.results.forEach(function (card) {
-        var season = seasons[card.id] == null ? null : seasons[card.id];
+        var season = card.id in batch.seasons ? batch.seasons[card.id] : null;
         var entry = memory[card.id];
         if (!entry) {
           memory[card.id] = { f: rowMemory ? nowMs : 0, s: season, l: today };
@@ -552,7 +549,7 @@
         return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, pending, remembered);
       });
       function ordered(spec, original, batch) {
-        var next = orderByNovelty(batch, seen[spec.url], batch.seasons, now);
+        var next = orderByNovelty(batch, seen[spec.url], now);
         if (next.memory && JSON.stringify(next.memory) !== JSON.stringify(seen[spec.url])) {
           seen[spec.url] = next.memory;
           changed = true;

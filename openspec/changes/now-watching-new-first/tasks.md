@@ -109,6 +109,6 @@
 | now-watching-new-releases | Первый запуск | «first run seeds memory», `tests/live/now-watching.sh`, шаг `new-first` |
 | now-watching-new-releases | Первый запуск с неполным рядом | «incomplete first run not seeded» |
 | now-watching-new-releases | Вернувшаяся карточка | «returning card not new» |
-| now-watching-new-releases | Давно нет в ряду | «absent 31 days forgotten» |
-| now-watching-new-releases | Недавно был в ряду | «absent 29 days remembered» |
+| now-watching-new-releases | Давно нет в ряду | «absent 31 days forgotten, 29 days remembered» |
+| now-watching-new-releases | Недавно был в ряду | «absent 31 days forgotten, 29 days remembered» |
 | now-watching-new-releases | Испорченная память | «corrupt memory reseeded, warning» |

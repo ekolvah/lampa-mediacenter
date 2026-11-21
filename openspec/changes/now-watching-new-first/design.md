@@ -46,7 +46,8 @@
 
 ### 2. Порядок — отдельная чистая функция, N = 5 дней
 
-`orderByNovelty(results, rowMemory, seasons, now)` → `{ results, memory, changed }`. Её зовёт
+`orderByNovelty(batch, rowMemory, now)` → `{ results, memory }`; сезоны она берёт из
+`batch.seasons`, изменение `filterRows` видит сравнением новой записи ряда с прежней. Её зовёт
 колбэк завершения в `filterRows` для каждого ряда до `filteredRow`. `collectPages` и `filteredRow`
 не меняются: фильтр и форма ряда отдельно, порядок отдельно. `listBatch` (полный список) функцию
 не зовёт, поэтому «Ещё» остаётся в порядке коллекции. Утверждение design.md `now-watching-replace-rows`,
