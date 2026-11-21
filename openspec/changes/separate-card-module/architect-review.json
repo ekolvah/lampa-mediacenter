@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 1,
+  "reviewer": "architect-reviewer",
+  "reasoning": "A pure in-file move of hoisted function declarations whose closure dependencies the design states correctly (verified against plugins/kp-reactions-fix.js:74-300), guarded by the vm-loaded unit suite and three live checks on the branch sha; no class has an open finding.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md decision 1 rejects the issue's two-file split (shared helpers would need a global object, plugin load order is not guaranteed per startPlugin's comment at plugins/kp-reactions-fix.js:903-906, a second device pin); the person chose this. The simpler alternative of doing nothing until #94 is rejected in decision 3: a refactor regression would mix with the behaviour change. The cut is minimal: only the helpers both sides use (cardName, releaseDate, searchByTitle, resolveTitle, lastSeason) and the card chain (enrich…ruTrailer) leave patch(); KP.full and markOpened stay, which is also the smallest move #94 needs. Checked: none of the moved functions reference KP, orgFull or any KP-side name (lines 84-285); KP-side code reaches card code only via resolveTitle/lastSeason/releaseDate/cardName, as design.md Context says.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": ".openspec.yaml has skip_specs: true and there is no specs/ directory; tasks.md «Scenario → test map» carries the single row `n/a: skip_specs`. No delta scenario exists to map.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Task 1.1 `no RED: чистый рефакторинг (design.md, решение 2)`. §I exempts moving a tested symbol; the moved functions are exercised through KP.full/KP.main/KP.list/history/onFull in tests/js/kp-reactions-fix.test.js, which loads the whole file in a fresh vm context per load() (line 42, sources at line 136).",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "The refactor itself rests only on JS function hoisting and lexical scope inside one IIFE, which the vm-loaded unit suite exercises directly (tasks 2.1-2.3 run it after each step). The engine fact cited as motivation (Lampa.Api.full is one dispatcher `source(params).full(...)`; the card screen calls Api.full) is an observation on record: issue #93 body, «Наблюдения», 2026-11-21 via tools/cdp.py. It motivates #94, not this change's correctness.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "No input is replaced and no guard dropped: the `!KP || !cub || !tmdb || KP.__reactions_patched` guard (line 79) stays in patch(); cub/tmdb become file-level bindings still assigned by patch() before that guard (design.md decision 1 says «под прежним guard»; the assignment is in fact just before it, lines 76-77, and the guard reads them — same order as now). Nothing outside patched code reads cub/tmdb (onFull and the buttons, lines 842-898, do not), so an early return after a partial assignment changes nothing observable.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Risk 1 (a name left in the closure but used outside it): a moved function calling a patch()-local name throws ReferenceError when its path runs; tests/js/kp-reactions-fix.test.js runs those paths, via `node --test` in tasks 2.1-2.3 and via tests/test_plugin_js.py in the manual pre-commit stage (task 4.3, and `agent-process / quality` on the PR head; docs/quality-gates.md:49). The related slip of keeping `var cub = …`/`var tmdb = …` inside patch() (shadowing, leaving the shared bindings undefined) surfaces as a TypeError at cub.reactionsGet/tmdb.get in the same KP.full tests. Paths without unit coverage: task 3.1 runs tests/live/kp-trailers.sh (card module), now-watching.sh and main-recs.sh (KP module) against the pin on the branch sha, then a screencap of the Home screen. Risk 2 (/simplify changes code and sha): task 4.1 repeats 3.1 on the new sha. Each catcher is reached on the head that ships.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "The plan adds or edits no rule or spec sentence (skip_specs, no docs touched). The only prose edit is the plugin's header comment split into «Карточка»/«Источник KP» paragraphs (task 2.3); it is a code comment, not a rule. docs/lampa-config-review.md:141 describes behaviour, not file structure, so it stays true after the move.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "proposal.md «## Standard approach»: no official Lampa plugin documentation (docs/lampa-config-review.md), searches named, community sources linked (yumata/lampa-source, levende/lampa-plugins, Zwanns/lampa-online, a gist using the same IIFE + Listener 'app' ready start as this plugin); no example of two plugins sharing helpers through a global. «none found» is convincing for the two-file question, and the design follows the community pattern of one IIFE plugin. The plan adds no script or check.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
