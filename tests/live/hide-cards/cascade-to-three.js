@@ -9,8 +9,8 @@
   while (line.data.results.length > 3 && guard--) {
     await HC.hide(line, HC.focusedCard(line));
   }
-  HC.check(line.data.results.length <= 3, '«' + line.data.title + '»: после ' + start +
-    ' скрытий осталось результатов ' + line.data.results.length + ' из ' + start);
+  HC.check(line.data.results.length <= 3, '«' + line.data.title + '»: лимит скрытий исчерпан, результатов ' +
+    line.data.results.length + ' из ' + start);
   var cards = HC.cards(line);
   HC.check(cards.length === 3, '«' + line.data.title + '»: карточек ' + cards.length + ' вместо 3');
   cards.forEach(function (it, i) { HC.check(it.data === line.data.results[i], 'карточки не по порядку результатов'); });
