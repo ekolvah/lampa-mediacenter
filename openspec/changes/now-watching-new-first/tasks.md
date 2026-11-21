@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`.
+- [x] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`.
   - Двойник `Storage` не меняется. В `load()` опция `seen` — ещё один ключ начального `store`
     (`kp_now_watching_seen`).
   - Следующая сборка Главной — `homeWith({ seen: plain(c.store.kp_now_watching_seen), today })`.
@@ -15,7 +15,7 @@
   - Тест «new series no tmdb» переименовать в «new series new despite tmdb error» и переписать под
     изменённый сценарий.
   - Вне карты — тест «unchanged memory not rewritten» (design.md, R20).
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Память и порядок (решения 1, 2, 5, 6)
 
