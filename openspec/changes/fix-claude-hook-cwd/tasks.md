@@ -13,7 +13,7 @@
 
 ## 2. Исправление (решение 1)
 
-- [ ] 2.1 `.claude/settings.json`: команда PostToolUse-хука
+- [x] 2.1 `.claude/settings.json`: команда PostToolUse-хука
   `cd "$CLAUDE_PROJECT_DIR" && python scripts/claude_hook.py`. Проверка:
   `python -m pytest tests/test_claude_hook.py tests/test_ci_check.py`. Коммит.
 
