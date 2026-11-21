@@ -1346,7 +1346,9 @@ test('main waits for history pass', () => {
 });
 
 test('two mains wait for one pass', () => {
-  const c = home({ history: [KP_FIGHT], find: findByImdb, defer: true, recs: [recMovie(1), recMovie(550)] });
+  // Без сериалов в ряду: третья Главная иначе ждёт отложенный поиск сезона запомненного сериала.
+  const parts = [HOME[0], part(SERIES_ROW, SERIES_URL, [AVATAR]), HOME[2]];
+  const c = home({ parts, history: [KP_FIGHT], find: findByImdb, defer: true, recs: [recMovie(1), recMovie(550)] });
   const second = c.main();
   assert.deepStrictEqual([c.home.length, second.length], [0, 0]);
   c.late.shift()();
