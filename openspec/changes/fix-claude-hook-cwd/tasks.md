@@ -5,9 +5,9 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/test_claude_hook.py` по карте ниже, fixture и запуск — design.md, решение 2. Кред
+- [x] 1.1 `tests/test_claude_hook.py` по карте ниже, fixture и запуск — design.md, решение 2. Кред
   собирать конкатенацией, как `_VALUE` в `tests/test_ci_check.py`.
-- [ ] 1.2 `agent-process check_red tests/test_claude_hook.py::test_settings_hook_runs_outside_root
+- [x] 1.2 `agent-process check_red tests/test_claude_hook.py::test_settings_hook_runs_outside_root
   tests/test_claude_hook.py::test_snapshot_skipped_outside_root
   tests/test_claude_hook.py::test_secret_found_outside_root`, коммит RED.
 
