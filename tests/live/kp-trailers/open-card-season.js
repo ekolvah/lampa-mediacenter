@@ -3,11 +3,10 @@
   // трейлер 1-го. Первым в «Трейлерах» стоит ролик 2-го сезона: от сервиса, а если сервис не дал —
   // Trailer 2-го сезона из TMDB (change series-last-season-trailer).
   var card = kpCard('KP_1435343');
-  var ID = card.id;
   var full = await cardFull(card);
-  Live.check(full.movie.type === 'tv', ID + ' не сериал: type ' + full.movie.type);
+  Live.check(full.movie.type === 'tv', card.id + ' не сериал: type ' + full.movie.type);
   var videos = (full.videos && full.videos.results) || [];
-  Live.check(videos.length, 'нет видео для ' + ID);
+  Live.check(videos.length, 'нет видео для ' + card.id);
 
   var pick = await askService(card, full.movie, 2);
   var first = videos[0];
@@ -21,5 +20,5 @@
   await openCard(card);
   // Для playing.js: кнопкой «Трейлер» наружу отдаётся этот ролик.
   window.__kpRuTrailer = first;
-  return 'ok: ' + ID + ', первым ' + first.key + ' «' + first.name + '»' + (pick.video_id ? '' : ' (TMDB; сервис: ' + pick.reason + ')');
+  return 'ok: ' + card.id + ', первым ' + first.key + ' «' + first.name + '»' + (pick.video_id ? '' : ' (TMDB; сервис: ' + pick.reason + ')');
 })()

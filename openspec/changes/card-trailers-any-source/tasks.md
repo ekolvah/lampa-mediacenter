@@ -21,7 +21,7 @@
   `console.error` с именами, без обёрток. Проверка: `node --test tests/js/kp-reactions-fix.test.js`,
   тест «no cub.full: one error, tmdb card as is, KP card unchanged».
 - [x] 2.2 Одна функция оборачивает `tmdb.full` и `cub.full`: тайтл `{method: params.method, id:
-  result.movie.id}`, у сериала `lastSeason`, затем `trailers(result, title, result.videos, season,
+  params.id}`, у сериала `lastSeason` параллельно с исходным `full`, затем `trailers(result, title, result.videos, season,
   …)`; результат без `movie` — движку как есть, как в `KP.full`. Проверка: та же, тесты «tmdb and cub card: service video first, no title search», «tmdb
   series season 2: service asked with season», все прежние тесты зелёные.
 
@@ -51,7 +51,7 @@
 
 ## 6. Verify
 
-- [ ] 6.1 `/simplify`, коммит его правок.
+- [x] 6.1 `/simplify`, коммит его правок.
 - [ ] 6.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
   `bash tests/live/kp-trailers.sh` → `OK`, затем `screencap` карточки «Чёрного лотоса» (процесс уже
   перезапущен скриптом).

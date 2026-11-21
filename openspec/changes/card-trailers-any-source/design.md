@@ -57,10 +57,10 @@ Lampa с русским трейлером для карточки нет, вы�
 Модуль «Карточка» в `startPlugin()`, до ожидания KP, присваивает `cub`, `tmdb` (источники ядра, KP
 для них не нужен; из `patch()` эти два присваивания уходят, его проверка `!cub || !tmdb` остаётся)
 и оборачивает `full` обоих одной функцией: исходный `full`, в его колбэке — трейлеры, затем
-результат движку, до отрисовки (наблюдение 6). Тайтл — `{method: params.method, id:
-result.movie.id}`: у `tmdb`/`cub` id карточки и есть TMDB id (наблюдения 4–6). Видео —
-`result.videos`; у сериала `lastSeason`, затем существующий `trailers`. `KP.full` и `enrich` не
-меняются.
+результат движку, до отрисовки (наблюдение 6). Тайтл — `{method: params.method, id: params.id}`:
+у `tmdb`/`cub` id карточки и есть TMDB id (наблюдения 4–6), поэтому `lastSeason` сериала идёт
+параллельно с исходным `full`, как в `enrich`. Видео — `result.videos`, затем существующий
+`trailers`. `KP.full` и `enrich` не меняются.
 
 Обёрткам нужны `tmdb.full`, `cub.full`, `tmdb.videos` (`seasonTrailer`) и `tmdb.get`
 (`lastSeason`). Нет любой из них — один `console.error` с именами, обёрток нет, карточки

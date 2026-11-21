@@ -110,7 +110,7 @@
     tmdb.get(url, {}, function (found) {
       var want = titles(movie.title, movie.original_title);
       var matches = ((found && found.results) || []).filter(function (r) {
-        return titles(r.title || r.name, r.original_title || r.original_name).some(function (t) {
+        return titles(r.title || r.name, originalName(r)).some(function (t) {
           return want.indexOf(t) !== -1;
         });
       });
@@ -370,14 +370,24 @@
     [tmdb, cub].forEach(function (source) {
       var orgFull = source.full;
       source.full = function (params, oncomplite, onerror) {
-        return orgFull.call(source, params, function (result) {
-          var movie = result && result.movie;
-          if (!movie) return oncomplite(result);
+        // Сезон — параллельно с ответом источника, как в enrich; решение — когда пришли оба.
+        var title = { method: params.method, id: params.id };
+        var result;
+        var season;
+        var waiting = 2;
+        function ready() {
+          if (--waiting) return;
+          if (!result || !result.movie) return oncomplite(result);
+          trailers(result, title, result.videos, season, function () { oncomplite(result); });
+        }
 
-          var title = { method: params.method, id: movie.id };
-          trailerSeason(title, function (season) {
-            trailers(result, title, result.videos, season, function () { oncomplite(result); });
-          });
+        trailerSeason(title, function (last) {
+          season = last;
+          ready();
+        });
+        return orgFull.call(source, params, function (answer) {
+          result = answer;
+          ready();
         }, onerror);
       };
     });

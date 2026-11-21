@@ -2,7 +2,7 @@
 
 // Параметры KP-карточки — для Lampa.Api.full и для Activity карточки.
 function kpCard(id) {
-  return { id: id, method: 'movie', card: { id: id, source: 'KP' }, source: 'KP' };
+  return sourceCard('KP', 'movie', id);
 }
 
 // Параметры карточки источника ядра (tmdb, cub): id — TMDB id, method — movie или tv.
