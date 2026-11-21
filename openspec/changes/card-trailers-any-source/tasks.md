@@ -5,14 +5,14 @@
 
 ## 1. RED
 
-- [ ] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js` (design.md, решение 4):
+- [x] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js` (design.md, решение 4):
   - двойники `tmdb.full`, `cub.full` в `load()` отвечают `{ movie: opts.movie, videos: opts.videos,
     reactions: opts.reactions }`, помощник теста открывает ими карточку (`{ id, method }`);
   - `drop` принимает путь любой глубины (`Api.sources.cub.full`);
   - фикстура `BLACK_LOTUS` — `movie` из наблюдения 4 design.md (`type: 'Scripted'`, `name`,
     `original_name`, `first_air_date: '2021-11-14'`).
   Открытие KP-карточки в `load()` и прежние тесты не меняются.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Обёртки `tmdb.full` и `cub.full` (решение 1)
 

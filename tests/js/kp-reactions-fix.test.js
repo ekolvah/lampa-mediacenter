@@ -37,8 +37,10 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // kp_recs_tv (по умолчанию ключей нет); quota — ключи, запись которых падает, как QuotaExceededError в
 // Storage.set ядра (callerror, значение не сохранено); Recomends.page двойника — заглушка ядра,
 // Lang.translate отдаёт ключ.
-// drop — что убрать из двойника: 'Recomends', 'Recomends.get', 'Recomends.page', 'Router', 'Arrays'. fireMs(ms) запускает
-// только таймеры с этим ms.
+// drop — что убрать из двойника, путь любой глубины от Lampa: 'Recomends', 'Recomends.get', 'Router',
+// 'Api.sources.cub.full'. fireMs(ms) запускает только таймеры с этим ms.
+// Карточки tmdb и cub (design.md card-trailers-any-source, решение 4): их full отвечает
+// { movie, videos, reactions } из opts, открывает их openSource.
 function load(over) {
   const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [] }, over);
   const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [] };
@@ -65,7 +67,10 @@ function load(over) {
       reply(opts.pages(params.url, params.page), (json) => ok(plain(json)), err);
     },
   };
+  // full источника ядра: ответ уже несёт видео и реакции источника.
+  const sourceFull = (params, ok) => ok({ movie: opts.movie, videos: opts.videos, reactions: opts.reactions });
   const tmdb = {
+    full: sourceFull,
     get(url, params, ok, err, cache) {
       const tv = /^tv\/(\d+)$/.exec(url);
       if (tv) {
@@ -87,6 +92,7 @@ function load(over) {
     };
   }
   const cub = {
+    full: sourceFull,
     reactionsGet(params, ok) {
       calls.reactions.push(plain(params));
       ok(opts.reactions);
@@ -143,9 +149,9 @@ function load(over) {
     clearTimeout(t) { const i = calls.timers.indexOf(t); if (i !== -1) calls.timers.splice(i, 1); },
   };
   for (const d of opts.drop) {
-    const [obj, fn] = d.split('.');
-    if (fn) delete ctx.Lampa[obj][fn];
-    else delete ctx.Lampa[obj];
+    const keys = d.split('.');
+    const last = keys.pop();
+    delete keys.reduce((obj, key) => obj[key], ctx.Lampa)[last];
   }
   ctx.window = ctx;
   calls.ctx = ctx;
@@ -155,6 +161,12 @@ function load(over) {
   vm.runInNewContext(SRC, ctx);
   if (opts.open) KP.full({ id: 'KP_1', method: 'movie' }, (result) => calls.done.push(result), () => {});
   return calls;
+}
+
+// Карточка источника ядра открыта: движок зовёт full источника (design.md card-trailers-any-source,
+// наблюдение 6). Результат — в c.done.
+function openSource(c, source, params) {
+  c.ctx.Lampa.Api.sources[source].full(params, (result) => c.done.push(result), () => {});
 }
 
 // Главная KP открыта: Lampa зовёт KP.main, порции — в c.home (c.raw — те же объекты с функциями),
@@ -276,8 +288,13 @@ const FOREST_2026 = { id: 1545966, title: 'Лес', original_title: 'Лес', re
 const LIFE = { imdb_id: '', type: 'tv', title: 'Жизнь заново', original_title: 'Жизнь заново', first_air_date: '' };
 const LIFE_TV = { id: 318582, name: 'Жизнь заново', original_name: 'Жизнь заново', first_air_date: '2026-10-26' };
 
+// «Бегущий по лезвию: Чёрный лотос», ответ tmdb.full tv/84553 на приставке 2026-11-21
+// (design.md card-trailers-any-source, наблюдение 4): у сериала TMDB нет title, type — тип сериала.
+const BLACK_LOTUS = { id: 84553, type: 'Scripted', name: 'Бегущий по лезвию: Чёрный лотос', original_name: 'Blade Runner: Black Lotus', first_air_date: '2021-11-14', imdb_id: 'tt9359796' };
+
 const q = (title) => encodeURIComponent(title);
 const SERVICE_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Зверь') + '&original_title=The%20Beast&year=2026';
+const LOTUS_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Бегущий по лезвию: Чёрный лотос') + '&original_title=' + q('Blade Runner: Black Lotus') + '&year=2021';
 const GENT_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Джентльмены') + '&original_title=The%20Gentlemen&year=2024&season=2';
 // «Зверь» без imdb_id, найден поиском по названию: дальше решают видео TMDB и сервис.
 const BEAST_CARD = { movie: BEAST, search: { results: [BEAST_2026] } };
@@ -647,6 +664,52 @@ test('find error warns with imdb_id, card opens', () => {
   assert.ok(c.warn[0].includes('tt1675434'), JSON.stringify(c.warn));
   assert.strictEqual(c.get.length, 1);
   assert.strictEqual(c.done.length, 1);
+});
+
+// --- Трейлеры карточек tmdb и cub (spec kp-card-trailers, «Трейлеры карточки TMDB») ---
+
+test('tmdb and cub card: service video first, no title search', () => {
+  for (const source of ['tmdb', 'cub']) {
+    const c = load({ open: false, movie: BLACK_LOTUS, videos: EN_VIDEOS, service: PICK });
+    openSource(c, source, { id: 84553, method: 'tv' });
+    assert.deepStrictEqual(c.service, [{ url: LOTUS_URL, timeout: 10000 }], source);
+    assert.strictEqual(c.done.length, 1, source);
+    const list = plain(c.done[0].videos.results);
+    assert.deepStrictEqual(list.slice(1), EN_VIDEOS.results, source);
+    assert.strictEqual(list[0].key, PICK.video_id, source);
+    assertFirstByEngine(list);
+    assert.deepStrictEqual(plain(c.done[0].reactions), REACTIONS, source);
+    assert.deepStrictEqual(c.get, [], source);
+    assert.deepStrictEqual(c.videos, [], source);
+    assert.deepStrictEqual(c.reactions, [], source);
+    assert.deepStrictEqual(c.tv, [{ url: 'tv/84553', cache: { life: DAY_MIN } }], source);
+    assert.strictEqual(c.warn.length + c.error.length, 0, source);
+  }
+});
+
+test('tmdb series season 2: service asked with season', () => {
+  const c = load({ open: false, movie: BLACK_LOTUS, videos: EN_VIDEOS, tv: GENT_TV, service: GENT_PICK });
+  openSource(c, 'tmdb', { id: 84553, method: 'tv' });
+  assert.strictEqual(c.service.length, 1);
+  assert.ok(c.service[0].url.startsWith(LOTUS_URL) && c.service[0].url.endsWith('&season=2'), c.service[0].url);
+  const list = plain(c.done[0].videos.results);
+  assert.strictEqual(list[0].key, GENT_PICK.video_id);
+  assert.deepStrictEqual(list.slice(1), EN_VIDEOS.results);
+  assertFirstByEngine(list);
+  assert.strictEqual(c.done.length, 1);
+});
+
+test('no cub.full: one error, tmdb card as is, KP card unchanged', () => {
+  const c = load({ ...BEAST_CARD, videos: EN_VIDEOS, service: PICK, drop: ['Api.sources.cub.full'] });
+  assert.strictEqual(c.error.length, 1);
+  assert.ok(c.error[0].join(' ').includes('cub.full'), JSON.stringify(c.error));
+  assert.deepStrictEqual(plain(c.done[0].videos.results), [PICK_VIDEO].concat(EN_VIDEOS.results));
+  c.service.length = 0;
+  openSource(c, 'tmdb', { id: 84553, method: 'tv' });
+  assert.strictEqual(c.done.length, 2);
+  assert.deepStrictEqual(c.done[1].videos, EN_VIDEOS);
+  assert.deepStrictEqual(c.service, []);
+  assert.strictEqual(c.error.length, 1);
 });
 
 // --- Кнопки карточки вместо «Смотреть» (spec card-buttons) ---
