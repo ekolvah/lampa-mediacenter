@@ -634,7 +634,7 @@
     // появившиеся за NEW_DAYS — первыми по убыванию времени появления, остальные за ними в порядке
     // коллекции. batch — build() collectPages; rowMemory — запись ряда в памяти или undefined.
     // Возвращает { results, memory, fresh }: memory — новая запись ряда, undefined — ряд не
-    // запоминается (первый запуск с неполным рядом); fresh — новые сейчас карточки ряда.
+    // запоминается (первый запуск с неполным рядом); fresh — новые сейчас карточки ряда без тайтла t.
     function orderByNovelty(batch, rowMemory, now) {
       if (!rowMemory && batch.gaps) return { results: batch.results, memory: undefined, fresh: [] };
       var nowMs = now.getTime();
@@ -662,7 +662,7 @@
         return { card: card, i: i, f: f > 0 && nowMs - f < NEW_DAYS * DAY_MS ? f : 0 };
       });
       order.sort(function (a, b) { return b.f - a.f || a.i - b.i; });
-      var fresh = order.filter(function (o) { return o.f; }).map(function (o) { return o.card; });
+      var fresh = order.filter(function (o) { return o.f && !memory[o.card.id].t; }).map(function (o) { return o.card; });
       return { results: order.map(function (o) { return o.card; }), memory: memory, fresh: fresh };
     }
 
@@ -696,9 +696,7 @@
           seen[spec.url] = next.memory;
           changed = true;
         }
-        next.fresh.forEach(function (card) {
-          if (!seen[spec.url][card.id].t) fresh.push({ url: spec.url, card: card });
-        });
+        next.fresh.forEach(function (card) { fresh.push({ url: spec.url, card: card }); });
         return filteredRow(spec, original, { results: next.results, gaps: batch.gaps });
       }
       return {

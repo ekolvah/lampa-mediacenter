@@ -54,7 +54,7 @@
 
 ## 6. Verify
 
-- [ ] 6.1 `/simplify`, коммит его правок.
+- [x] 6.1 `/simplify`, коммит его правок.
 - [ ] 6.2 `openspec validate --strict --all`.
 - [ ] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
