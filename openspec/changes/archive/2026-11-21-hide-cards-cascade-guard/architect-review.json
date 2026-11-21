@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 1,
+  "reviewer": "architect-reviewer",
+  "reasoning": "The cause is named and reproduced (issue #85: results 63, guard 40), the fix is the minimum two-line change to one live step, and the new post-loop check makes an exhausted loop a distinct loud failure; no class has an open finding.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md Decisions 1 rejects a bigger constant (same class of error, and a broken hide spins until the cdp.py timeout), truncating results before the step (tests an artificial row and edits state around the plugin), and picking another row (the step cycles rows 0-3 via down = run % 4 in tests/live/hide-cards.sh:59, so no row length is fixed). The chosen design is already the smallest one: replace `var guard = 40` (cascade-to-three.js:5) with the entry length and add one HC.check.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "skip_specs: true, so there are no spec deltas. The tasks.md map names the existing scenario card-torrent-filter «Результаты ряда кончились» (openspec/specs/card-torrent-filter/spec.md:57) against tests/live/hide-cards.sh step 3, cascade-to-three; that is the step being fixed, and it asserts 3 cards in order plus «Ещё» (cascade-to-three.js:10-12).",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "tasks.md 1.1 is `no RED` with a reason: only a live test changes and there is no pytest. The live reproduction stands in for RED: confirm ADB with the user (CLAUDE.md), then reproduce the step-3 failure on current main before editing. That matches §V (observe the live system), and the failure is already recorded in issue #85.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Each hide removes at least one result: observed (issue #85, 10 hides took results from 63 to 48). The row has no paging, so results do not grow mid-loop: observed (issue #85, page=1, new=0). The 20 s step budget: tools/cdp.py:47 (create_connection timeout=20; evaluate_on does one blocking recv for the whole step). The claim that a collectPages row reaches «Ещё» through the same LINE.detach/refill path as a KP row comes from reading the code (plugins/torrent-quality-badge.js:503-511), and the GREEN run in tasks.md 2.2 observes it directly. The risk estimate (~100 cards, ~8 s) assumes KP page size and per-hide cost and was not measured. If it is wrong, the cdp.py socket times out, the uncaught exception exits 1, and set -e stops the run, so the failure is loud.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "The one replaced input is the constant guard 40, which becomes results.length on entry (design.md Decision 1). No guard is dropped. The loop is still bounded, and for the 20-card KP rows (rows 0-3) the new bound is smaller than 40 but still enough, by the same at-least-one-per-hide argument. The final checks at cascade-to-three.js:10-12 stay.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Two catchers are named. (1) The new HC.check(results.length <= 3) after the loop (design.md Decision 2, tasks.md 2.2): Live.check throws (tests/live/lib.js:5), cdp.py reports the JS exception and exits 1 (tools/cdp.py:159-161), and set -euo pipefail stops hide-cards.sh. (2) If a row is longer than the time budget, the cdp.py socket timeout raises an uncaught exception, which also exits non-zero and also stops the run. Both reach the script's exit code.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "The plan adds or edits no rule or spec sentence (skip_specs, and the proposal says no docs change). The only prose change is the step's code comment (tasks.md 2.1), which no test asserts and which is not a rule.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "The `## Standard approach` section is `none found`, and that is convincing: bounding a project-specific live-test loop is not a library problem. It cites the general practice it follows, which is to derive the bound from the input size and to make exhausting the bound a separate, diagnosable error. The plan adds no script, check, or dependency, and only edits an existing 14-line JS step run through cdp.py.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
