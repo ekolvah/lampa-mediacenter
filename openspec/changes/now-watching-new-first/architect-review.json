@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "All five round-1 findings are closed in the artifacts. The season request now runs under the one Home waiter through a collectPages predicate, which the code supports. The unobserved Storage claim is gone and the write order is fixed. R18 has a reachable unit catcher, R19 is closed by construction, and the same-build order and the single season warning each have a mapped test.",
+  "classes": {
+    "simpler": {
+      "evidence": "Design.md decision 3 now uses the mechanism round 1 proposed: an optional needSeason(card) argument to collectPages, and addPage requests the season under the same pending(). This works in plugins/kp-reactions-fix.js. In waiter() (:320-348), a settle callback runs fn before release(), so a pending() taken inside addPage for pages 2-5 (:373-374) increments waiting before the page's own slot is released. Page 1 (known) is added before wait.start(). The whole Home therefore stays under one ROWS_TIMEOUT_MS timer, and listBatch passes no predicate. The rejection of 'season in the background' now gives a reason: the raise would come one build later, and the background write would race the build write. The other alternatives (KP seasons endpoint, no season for new series, history-based 'opened') keep their reasons from round 1. orderByNovelty stays a pure step before filteredRow. This is the minimum design the five rules need.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "The spec delta has 30 scenarios: Новинка-сериал 6, Новинки в штатных рядах 6, Новые карточки первыми 6 (including the new 'Новые в одну сборку'), Новый сезон сериала 6 (including the new 'TMDB не ответил о сезоне'), and Память ряда 6. The '## Scenario → test map' in tasks.md has 30 rows. Each row names a node test in tests/js/kp-reactions-fix.test.js, and three rows also name a live step. There are no n/a rows. Task 1.1 renames the existing test 'new series no tmdb' (test.js:760) to 'new series new despite tmdb error'. Its no-request guard for unremembered series moves to 'unseen series raised without season request'.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Group 1 writes the mapped tests plus 'unchanged memory not rewritten'. They use the existing doubles: the seen option seeds store.kp_now_watching_seen, homeWith (test.js:274) takes over options, writes are counted by calls.sets (:92, setsOf :971), and calls.fire() runs the timer doubles (:36). tv: 'never' is supported (:25, :46), which is the same pattern as 'tmdb timeout is unknown' (:834-837). FakeDate fakes only the constructor (:101-103), which matches the 'now = new Date()' in decision 1. Task 1.2 runs check_red on tests/test_plugin_js.py::test_plugin_js and commits RED before Group 2.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Observed: KP_<n> ids from convertElem and full() reading params.card (kp_source.js:206 and :639-643, downloaded 2026-11-21, quoted); no season number in collection cards (:270-273, :422); Storage.get/set with an object on a key (on record, kp-history-recommendations); and the delayed localStorage flush before force-stop (on record, tools/README.md and tests/live/kp-history-recs.sh). The unobserved claim that Storage.set throws visibly has been removed. Decision 7 and task 2.1 now only fix the order: write after oncomplite(out), with no plugin catch. Residual, not a finding: if the core's Storage.set swallows a quota error, a failed write fails silently. The degraded result is 'nothing is ever raised', with the collection order intact. Round 1 allowed the claim to be dropped instead of observed. Decision 4's 'Назад restores Home without KP.main' is still unobserved, but no rule depends on it.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Dropped guard: the spec sentence that banned TMDB requests for new-start series, and its test. What stops being proved is that Home never waits on TMDB for those series. Design.md R18 now lists the failure mode (a cold cache for remembered new series), the bound (one 5 s timer for the whole Home, timeout = 'сезон не получен'), and the catcher. The narrowed request scope (remembered series only, none from listBatch) is decision 3 plus 'unseen series raised without season request'. The live builtAt comparison is no longer named as a catcher (tasks.md 6.2).",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "R18 -> 'tmdb season timeout builds home' (tv: 'never', c.fire()). It reaches the case: the season pending() is on the same waiter, the timer double fires finish -> build, and the test can assert the Home part, the position, the unchanged s, and one 'season unknown' warning. R19 -> n/a, closed by construction: the row card and full's params.card come from the same convertElem object, cited at kp_source.js:206 and :639-643. R20 -> 'unchanged memory not rewritten' counts calls.sets. R21 -> 'same season stays'. Each named catcher traces to its delivery step in tasks.md Group 1 and check_red.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Edited sentences. Новинка-сериал 'Вердикт ... SHALL NOT зависеть от ответа TMDB' (13 words) is asserted by 'new series new despite tmdb error'. Новинки в штатных рядах 'Порядок SHALL быть порядком коллекции, кроме ...' (15 words) is asserted by 'new card first' and 'new items from later pages'. Added sentences. Новые карточки первыми (~100 words): the same-build tie clause now has a scenario and 'same build keeps collection order'; the 5-day window, opened-from-anywhere, descending appearance and the «Ещё» clauses are asserted by their mapped tests. Новый сезон сериала (~85 words): the warning is now one «сезон не получен» per remembered series. Design decision 3 says that the existing resolveTitle/lastSeason/'new release not checked' warnings remain, and that only the 'season unknown' count is limited, so an exact count assertion is possible. The 5 s clause is asserted by the timeout test. Note: the spec quotes «сезон не получен», while design.md fixes the console text as 'kp-reactions-fix: season unknown'. The RED test settles the literal, so this is not a finding. Память ряда (~70 words): every clause has a scenario and a test.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "Unchanged from round 1. proposal.md '## Standard approach' records 'no ready plugin', with the query and date (2026-11-21) and the plugin-catalog review on record in now-watching-new-releases. That is convincing for a niche Lampa behaviour, and extending the plugin that already owns these rows follows CLAUDE.md. The plan adds no gate or check script. Its live steps (lib.js, new-first.js, new-first-check.js) follow the existing tests/live/lib.sh pattern. There is no new dependency or build step.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
