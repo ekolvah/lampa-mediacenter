@@ -36,7 +36,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 `docs/lampa-config-review.md`: в строке `kp-reactions-fix.js` ряды рекомендаций берут
+- [x] 4.1 `docs/lampa-config-review.md`: в строке `kp-reactions-fix.js` ряды рекомендаций берут
   тайтлы из отдельных списков фильмов и сериалов (`kp_recs_movie`, `kp_recs_tv`, по 100), «Ещё» —
   тот же список. Шапка `plugins/kp-reactions-fix.js`. Коммит.
 
