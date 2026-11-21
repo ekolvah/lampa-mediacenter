@@ -48,7 +48,7 @@
   Перед `onlyMore()` сериалов `Lampa.Recomends.page` оборачивается записью вызовов: нужен вызов с
   `media === 'tv'`, а `total_pages` ответа равен `Math.ceil(Lampa.Recomends.get('tv').length / 20)`;
   после — обёртка снимается.
-- [ ] 5.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
+- [x] 5.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
   `bash tests/live/main-recs.sh` → OK, затем `screencap` Главной (процесс уже перезапущен
   скриптом). Коммит скрипта.
 
@@ -60,7 +60,7 @@
 
 ## 6. Verify
 
-- [ ] 6.1 `/simplify`, коммит его правок.
+- [x] 6.1 `/simplify`, коммит его правок.
 - [ ] 6.2 `openspec validate --strict --all`.
 - [ ] 6.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
