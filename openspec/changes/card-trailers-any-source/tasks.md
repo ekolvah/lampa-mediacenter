@@ -42,7 +42,7 @@
 
 ## 5. Живая проверка: скрипты
 
-- [ ] 5.1 `tests/live/kp-trailers/lib.js`: `kpFull` → `cardFull(params)` через `Lampa.Api.full`,
+- [x] 5.1 `tests/live/kp-trailers/lib.js`: `kpFull` → `cardFull(params)` через `Lampa.Api.full`,
   `openCard(params)` для любой карточки, `askService` берёт `name`/`original_name` и год по
   `params.method`; общая проверка «первым — ролик сервиса» (`iso_639_1` `ru`, `key` = `video_id`,
   `window.__kpRuTrailer`), её зовут `open-card-no-imdb.js` и новый `open-card-tmdb.js` («Чёрный
