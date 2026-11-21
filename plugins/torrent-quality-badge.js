@@ -648,6 +648,7 @@
   // Каждому active++ — ровно один finishTask: колбэки парсера и catch идут через
   // один флаг, иначе oncomplete с последующим исключением освободил бы слот дважды.
   function startTask(task) {
+    active++;
     var done = false;
     function finish(results) {
       if (done) return;
@@ -669,17 +670,13 @@
       );
     } catch (err) {
       console.error('torrent-quality-badge: проверка карточки не началась — «' +
-        (task.movie.title || task.movie.name) + '» (' +
-        (task.movie.release_date || task.movie.first_air_date || '') + ')', err);
+        (task.movie.title || task.movie.name) + '»', err);
       finish(null);
     }
   }
 
   function pump() {
-    while (active < MAX_CONCURRENT && queue.length) {
-      active++;
-      startTask(queue.shift());
-    }
+    while (active < MAX_CONCURRENT && queue.length) startTask(queue.shift());
   }
 
   function finishTask(key, results, filter) {

@@ -38,6 +38,14 @@ var HC = {
     if (owner === HC.grid()) return owner.items.slice();
     return owner.items.filter(function (it) { return owner.data.results.indexOf(it.data) >= 0; });
   },
+  // Карточки TMDB (из списков, без genres) во всех рядах Главной.
+  tmdbCards: function () {
+    var out = [];
+    HC.rows().forEach(function (line) {
+      HC.cards(line).forEach(function (it) { if (it.data.source === 'tmdb') out.push(it); });
+    });
+    return out;
+  },
   // Карточка под фокусом владельца, иначе первая.
   focusedCard: function (owner) {
     var cards = HC.cards(owner);

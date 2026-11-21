@@ -459,7 +459,8 @@ test('parser throws keep cards and do not stall queue', async (t) => {
   const [bad1, bad2, empty] = ['bad1', 'bad2', 'empty'].map((n) => tmdbCard(n, []));
   [bad1, bad2, empty].forEach(append);
   await tick();
-  assert.strictEqual(keptCard(bad1) && keptCard(bad2), true);
+  assert.ok(keptCard(bad1), 'bad1');
+  assert.ok(keptCard(bad2), 'bad2');
   assert.strictEqual(empty.destroyed, true);
   const logged = errors.mock.calls.map((c) => c.arguments.map(String).join(' '));
   ['bad1', 'bad2'].forEach((n) => {

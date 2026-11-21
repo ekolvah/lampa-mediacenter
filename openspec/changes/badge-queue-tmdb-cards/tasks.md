@@ -18,7 +18,7 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Run `/simplify` and commit its edits; if they touch the plugin, repeat the device run of 3.2
+- [x] 4.1 Run `/simplify` and commit its edits; if they touch the plugin, repeat the device run of 3.2
 - [ ] 4.2 Run `openspec validate --strict --all`
 - [ ] 4.3 Run `pre-commit run --hook-stage manual --all-files`
 

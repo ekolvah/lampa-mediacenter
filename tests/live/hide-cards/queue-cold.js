@@ -4,10 +4,7 @@
   // снова пошли через парсер. Меньше трёх — шаг ничего не докажет при MAX_CONCURRENT = 2.
   var p = HC.plugin();
   var cache = Lampa.Storage.get('torrent_filter_badge_cache', {});
-  var cards = [];
-  HC.rows().forEach(function (line) {
-    HC.cards(line).forEach(function (it) { if (it.data.source === 'tmdb') cards.push(it); });
-  });
+  var cards = HC.tmdbCards();
   HC.check(cards.length >= 3, 'на Главной меньше трёх TMDB-карточек (' + cards.length +
     '): нет рядов «Рекомендуем посмотреть» или источник не KP');
   cards.forEach(function (it) { delete cache[p.verdictKey(it.data)]; });
