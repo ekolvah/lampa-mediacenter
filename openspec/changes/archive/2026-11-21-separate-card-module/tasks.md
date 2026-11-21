@@ -27,12 +27,12 @@
 ## 4. Verify
 
 - [x] 4.1 `/simplify`, коммит правок. Если правки задели плагин — повторить 3.1 на новом sha.
-- [ ] 4.2 `openspec validate --strict --all`.
-- [ ] 4.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 4.2 `openspec validate --strict --all`.
+- [x] 4.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
 ## 5. Deliver
 
-- [ ] 5.1 `agent-process archive_change separate-card-module`, затем
+- [x] 5.1 `agent-process archive_change separate-card-module`, затем
   `gh pr create --title "refactor: separate-card-module" --body-file <отчёт>`. Отчёт ссылается на
   tracking issue простой ссылкой и называет отступление от issue.
 - [ ] 5.2 `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`. Не больше трёх
