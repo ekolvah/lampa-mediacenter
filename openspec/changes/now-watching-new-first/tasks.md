@@ -48,9 +48,9 @@
 
 ## 6. Живая проверка
 
-- [ ] 6.1 `tests/live/now-watching/lib.js`: из `rows.js` вынести `URLS`, `lines()`, ожидание Главной
+- [x] 6.1 `tests/live/now-watching/lib.js`: из `rows.js` вынести `URLS`, `lines()`, ожидание Главной
   и поиск ряда по `url`, `rows.js` перевести на них.
-- [ ] 6.2 Шаги в `tests/live/now-watching.sh` по образцу `tests/live/kp-history-recs.sh`: значения
+- [x] 6.2 Шаги в `tests/live/now-watching.sh` по образцу `tests/live/kp-history-recs.sh`: значения
   между шагами — вторым аргументом `step`; перед каждым `restart_lampa` после записи в `Storage` —
   `sleep 15` (WebView пишет localStorage на диск с задержкой).
   1. `new-first.js`: в `kp_now_watching_seen` есть оба ряда. Из памяти ряда фильмов удаляется id
