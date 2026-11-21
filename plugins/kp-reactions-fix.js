@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  // На источнике KP (плагин kp_source) карточки несут id вида "KP_<kinopoisk_id>",
+  // Карточка. На источнике KP (плагин kp_source) карточки несут id вида "KP_<kinopoisk_id>",
   // а движок берёт реакции (cub.red) и трейлеры (TMDB videos) по TMDB id — у
   // KP-карточек его нет, поэтому блок реакций пуст, а кнопки «Трейлеры» нет.
   // Патч дорезолвливает TMDB-тайтл через imdb_id (который KP отдаёт), а без
@@ -13,9 +13,10 @@
   // чей последний вышедший сезон N ≥ 2, первым ставится трейлер сезона N: от сервиса,
   // иначе из видео сезона в TMDB. Кнопка «Трейлер» в строке кнопок карточки запускает
   // первый ролик этого списка.
-  // Плагин держит и Главную KP: штатные ряды «Сейчас смотрят фильмы/сериалы» и их полный список
-  // по «Ещё» показывают только новинки (обёртки KP.main и KP.list, тот же поиск TMDB-тайтла,
-  // что для трейлеров). Карточка, которой раньше в ряду не было, или сериал с новым сезоном
+  //
+  // Источник KP. Плагин держит и Главную KP: штатные ряды «Сейчас смотрят фильмы/сериалы» и их
+  // полный список по «Ещё» показывают только новинки (обёртки KP.main и KP.list, тот же поиск
+  // TMDB-тайтла, что для трейлеров). Карточка, которой раньше в ряду не было, или сериал с новым сезоном
   // 5 дней стоят в начале ряда, пока их не открыли; память рядов — ключ kp_now_watching_seen.
   // Тем же поиском KP-история попадает в ряд ядра «Рекомендуем посмотреть»:
   // её TMDB-тайтлы встают в очередь recomends_scan, а из recomends_list убираются (spec
@@ -23,6 +24,8 @@
   // рекомендаций фильмов и сериалов: kp_source их на Главную не ставит. Рекомендации ядра плагин
   // копит в отдельных списках типа kp_recs_movie/kp_recs_tv, и Lampa.Recomends.get/page отдают их
   // (spec kp-main-recommendations).
+
+  // ---- Общее: константы, сравнение названий, источники движка, помощники TMDB ----
 
   var DAY = 60 * 24; // life кэша движка — в минутах
   var WEEK = DAY * 7;
@@ -71,218 +74,284 @@
     return [a, b].filter(function (t) { return typeof t === 'string' && t; }).map(normalizeTitle);
   }
 
+  // Источники движка: cub — реакции карточки, tmdb — оба модуля. Присваивает patch(), код ниже
+  // зовётся только после него.
+  var cub, tmdb;
+
+  function cardName(movie) {
+    return movie.title || movie.original_title || '';
+  }
+
+  function releaseDate(movie) {
+    return (movie.type === 'tv' ? movie.first_air_date : movie.release_date) || '';
+  }
+
+  // Поиск тайтла по названию: тип из карточки, год строгий; с годом — первый
+  // результат с совпадающим названием, без года — только единственный.
+  function searchByTitle(movie, cb) {
+    var tv = movie.type === 'tv';
+    var method = tv ? 'tv' : 'movie';
+    var year = releaseDate(movie).slice(0, 4);
+    var url = 'search/' + method + '?query=' + encodeURIComponent(cardName(movie));
+    if (year) url += (tv ? '&first_air_date_year=' : '&primary_release_year=') + year;
+
+    function fail(reason) {
+      console.warn('kp-reactions-fix: no title match', reason, movie.title, year);
+      cb(null);
+    }
+
+    tmdb.get(url, {}, function (found) {
+      var want = titles(movie.title, movie.original_title);
+      var matches = ((found && found.results) || []).filter(function (r) {
+        return titles(r.title || r.name, r.original_title || r.original_name).some(function (t) {
+          return want.indexOf(t) !== -1;
+        });
+      });
+
+      if (!matches.length) return fail('not found');
+      if (!year && matches.length > 1) return fail('ambiguous without year');
+      cb({ method: method, id: matches[0].id });
+    }, function () {
+      fail('search failed');
+    }, { life: WEEK });
+  }
+
+  // TMDB-тайтл карточки: по imdb_id (find), без него или при пустом find — по
+  // названию. cb(null) — тайтла нет, причина уже в console.warn.
+  function resolveTitle(movie, cb) {
+    if (!movie.imdb_id) return searchByTitle(movie, cb);
+
+    tmdb.get('find/' + movie.imdb_id + '?external_source=imdb_id', {}, function (found) {
+      // Бывает и фильм, и сериал (пустая запись TMDB с тем же imdb_id): берётся тип карточки.
+      var film = (found.movie_results || [])[0];
+      var tv = (found.tv_results || [])[0];
+      if (tv && (movie.type === 'tv' || !film)) cb({ method: 'tv', id: tv.id });
+      else if (film) cb({ method: 'movie', id: film.id });
+      else searchByTitle(movie, cb);
+    }, function () {
+      console.warn('kp-reactions-fix: find failed, no reactions and trailers', movie.imdb_id);
+      cb(null);
+    }, { life: WEEK });
+  }
+
+  // Последний вышедший сезон: { number, date } по последней вышедшей серии. cb(null) — сведений
+  // нет, предупреждение с id уже в консоли. Анонсированный сезон без серий не считается.
+  function lastSeason(title, cb) {
+    tmdb.get('tv/' + title.id, {}, function (tv) {
+      var episode = tv && tv.last_episode_to_air;
+      if (!episode || !episode.season_number) {
+        console.warn('kp-reactions-fix: no last episode', title.id);
+        return cb(null);
+      }
+      cb({ number: episode.season_number, date: episode.air_date || '' });
+    }, function () {
+      console.warn('kp-reactions-fix: tv details failed', title.id);
+      cb(null);
+    }, { life: DAY });
+  }
+
+  // ---- Карточка: реакции, трейлеры, кнопки ----
+
+  // Реакции и трейлеры одного тайтла параллельно; oncomplite — когда готовы оба.
+  function enrich(result, title, oncomplite) {
+    var pending = 2;
+    function done() { if (--pending === 0) oncomplite(result); }
+
+    cub.reactionsGet(title, function (reactions) {
+      result.reactions = reactions;
+      done();
+    });
+
+    if (typeof tmdb.videos !== 'function') {
+      console.warn('kp-reactions-fix: tmdb.videos is not a function, no trailers', title.method, title.id);
+      return done();
+    }
+
+    // Видео и, у сериала, его последний сезон — параллельно; решение о трейлере — когда пришли оба.
+    var videos;
+    var season;
+    var waiting = 2;
+    function ready() {
+      if (--waiting === 0) trailers(result, title, videos, season, done);
+    }
+
+    var getSeason = title.method === 'tv' ? lastSeason : function (t, cb) { cb(null); };
+    getSeason(title, function (last) {
+      season = last && last.number >= 2 ? last : null;
+      ready();
+    });
+    // Сбой запроса движок отдаёт как пустой список — не отличить от «видео нет».
+    tmdb.videos(title, function (answer) {
+      videos = answer;
+      ready();
+    });
+  }
+
+  // Список «Трейлеры»: видео TMDB, первым — русский трейлер сервиса; у сериала с последним
+  // сезоном N ≥ 2 — трейлер сезона N, при отказе сервиса — из видео сезона в TMDB.
+  function trailers(result, title, videos, season, done) {
+    var list = (videos && videos.results) || [];
+    if (!list.length) {
+      console.warn('kp-reactions-fix: no videos', title.method, title.id);
+    }
+    result.videos = videos;
+    var hasRu = list.some(function (v) { return v.iso_639_1 === 'ru'; });
+    // Русский ролик TMDB не говорит, какого он сезона, поэтому у сериала сервис спрашивают всегда.
+    if (hasRu && !season) return done();
+
+    var movie = result.movie;
+    var date = season ? season.date : releaseDate(movie);
+    ruTrailer(movie, season, function (video) {
+      if (video) {
+        result.videos = { results: putFirst(video, date, list) };
+        return done();
+      }
+      if (!season) return done();
+      seasonTrailer(title, movie, season, function (trailer) {
+        if (trailer) result.videos = { results: putFirst(trailer, date, list) };
+        done();
+      });
+    });
+  }
+
+  function time(video) {
+    return new Date(video.published_at).getTime();
+  }
+
+  // Самое новое видео по published_at; без даты не считается. null — датированных нет.
+  function newest(list) {
+    return list.reduce(function (max, v) { return time(v) > (max ? time(max) : -Infinity) ? v : max; }, null);
+  }
+
+  // Ролик первым в списке «Трейлеры» по ключам сортировки движка: язык tmdb_lang (до «Ещё»)
+  // и published_at строго позже самого нового в списке — при равных датах порядок не задан.
+  function putFirst(video, date, list) {
+    var last = newest(list);
+    var at = date;
+    if (last && !(new Date(date).getTime() > time(last))) at = new Date(time(last) + 1000).toISOString();
+    var first = {};
+    for (var key in video) first[key] = video[key];
+    first.iso_639_1 = Lampa.Storage.field('tmdb_lang');
+    first.published_at = at;
+    return [first].concat(list);
+  }
+
+  // Самый новый Trailer сезона из TMDB тем же путём, что и у движка. cb(null) — трейлера нет,
+  // причина в console.warn. Колбэк движка для сезона может не прийти (seasonFix), поэтому срок.
+  function seasonTrailer(title, movie, season, cb) {
+    var finished = false;
+    function finish(trailer, reason) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      if (!trailer) console.warn('kp-reactions-fix: no season trailer', cardName(movie), 'season ' + season.number, reason);
+      cb(trailer);
+    }
+    var timer = setTimeout(function () { finish(null, 'timeout'); }, TRAILER_TIMEOUT_MS);
+
+    tmdb.videos({ method: title.method + '/' + title.id + '/season', id: season.number }, function (videos) {
+      var list = videos && Array.isArray(videos.results) ? videos.results : [];
+      var trailer = newest(list.filter(function (v) { return v.type === 'Trailer'; }));
+      finish(trailer, 'no trailer among ' + list.length + ' videos');
+    });
+  }
+
+  // Русский трейлер с YouTube от сервиса трейлеров на приставке (tools/trailer_service.py),
+  // в форме видео TMDB; season — трейлер этого сезона. cb(null) — ролика нет, причина уже в
+  // console.warn.
+  function ruTrailer(movie, season, cb) {
+    var name = cardName(movie);
+    var year = releaseDate(movie).slice(0, 4);
+    var url = TRAILER_SERVICE + '?title=' + encodeURIComponent(name);
+    if (movie.original_title) url += '&original_title=' + encodeURIComponent(movie.original_title);
+    if (year) url += '&year=' + year;
+    if (season) url += '&season=' + season.number;
+
+    function fail(reason) {
+      console.warn('kp-reactions-fix: no russian trailer', name, year, season ? 'season ' + season.number : '', reason);
+      cb(null);
+    }
+
+    var request = new Lampa.Reguest();
+    request.timeout(TRAILER_TIMEOUT_MS);
+    request.silent(url, function (found) {
+      if (!found || !found.video_id) return fail((found && found.reason) || 'empty answer');
+      cb({ site: 'YouTube', key: found.video_id, name: found.title, type: 'Trailer' });
+    }, function (xhr) {
+      var body = xhr.responseJSON || {};
+      var detail = [body.error, body.detail].filter(Boolean).join(': ');
+      fail(['HTTP ' + xhr.status, xhr.statusText, detail].filter(Boolean).join(' '));
+    });
+  }
+
+  function cardButton(cls, sprite, text, onEnter) {
+    return $('<div class="full-start__button selector ' + cls + '">' +
+      '<svg><use xlink:href="#sprite-' + sprite + '"></use></svg><span>' + text + '</span></div>')
+      .on('hover:enter', onEnter);
+  }
+
+  // «Торренты» передаёт нажатие скрытой .view--torrent движка, как меню «Смотреть» (spec
+  // card-buttons). Без parser_use движок оставляет её с классом hide — тогда кнопки нет.
+  function torrentButton(body) {
+    var torrent = body.find('.view--torrent:not(.hide)');
+    if (!torrent.length) return null;
+    return cardButton('button--kp-torrent', 'torrent', 'Торренты', function () {
+      torrent.trigger('hover:enter');
+    });
+  }
+
+  // «Трейлер» запускает первый ролик списка «Трейлеры» с одного нажатия (spec kp-card-trailers).
+  // Список собирает и ролик запускает сам движок: обработчик .view--trailer синхронно зовёт
+  // Lampa.Select.show, кнопка на этот вызов его перехватывает.
+  function trailerButton(body, name) {
+    // Карточку без трейлеров движок оставляет без .view--trailer ещё до complite.
+    var trailers = body.find('.view--trailer');
+    if (!trailers.length) return null;
+    return cardButton('button--kp-trailer', 'trailer', 'Трейлер', function () {
+      var show = Lampa.Select.show;
+      var list = null;
+      Lampa.Select.show = function (params) { list = params; };
+      try {
+        trailers.trigger('hover:enter');
+      } finally {
+        Lampa.Select.show = show;
+      }
+      if (!list) return console.warn('kp-reactions-fix: trailer list not intercepted', name);
+
+      var first = (list.items || []).filter(function (item) { return !item.separator; })[0];
+      if (first) return list.onSelect(first);
+      console.warn('kp-reactions-fix: no trailer for button', name);
+      show.call(Lampa.Select, list);
+    });
+  }
+
+  // «Торренты» и «Трейлер» встают на место «Смотреть», а он уходит в меню «…» (spec card-buttons).
+  // «Смотреть» удаляется из DOM, а не скрывается: onGroupButtons движка снимает с него hide
+  // при каждом возврате в карточку.
+  function onFull(e) {
+    if (e.type === 'options') {
+      var link = e.link;
+      return e.options.unshift({ title: 'Смотреть', onSelect: function () { link.emit('watch', {}); } });
+    }
+    if (e.type !== 'complite') return;
+    var movie = (e.data && e.data.movie) || {};
+    var name = movie.title || movie.name || '';
+    var play = e.body.find('.button--play');
+    if (!play.length) return console.warn('kp-reactions-fix: no play button, no card buttons', name);
+    var buttons = [torrentButton(e.body), trailerButton(e.body, name)].filter(Boolean);
+    play.after(buttons).remove();
+  }
+
+  // ---- Источник KP: KP.full, Главная, «Ещё», KP-история в рекомендациях ----
+
   function patch() {
     var KP = Lampa.Api.sources.KP;
-    var cub = Lampa.Api.sources.cub;
-    var tmdb = Lampa.Api.sources.tmdb;
+    cub = Lampa.Api.sources.cub;
+    tmdb = Lampa.Api.sources.tmdb;
 
     if (!KP || !cub || !tmdb || KP.__reactions_patched) return;
 
     var orgFull = KP.full;
-
-    // Реакции и трейлеры одного тайтла параллельно; oncomplite — когда готовы оба.
-    function enrich(result, title, oncomplite) {
-      var pending = 2;
-      function done() { if (--pending === 0) oncomplite(result); }
-
-      cub.reactionsGet(title, function (reactions) {
-        result.reactions = reactions;
-        done();
-      });
-
-      if (typeof tmdb.videos !== 'function') {
-        console.warn('kp-reactions-fix: tmdb.videos is not a function, no trailers', title.method, title.id);
-        return done();
-      }
-
-      // Видео и, у сериала, его последний сезон — параллельно; решение о трейлере — когда пришли оба.
-      var videos;
-      var season;
-      var waiting = 2;
-      function ready() {
-        if (--waiting === 0) trailers(result, title, videos, season, done);
-      }
-
-      var getSeason = title.method === 'tv' ? lastSeason : function (t, cb) { cb(null); };
-      getSeason(title, function (last) {
-        season = last && last.number >= 2 ? last : null;
-        ready();
-      });
-      // Сбой запроса движок отдаёт как пустой список — не отличить от «видео нет».
-      tmdb.videos(title, function (answer) {
-        videos = answer;
-        ready();
-      });
-    }
-
-    // Список «Трейлеры»: видео TMDB, первым — русский трейлер сервиса; у сериала с последним
-    // сезоном N ≥ 2 — трейлер сезона N, при отказе сервиса — из видео сезона в TMDB.
-    function trailers(result, title, videos, season, done) {
-      var list = (videos && videos.results) || [];
-      if (!list.length) {
-        console.warn('kp-reactions-fix: no videos', title.method, title.id);
-      }
-      result.videos = videos;
-      var hasRu = list.some(function (v) { return v.iso_639_1 === 'ru'; });
-      // Русский ролик TMDB не говорит, какого он сезона, поэтому у сериала сервис спрашивают всегда.
-      if (hasRu && !season) return done();
-
-      var movie = result.movie;
-      var date = season ? season.date : releaseDate(movie);
-      ruTrailer(movie, season, function (video) {
-        if (video) {
-          result.videos = { results: putFirst(video, date, list) };
-          return done();
-        }
-        if (!season) return done();
-        seasonTrailer(title, movie, season, function (trailer) {
-          if (trailer) result.videos = { results: putFirst(trailer, date, list) };
-          done();
-        });
-      });
-    }
-
-    function time(video) {
-      return new Date(video.published_at).getTime();
-    }
-
-    // Самое новое видео по published_at; без даты не считается. null — датированных нет.
-    function newest(list) {
-      return list.reduce(function (max, v) { return time(v) > (max ? time(max) : -Infinity) ? v : max; }, null);
-    }
-
-    // Ролик первым в списке «Трейлеры» по ключам сортировки движка: язык tmdb_lang (до «Ещё»)
-    // и published_at строго позже самого нового в списке — при равных датах порядок не задан.
-    function putFirst(video, date, list) {
-      var last = newest(list);
-      var at = date;
-      if (last && !(new Date(date).getTime() > time(last))) at = new Date(time(last) + 1000).toISOString();
-      var first = {};
-      for (var key in video) first[key] = video[key];
-      first.iso_639_1 = Lampa.Storage.field('tmdb_lang');
-      first.published_at = at;
-      return [first].concat(list);
-    }
-
-    // Последний вышедший сезон: { number, date } по последней вышедшей серии. cb(null) — сведений
-    // нет, предупреждение с id уже в консоли. Анонсированный сезон без серий не считается.
-    function lastSeason(title, cb) {
-      tmdb.get('tv/' + title.id, {}, function (tv) {
-        var episode = tv && tv.last_episode_to_air;
-        if (!episode || !episode.season_number) {
-          console.warn('kp-reactions-fix: no last episode', title.id);
-          return cb(null);
-        }
-        cb({ number: episode.season_number, date: episode.air_date || '' });
-      }, function () {
-        console.warn('kp-reactions-fix: tv details failed', title.id);
-        cb(null);
-      }, { life: DAY });
-    }
-
-    // Самый новый Trailer сезона из TMDB тем же путём, что и у движка. cb(null) — трейлера нет,
-    // причина в console.warn. Колбэк движка для сезона может не прийти (seasonFix), поэтому срок.
-    function seasonTrailer(title, movie, season, cb) {
-      var finished = false;
-      function finish(trailer, reason) {
-        if (finished) return;
-        finished = true;
-        clearTimeout(timer);
-        if (!trailer) console.warn('kp-reactions-fix: no season trailer', cardName(movie), 'season ' + season.number, reason);
-        cb(trailer);
-      }
-      var timer = setTimeout(function () { finish(null, 'timeout'); }, TRAILER_TIMEOUT_MS);
-
-      tmdb.videos({ method: title.method + '/' + title.id + '/season', id: season.number }, function (videos) {
-        var list = videos && Array.isArray(videos.results) ? videos.results : [];
-        var trailer = newest(list.filter(function (v) { return v.type === 'Trailer'; }));
-        finish(trailer, 'no trailer among ' + list.length + ' videos');
-      });
-    }
-
-    function cardName(movie) {
-      return movie.title || movie.original_title || '';
-    }
-
-    function releaseDate(movie) {
-      return (movie.type === 'tv' ? movie.first_air_date : movie.release_date) || '';
-    }
-
-    // Русский трейлер с YouTube от сервиса трейлеров на приставке (tools/trailer_service.py),
-    // в форме видео TMDB; season — трейлер этого сезона. cb(null) — ролика нет, причина уже в
-    // console.warn.
-    function ruTrailer(movie, season, cb) {
-      var name = cardName(movie);
-      var year = releaseDate(movie).slice(0, 4);
-      var url = TRAILER_SERVICE + '?title=' + encodeURIComponent(name);
-      if (movie.original_title) url += '&original_title=' + encodeURIComponent(movie.original_title);
-      if (year) url += '&year=' + year;
-      if (season) url += '&season=' + season.number;
-
-      function fail(reason) {
-        console.warn('kp-reactions-fix: no russian trailer', name, year, season ? 'season ' + season.number : '', reason);
-        cb(null);
-      }
-
-      var request = new Lampa.Reguest();
-      request.timeout(TRAILER_TIMEOUT_MS);
-      request.silent(url, function (found) {
-        if (!found || !found.video_id) return fail((found && found.reason) || 'empty answer');
-        cb({ site: 'YouTube', key: found.video_id, name: found.title, type: 'Trailer' });
-      }, function (xhr) {
-        var body = xhr.responseJSON || {};
-        var detail = [body.error, body.detail].filter(Boolean).join(': ');
-        fail(['HTTP ' + xhr.status, xhr.statusText, detail].filter(Boolean).join(' '));
-      });
-    }
-
-    // Поиск тайтла по названию: тип из карточки, год строгий; с годом — первый
-    // результат с совпадающим названием, без года — только единственный.
-    function searchByTitle(movie, cb) {
-      var tv = movie.type === 'tv';
-      var method = tv ? 'tv' : 'movie';
-      var year = releaseDate(movie).slice(0, 4);
-      var url = 'search/' + method + '?query=' + encodeURIComponent(cardName(movie));
-      if (year) url += (tv ? '&first_air_date_year=' : '&primary_release_year=') + year;
-
-      function fail(reason) {
-        console.warn('kp-reactions-fix: no title match', reason, movie.title, year);
-        cb(null);
-      }
-
-      tmdb.get(url, {}, function (found) {
-        var want = titles(movie.title, movie.original_title);
-        var matches = ((found && found.results) || []).filter(function (r) {
-          return titles(r.title || r.name, r.original_title || r.original_name).some(function (t) {
-            return want.indexOf(t) !== -1;
-          });
-        });
-
-        if (!matches.length) return fail('not found');
-        if (!year && matches.length > 1) return fail('ambiguous without year');
-        cb({ method: method, id: matches[0].id });
-      }, function () {
-        fail('search failed');
-      }, { life: WEEK });
-    }
-
-    // TMDB-тайтл карточки: по imdb_id (find), без него или при пустом find — по
-    // названию. cb(null) — тайтла нет, причина уже в console.warn.
-    function resolveTitle(movie, cb) {
-      if (!movie.imdb_id) return searchByTitle(movie, cb);
-
-      tmdb.get('find/' + movie.imdb_id + '?external_source=imdb_id', {}, function (found) {
-        // Бывает и фильм, и сериал (пустая запись TMDB с тем же imdb_id): берётся тип карточки.
-        var film = (found.movie_results || [])[0];
-        var tv = (found.tv_results || [])[0];
-        if (tv && (movie.type === 'tv' || !film)) cb({ method: 'tv', id: tv.id });
-        else if (film) cb({ method: 'movie', id: film.id });
-        else searchByTitle(movie, cb);
-      }, function () {
-        console.warn('kp-reactions-fix: find failed, no reactions and trailers', movie.imdb_id);
-        cb(null);
-      }, { life: WEEK });
-    }
 
     KP.full = function (params, oncomplite, onerror) {
       var answer = orgFull.call(KP, params, function (result) {
@@ -837,64 +906,6 @@
     else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') historyRecs(); });
 
     KP.__reactions_patched = true;
-  }
-
-  function cardButton(cls, sprite, text, onEnter) {
-    return $('<div class="full-start__button selector ' + cls + '">' +
-      '<svg><use xlink:href="#sprite-' + sprite + '"></use></svg><span>' + text + '</span></div>')
-      .on('hover:enter', onEnter);
-  }
-
-  // «Торренты» передаёт нажатие скрытой .view--torrent движка, как меню «Смотреть» (spec
-  // card-buttons). Без parser_use движок оставляет её с классом hide — тогда кнопки нет.
-  function torrentButton(body) {
-    var torrent = body.find('.view--torrent:not(.hide)');
-    if (!torrent.length) return null;
-    return cardButton('button--kp-torrent', 'torrent', 'Торренты', function () {
-      torrent.trigger('hover:enter');
-    });
-  }
-
-  // «Трейлер» запускает первый ролик списка «Трейлеры» с одного нажатия (spec kp-card-trailers).
-  // Список собирает и ролик запускает сам движок: обработчик .view--trailer синхронно зовёт
-  // Lampa.Select.show, кнопка на этот вызов его перехватывает.
-  function trailerButton(body, name) {
-    // Карточку без трейлеров движок оставляет без .view--trailer ещё до complite.
-    var trailers = body.find('.view--trailer');
-    if (!trailers.length) return null;
-    return cardButton('button--kp-trailer', 'trailer', 'Трейлер', function () {
-      var show = Lampa.Select.show;
-      var list = null;
-      Lampa.Select.show = function (params) { list = params; };
-      try {
-        trailers.trigger('hover:enter');
-      } finally {
-        Lampa.Select.show = show;
-      }
-      if (!list) return console.warn('kp-reactions-fix: trailer list not intercepted', name);
-
-      var first = (list.items || []).filter(function (item) { return !item.separator; })[0];
-      if (first) return list.onSelect(first);
-      console.warn('kp-reactions-fix: no trailer for button', name);
-      show.call(Lampa.Select, list);
-    });
-  }
-
-  // «Торренты» и «Трейлер» встают на место «Смотреть», а он уходит в меню «…» (spec card-buttons).
-  // «Смотреть» удаляется из DOM, а не скрывается: onGroupButtons движка снимает с него hide
-  // при каждом возврате в карточку.
-  function onFull(e) {
-    if (e.type === 'options') {
-      var link = e.link;
-      return e.options.unshift({ title: 'Смотреть', onSelect: function () { link.emit('watch', {}); } });
-    }
-    if (e.type !== 'complite') return;
-    var movie = (e.data && e.data.movie) || {};
-    var name = movie.title || movie.name || '';
-    var play = e.body.find('.button--play');
-    if (!play.length) return console.warn('kp-reactions-fix: no play button, no card buttons', name);
-    var buttons = [torrentButton(e.body), trailerButton(e.body, name)].filter(Boolean);
-    play.after(buttons).remove();
   }
 
   function startPlugin() {
