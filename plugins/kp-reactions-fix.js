@@ -15,7 +15,9 @@
   // первый ролик этого списка.
   // Плагин держит и Главную KP: штатные ряды «Сейчас смотрят фильмы/сериалы» и их полный список
   // по «Ещё» показывают только новинки (обёртки KP.main и KP.list, тот же поиск TMDB-тайтла,
-  // что для трейлеров). Тем же поиском KP-история попадает в ряд ядра «Рекомендуем посмотреть»:
+  // что для трейлеров). Карточка, которой раньше в ряду не было, или сериал с новым сезоном
+  // 5 дней стоят в начале ряда, пока их не открыли; память рядов — ключ kp_now_watching_seen.
+  // Тем же поиском KP-история попадает в ряд ядра «Рекомендуем посмотреть»:
   // её TMDB-тайтлы встают в очередь recomends_scan, а из recomends_list убираются (spec
   // kp-history-recommendations). За рядами «Сейчас смотрят» обёртка KP.main ставит ряды
   // рекомендаций ядра фильмов и сериалов: kp_source их на Главную не ставит (spec
@@ -42,6 +44,13 @@
     { url: 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', name: 'Сейчас смотрят фильмы' },
     { url: 'api/v2.2/films/collections?type=POPULAR_SERIES', name: 'Сейчас смотрят сериалы' },
   ];
+  // Память рядов NOW_WATCHING в Lampa.Storage: { <url ряда>: { <id карточки>: { f, s, l } } };
+  // f — мс появления (0 — не новая), s — сезон сериала или null, l — день последней сборки с ней.
+  var SEEN_KEY = 'kp_now_watching_seen';
+  var DAY_MS = 24 * 60 * 60 * 1000;
+  // Сколько дней карточка стоит в начале ряда и через сколько дней отсутствия её забывают.
+  var NEW_DAYS = 5;
+  var FORGET_DAYS = 30;
 
   // normalizeTitle/cleanTitle — копия из kp_source.js (наружу не экспортированы):
   // регистр, виды дефиса, «ё»/«е» и пунктуация при сравнении не важны.
@@ -272,7 +281,7 @@
     }
 
     KP.full = function (params, oncomplite, onerror) {
-      return orgFull.call(KP, params, function (result) {
+      var answer = orgFull.call(KP, params, function (result) {
         var movie = result && result.movie;
         if (!movie) return oncomplite(result);
 
@@ -281,7 +290,24 @@
           else oncomplite(result);
         });
       }, onerror);
+      if (params && params.card) markOpened(params.card.id);
+      return answer;
     };
+
+    // Открытая карточка (откуда угодно) больше не новая в рядах NOW_WATCHING — со следующей сборки
+    // Главной. У ядра и kp_source это тот же id, что у карточки ряда.
+    function markOpened(id) {
+      var seen = readSeen();
+      var changed = false;
+      for (var url in seen) {
+        var entry = seen[url][id];
+        if (entry && entry.f !== 0) {
+          entry.f = 0;
+          changed = true;
+        }
+      }
+      if (changed) Lampa.Storage.set(SEEN_KEY, seen);
+    }
 
     // Новинка (spec now-watching-new-releases): год по Кинопоиску не раньше прошлого; у сериала
     // со старым стартом — последний эпизод по TMDB за 365 дней. 'episode' — нужна дата эпизода
@@ -305,12 +331,13 @@
       };
     }
 
-    // Дата последнего вышедшего эпизода сериала по TMDB. cb(null, причина) — даты нет.
+    // Последний вышедший сезон сериала по TMDB: { number, date }. cb(null, причина) — сведений нет;
+    // причина годится и для пустой date.
     function lastEpisode(card, cb) {
       resolveTitle(card, function (title) {
         if (!title || title.method !== 'tv') return cb(null, 'no tmdb tv title');
         lastSeason(title, function (last) {
-          cb((last && last.date) || null, 'no last episode date, tv/' + title.id);
+          cb(last, 'no last episode date, tv/' + title.id);
         });
       });
     }
@@ -355,19 +382,24 @@
     }
 
     // Новинки страниц коллекции first..last: страница first — known (ответ, уже полученный
-    // Главной) или запрос, остальные — запросы к исходному KP.list. Возвращает build():
-    // { results, gaps } — новинки и непроверенные в порядке коллекции, число недошедших страниц.
-    function collectPages(spec, first, last, known, rule, pending) {
+    // Главной) или запрос, остальные — запросы к исходному KP.list. needSeason(card) — нужен ли
+    // сезон сериала-новинки (у сериала со старым стартом он приходит с датой эпизода); без него сезон
+    // новинке не нужен. Возвращает build(): { results, gaps, seasons } — новинки и непроверенные в
+    // порядке коллекции, число недошедших страниц, id → полученный сезон.
+    function collectPages(spec, first, last, known, rule, pending, needSeason) {
       var pages = []; // undefined — нет ответа, null — ошибка страницы
 
       function addPage(page, json) {
         if (json && json.total_pages) srcPages[spec.url] = json.total_pages;
         pages[page - first] = ((json && json.results) || []).map(function (card) {
-          var item = { card: card, verdict: isNewRelease(card, rule), reason: 'no year' };
-          if (item.verdict !== 'episode') return item;
+          var item = { card: card, verdict: isNewRelease(card, rule), reason: 'no year', season: null };
+          var episode = item.verdict === 'episode';
+          item.asked = card.type === 'tv' && !!needSeason && needSeason(card);
+          if (!episode && !(item.asked && item.verdict === 'new')) return item;
           item.reason = 'timeout';
-          lastEpisode(card, pending()(function (date, reason) {
-            item.verdict = isNewRelease(card, rule, date);
+          lastEpisode(card, pending()(function (last, reason) {
+            if (episode) item.verdict = isNewRelease(card, rule, (last && last.date) || null);
+            item.season = last ? last.number : null;
             item.reason = reason;
           }));
           return item;
@@ -387,6 +419,7 @@
       return function () {
         var results = [];
         var gaps = [];
+        var seasons = {};
         for (var i = 0; i <= last - first; i++) {
           if (!pages[i]) {
             gaps.push('page ' + (first + i) + ' ' + (pages[i] === null ? 'failed' : 'timeout'));
@@ -395,11 +428,13 @@
           pages[i].forEach(function (item) {
             if (item.verdict === 'old') return;
             if (item.verdict !== 'new') console.warn('kp-reactions-fix: new release not checked', cardName(item.card), item.reason);
+            if (item.season !== null) seasons[item.card.id] = item.season;
+            else if (item.asked) console.warn('kp-reactions-fix: season unknown', cardName(item.card), item.reason);
             results.push(item.card);
           });
         }
         if (gaps.length) console.warn('kp-reactions-fix: new release row incomplete', spec.name, gaps.join(', '));
-        return { results: results, gaps: gaps.length };
+        return { results: results, gaps: gaps.length, seasons: seasons };
       };
     }
 
@@ -439,8 +474,61 @@
       wait.start();
     }
 
-    // Первая порция Главной: штатные ряды NOW_WATCHING заменены отфильтрованными. Ответы ждёт
-    // pending того waiter, что отдаёт порцию; возвращает build() — ряды порции.
+    function isObject(x) {
+      return !!x && typeof x === 'object' && !Array.isArray(x);
+    }
+
+    // Память рядов (SEEN_KEY) копией. Не той формы — предупреждение и пустая память, т. е. первый
+    // запуск.
+    function readSeen() {
+      var seen = Lampa.Storage.get(SEEN_KEY, '{}');
+      var ok = isObject(seen) && Object.keys(seen).every(function (url) {
+        var row = seen[url];
+        return isObject(row) && Object.keys(row).every(function (id) { return isObject(row[id]); });
+      });
+      if (ok) return JSON.parse(JSON.stringify(seen));
+      console.warn('kp-reactions-fix: ' + SEEN_KEY + ' corrupt, starting over', String(JSON.stringify(seen)).slice(0, 200));
+      return {};
+    }
+
+    // Порядок ряда (spec now-watching-new-releases, «Новые карточки первыми», «Память ряда»): новые —
+    // появившиеся за NEW_DAYS — первыми по убыванию времени появления, остальные за ними в порядке
+    // коллекции. batch — build() collectPages; rowMemory — запись ряда в памяти или undefined.
+    // Возвращает { results, memory }: memory — новая запись ряда, undefined — ряд не
+    // запоминается (первый запуск с неполным рядом).
+    function orderByNovelty(batch, rowMemory, now) {
+      if (!rowMemory && batch.gaps) return { results: batch.results, memory: undefined };
+      var nowMs = now.getTime();
+      var today = Math.floor(nowMs / DAY_MS);
+      var memory = {};
+      for (var id in rowMemory) {
+        var old = rowMemory[id];
+        if (today - old.l <= FORGET_DAYS) memory[id] = { f: old.f, s: old.s == null ? null : old.s, l: old.l };
+      }
+      batch.results.forEach(function (card) {
+        var season = card.id in batch.seasons ? batch.seasons[card.id] : null;
+        var entry = memory[card.id];
+        if (!entry) {
+          memory[card.id] = { f: rowMemory ? nowMs : 0, s: season, l: today };
+          return;
+        }
+        if (season !== null && (entry.s === null || season > entry.s)) {
+          if (entry.s !== null) entry.f = nowMs;
+          entry.s = season;
+        }
+        entry.l = today;
+      });
+      var order = batch.results.map(function (card, i) {
+        var f = memory[card.id].f;
+        return { card: card, i: i, f: f > 0 && nowMs - f < NEW_DAYS * DAY_MS ? f : 0 };
+      });
+      order.sort(function (a, b) { return b.f - a.f || a.i - b.i; });
+      return { results: order.map(function (o) { return o.card; }), memory: memory };
+    }
+
+    // Первая порция Главной: штатные ряды NOW_WATCHING заменены отфильтрованными, новые карточки
+    // первыми. Ответы ждёт pending того waiter, что отдаёт порцию. Возвращает build() — ряды порции
+    // и save() — запись памяти рядов, если сборка её изменила.
     function filterRows(parts, pending) {
       var originals = NOW_WATCHING.map(function (spec) {
         return parts.filter(function (p) { return p && p.url === spec.url; })[0];
@@ -448,22 +536,39 @@
       var missing = NOW_WATCHING.filter(function (spec, i) { return !originals[i]; });
       if (missing.length) {
         rowsFailed('no row ' + missing.map(function (spec) { return spec.name; }).join(', '));
-        return function () { return parts.slice(); };
+        return { build: function () { return parts.slice(); }, save: function () {} };
       }
 
-      var rule = noveltyRule(new Date());
+      var now = new Date();
+      var rule = noveltyRule(now);
+      var seen = readSeen();
+      var changed = false;
       var rows = NOW_WATCHING.map(function (spec, i) {
         var original = originals[i];
-        return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, pending);
+        var remembered = function (card) { return !!(seen[spec.url] && seen[spec.url][card.id]); };
+        return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, pending, remembered);
       });
-      return function () {
-        var out = [];
-        parts.forEach(function (p) {
-          var i = originals.indexOf(p);
-          var row = i === -1 ? p : filteredRow(NOW_WATCHING[i], p, rows[i]());
-          if (row) out.push(row);
-        });
-        return out;
+      function ordered(spec, original, batch) {
+        var next = orderByNovelty(batch, seen[spec.url], now);
+        if (next.memory && JSON.stringify(next.memory) !== JSON.stringify(seen[spec.url])) {
+          seen[spec.url] = next.memory;
+          changed = true;
+        }
+        return filteredRow(spec, original, { results: next.results, gaps: batch.gaps });
+      }
+      return {
+        build: function () {
+          var out = [];
+          parts.forEach(function (p) {
+            var i = originals.indexOf(p);
+            var row = i === -1 ? p : ordered(NOW_WATCHING[i], p, rows[i]());
+            if (row) out.push(row);
+          });
+          return out;
+        },
+        save: function () {
+          if (changed) Lampa.Storage.set(SEEN_KEY, seen);
+        }
       };
     }
 
@@ -512,14 +617,16 @@
 
     // Первая порция Главной уходит, когда собраны ряды новинок и закончен проход по KP-истории
     // (рекомендации без её тайтлов), но не позже ROWS_TIMEOUT_MS.
+    // Память рядов пишется после oncomplite: её сбой не задерживает Главную.
     function mainPortion(parts, oncomplite) {
-      var build;
+      var rows;
       var wait = waiter(function () {
-        var out = build();
+        var out = rows.build();
         if (recsReady) addRecs(parts, out);
         oncomplite(out);
+        rows.save();
       }, ROWS_TIMEOUT_MS);
-      build = filterRows(parts, wait.pending);
+      rows = filterRows(parts, wait.pending);
       if (recsReady && historyWaiting) historyWaiting.push(wait.pending()(function () {}));
       wait.start();
     }

@@ -1,13 +1,7 @@
 (async function () {
   // Новинки в штатных рядах Главной KP (spec now-watching-new-releases, сценарий «Ряды на приставке»).
-  // Штатный ряд ищем по url коллекции, как плагин, а не по заголовку.
-  var URLS = ['api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', 'api/v2.2/films/collections?type=POPULAR_SERIES'];
   var MORE = '.items-line__more, .card-more';
   var threshold = new Date().getFullYear() - 1;
-  function lines() {
-    var a = Lampa.Activity.active();
-    return a.component === 'main' && a.activity.component && a.activity.component.items || [];
-  }
   function oldMovies(cards) {
     return cards.filter(function (card) {
       var year = parseInt((card.release_date || '').slice(0, 4), 10);
@@ -15,18 +9,13 @@
     }).map(function (c) { return c.title + ' ' + c.release_date; });
   }
 
-  // R11: Главная собрана не позже этого момента от старта страницы (опрос раз в 250 мс).
-  var built = await Live.waitFor(function () { return lines().length >= 3; }, 20000);
-  var builtAt = Math.round(performance.now());
-  var a = Lampa.Activity.active();
-  Live.check(built, 'Главная не собралась: активна ' + a.component + ', источник ' + a.source);
-  Live.check(a.source === 'KP', 'источник Главной ' + a.source + ', нужен KP');
+  // R11: Главная собрана не позже этого момента от старта страницы.
+  var builtAt = await waitHome();
 
-  var items = lines();
-  var extra = items.filter(function (line) { return /^Сейчас смотрят: новинки/.test(line.data.title); });
+  var extra = lines().filter(function (line) { return /^Сейчас смотрят: новинки/.test(line.data.title); });
   Live.check(!extra.length, 'остались отдельные ряды: ' + extra.map(function (l) { return l.data.title; }).join(', '));
   var rows = URLS.map(function (url) {
-    var line = items.filter(function (l) { return l.data.url === url; })[0];
+    var line = rowOf(url);
     Live.check(line, 'нет штатного ряда ' + url);
     Live.check(line.render(true).querySelector(MORE), 'у «' + line.data.title + '» нет «Ещё»');
     return line;

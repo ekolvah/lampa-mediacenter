@@ -29,6 +29,7 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // Рекомендации (design.md kp-history-recommendations): history — ответ Favorite.get истории;
 // appready — window.appready; scan, recs — ключи recomends_scan и recomends_list. Storage.get отдаёт
 // один объект на ключ, как ядро; Storage.set шлёт change в Storage.listener, записи — в calls.sets.
+// seen — ключ kp_now_watching_seen (память рядов «Сейчас смотрят»), по умолчанию его нет.
 // defer: find/ и search/ отвечают, когда тест зовёт колбэк из calls.late.
 // Рекомендации на Главной (design.md kp-main-recommendations): Recomends.get повторяет get$4 ядра над
 // recomends_list, Router.call пишет вызовы в calls.routes, Arrays.shuffle — копия без перестановки;
@@ -91,6 +92,7 @@ function load(over) {
   const Select = { show(params) { calls.shown.push(params); } };
   const Listener = { follow(name, fn) { calls.listeners[name] = fn; } };
   const store = { recomends_scan: plain(opts.scan), recomends_list: plain(opts.recs) };
+  if (opts.seen !== undefined) store.kp_now_watching_seen = plain(opts.seen);
   const changes = [];
   const Storage = {
     field(name) { return name === 'tmdb_lang' ? 'ru' : undefined; },
@@ -292,10 +294,10 @@ const PLURIBUS = show('Одна из многих', '2025');
 const THRONES = show('Игра престолов', '2011', 'tt0944947');
 const STRANGER = show('Очень странные дела', '2016', 'tt4574334');
 const NEVSKY = show('Невский', '2015');
-const TV_ID = { tt0944947: 1399, tt4574334: 66732 };
+const TV_ID = { tt0944947: 1399, tt4574334: 66732, tt9: 9, tt8: 8 };
 const imdbOf = (url) => /find\/(tt\d+)/.exec(url)[1];
 const findTv = (url) => ({ movie_results: [], tv_results: [{ id: TV_ID[imdbOf(url)] }] });
-const aired = (date) => ({ last_episode_to_air: { season_number: 2, air_date: date } });
+const aired = (date, n = 2) => ({ last_episode_to_air: { season_number: n, air_date: date } });
 const HOME = [
   part(MOVIES_ROW, MOVIES_URL, [AVATAR, ZOOTOPIA]),
   part(SERIES_ROW, SERIES_URL, [PLURIBUS]),
@@ -308,6 +310,29 @@ function homeWith(over) {
   const pages = o.pages || ((url, page) => ({ results: url === MOVIES_URL && page === 2 ? o.page2 : [] }));
   return home(Object.assign({}, over, { parts, pages }));
 }
+
+// Память рядов «Сейчас смотрят» (design.md now-watching-new-first, решение 1): ключ
+// kp_now_watching_seen, { <url ряда>: { <id>: { f, s, l } } }. f — мс появления (0 — не новая),
+// s — сезон или null, l — день последней сборки с карточкой.
+const SEEN = 'kp_now_watching_seen';
+const DAY_MS = 864e5;
+const at = (iso) => new Date(iso).getTime();
+const dayOf = (iso) => Math.floor(at(iso) / DAY_MS);
+const memo = (cards, f, s, l) => Object.fromEntries(cards.map((card) => [card.id, { f, s: s === undefined ? null : s, l: l === undefined ? dayOf(TODAY) : l }]));
+const seenWith = (movies, series) => ({ [MOVIES_URL]: movies, [SERIES_URL]: series });
+const seenOf = (c) => plain(c.store[SEEN]);
+const FRESH = show('Свежий', '2026', 'tt9');
+const NEWER = show('Новенький', '2025', 'tt8');
+// Сериалы NEWER (tv 8) и FRESH (tv 9): сезоны по TMDB, число или 'error'/'never'.
+const seasons = (newer, fresh) => (id) => {
+  const n = id === 9 ? fresh : newer;
+  return typeof n === 'number' ? aired('2026-11-10', n) : n;
+};
+const seasonWarns = (c, card) => c.warn.filter((w) => w.join(' ').includes('season unknown') && w.includes(card.title));
+// Следующая сборка Главной с памятью, которую записала сборка c.
+const nextHome = (c, over) => homeWith(Object.assign({ seen: seenOf(c) }, over));
+// Главная только с рядом сериалов NEWER, FRESH и их сезонами по TMDB.
+const seriesOnly = (newer, fresh) => ({ movies: [], series: [NEWER, FRESH], find: findTv, tv: seasons(newer, fresh) });
 
 // Вставленный ролик стоит первым по обоим ключам сортировки движка: язык tmdb_lang и дата строго
 // позже всех прочих (design.md, решение 4).
@@ -788,11 +813,11 @@ test('empty year is unknown', () => {
   assert.ok(warnedWith(c, 'Без года'), JSON.stringify(c.warn));
 });
 
-test('new series no tmdb', () => {
-  const c = homeWith({ series: [PLURIBUS, show('Свежий', '2026', 'tt9')] });
-  assert.deepStrictEqual(names(row(c, SERIES_ROW)), [PLURIBUS.title, 'Свежий']);
-  assert.deepStrictEqual(c.get, []);
-  assert.deepStrictEqual(c.tv, []);
+test('new series new despite tmdb error', () => {
+  const seen = seenWith({}, memo([PLURIBUS, FRESH], 0, 1));
+  const c = homeWith({ series: [PLURIBUS, FRESH], seen, find: 'error', search: 'error', tv: 'error' });
+  assert.deepStrictEqual(names(row(c, SERIES_ROW)), [PLURIBUS.title, FRESH.title]);
+  assert.ok(!warnedWith(c, 'new release not checked'), JSON.stringify(c.warn));
 });
 
 test('new season of old series', () => {
@@ -891,6 +916,166 @@ test('late patch, noty', () => {
     const quiet = load({ open: false, active });
     assert.deepStrictEqual([quiet.noty, quiet.error], [[], []], JSON.stringify(active));
   }
+});
+
+// --- Новые карточки первыми (spec now-watching-new-releases, change now-watching-new-first) ---
+
+const FILM_A = film('Фильм А', '2026');
+const FILM_B = film('Фильм Б', '2026');
+const FILM_C = film('Фильм В', '2025');
+const SERIES_SEEN = memo([PLURIBUS], 0);
+
+test('new card first', () => {
+  const seen = seenWith(memo([AVATAR, FILM_C], 0), SERIES_SEEN);
+  const c = homeWith({ movies: [AVATAR, ZOOTOPIA, FILM_C], seen });
+  assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [ZOOTOPIA.title, AVATAR.title, FILM_C.title]);
+  assert.strictEqual(seenOf(c)[MOVIES_URL][ZOOTOPIA.id].f, at(TODAY));
+});
+
+test('newest appearance first', () => {
+  const movies = Object.assign(memo([AVATAR], 0), memo([FILM_A], at('2026-11-18T12:00:00')), memo([FILM_B], at('2026-11-20T12:00:00')));
+  const c = homeWith({ today: '2026-11-21T12:00:00', movies: [AVATAR, FILM_A, FILM_B], seen: seenWith(movies, SERIES_SEEN) });
+  assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [FILM_B.title, FILM_A.title, AVATAR.title]);
+});
+
+test('same build keeps collection order', () => {
+  const seen = seenWith(memo([AVATAR], 0), SERIES_SEEN);
+  const c = homeWith({ movies: [AVATAR, FILM_A, FILM_B], seen });
+  assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [FILM_A.title, FILM_B.title, AVATAR.title]);
+  const next = nextHome(c, { today: '2026-11-18T13:00:00', movies: [AVATAR, FILM_A, FILM_B] });
+  assert.deepStrictEqual(names(row(next, MOVIES_ROW)), [FILM_A.title, FILM_B.title, AVATAR.title]);
+});
+
+test('new card back after five days', () => {
+  const movies = Object.assign(memo([AVATAR], 0), memo([FILM_A], at('2026-11-15T10:00:00')));
+  const build = (today) => homeWith({ today, movies: [AVATAR, FILM_A], seen: seenWith(movies, SERIES_SEEN) });
+  assert.deepStrictEqual(names(row(build('2026-11-20T09:59:00'), MOVIES_ROW)), [FILM_A.title, AVATAR.title]);
+  assert.deepStrictEqual(names(row(build('2026-11-20T10:01:00'), MOVIES_ROW)), [AVATAR.title, FILM_A.title]);
+});
+
+test('opened card back in place', () => {
+  const c = homeWith({ movies: [AVATAR, ZOOTOPIA], seen: seenWith(memo([AVATAR], 0), SERIES_SEEN) });
+  assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [ZOOTOPIA.title, AVATAR.title]);
+  c.ctx.Lampa.Api.sources.KP.full({ card: { id: ZOOTOPIA.id, source: 'KP' } }, () => {}, () => {});
+  assert.strictEqual(seenOf(c)[MOVIES_URL][ZOOTOPIA.id].f, 0);
+  const next = nextHome(c, { movies: [AVATAR, ZOOTOPIA] });
+  assert.deepStrictEqual(names(row(next, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title]);
+});
+
+test('full list keeps collection order', () => {
+  const pages = (url, page) => ({ results: url === MOVIES_URL && page === 1 ? [AVATAR, ZOOTOPIA] : [] });
+  const c = homeWith({ movies: [AVATAR, ZOOTOPIA], pages, seen: seenWith(memo([AVATAR], 0), SERIES_SEEN) });
+  assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [ZOOTOPIA.title, AVATAR.title]);
+  const { got } = fullList(c, MOVIES_URL, 1);
+  assert.deepStrictEqual(got[0].results.map((card) => card.title), [AVATAR.title, ZOOTOPIA.title]);
+});
+
+test('new season raises opened series', () => {
+  const seen = seenWith({}, memo([NEWER, FRESH], 0, 1));
+  const c = homeWith(Object.assign({ seen }, seriesOnly(1, 2)));
+  assert.deepStrictEqual(names(row(c, SERIES_ROW)), [FRESH.title, NEWER.title]);
+  assert.strictEqual(seenOf(c)[SERIES_URL][FRESH.id].s, 2);
+});
+
+test('same season stays', () => {
+  const seen = seenWith({}, Object.assign(memo([NEWER], 0, 2), memo([FRESH], 0, 3)));
+  const c = homeWith(Object.assign({ seen }, seriesOnly(2, 2)));
+  assert.deepStrictEqual(names(row(c, SERIES_ROW)), [NEWER.title, FRESH.title]);
+  assert.strictEqual(seenOf(c)[SERIES_URL][FRESH.id].s, 3);
+});
+
+test('season unknown keeps place, one warning', () => {
+  const seen = seenWith({}, memo([NEWER, FRESH], 0, 1));
+  const c = homeWith(Object.assign({ seen }, seriesOnly(1, 'error')));
+  assert.deepStrictEqual(names(row(c, SERIES_ROW)), [NEWER.title, FRESH.title]);
+  assert.strictEqual(seasonWarns(c, FRESH).length, 1, JSON.stringify(c.warn));
+  assert.strictEqual(seasonWarns(c, NEWER).length, 0, JSON.stringify(c.warn));
+  assert.strictEqual(seenOf(c)[SERIES_URL][FRESH.id].s, 1);
+  const next = nextHome(c, seriesOnly(1, 2));
+  assert.deepStrictEqual(names(row(next, SERIES_ROW)), [FRESH.title, NEWER.title]);
+});
+
+test('tmdb season timeout builds home', () => {
+  const seen = seenWith({}, memo([NEWER, FRESH], 0, 1));
+  const c = homeWith(Object.assign({ seen }, seriesOnly(1, 'never')));
+  assert.strictEqual(c.home.length, 0);
+  assert.deepStrictEqual(c.timers.map((t) => t.ms), [5000]);
+  c.fire();
+  assert.strictEqual(c.home.length, 1);
+  assert.deepStrictEqual(names(row(c, SERIES_ROW)), [NEWER.title, FRESH.title]);
+  assert.strictEqual(seasonWarns(c, FRESH).length, 1, JSON.stringify(c.warn));
+  assert.ok(warnedWith(c, 'season unknown', FRESH.title, 'timeout'), JSON.stringify(c.warn));
+});
+
+test('season learned without raise', () => {
+  const seen = seenWith({}, Object.assign(memo([NEWER], 0, 1), memo([FRESH], 0, null)));
+  const c = homeWith(Object.assign({ seen }, seriesOnly(1, 3)));
+  assert.deepStrictEqual(names(row(c, SERIES_ROW)), [NEWER.title, FRESH.title]);
+  assert.strictEqual(seenOf(c)[SERIES_URL][FRESH.id].s, 3);
+  const next = nextHome(c, seriesOnly(1, 4));
+  assert.deepStrictEqual(names(row(next, SERIES_ROW)), [FRESH.title, NEWER.title]);
+});
+
+test('unseen series raised without season request', () => {
+  const seen = seenWith({}, memo([NEWER], 0, 1));
+  const c = homeWith(Object.assign({ seen }, seriesOnly(1, 1)));
+  assert.deepStrictEqual(names(row(c, SERIES_ROW)), [FRESH.title, NEWER.title]);
+  assert.deepStrictEqual(c.tv.map((t) => t.url), ['tv/8']);
+  assert.ok(!c.get.some((g) => g.url.includes('tt9')), JSON.stringify(c.get));
+  assert.strictEqual(seenOf(c)[SERIES_URL][FRESH.id].s, null);
+});
+
+test('first run seeds memory', () => {
+  const c = homeWith({ movies: [AVATAR, ZOOTOPIA], series: [PLURIBUS] });
+  assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title]);
+  assert.strictEqual(setsOf(c, SEEN), 1);
+  assert.deepStrictEqual(seenOf(c), seenWith(memo([AVATAR, ZOOTOPIA], 0), memo([PLURIBUS], 0)));
+  const next = nextHome(c, { movies: [ZOOTOPIA, AVATAR], series: [PLURIBUS] });
+  assert.deepStrictEqual(names(row(next, MOVIES_ROW)), [ZOOTOPIA.title, AVATAR.title]);
+});
+
+test('incomplete first run not seeded', () => {
+  const pages = (url, page) => (url === MOVIES_URL && page === 3 ? 'error' : { results: url === MOVIES_URL && page === 2 ? [FILM_A] : [] });
+  const c = homeWith({ movies: [AVATAR], pages });
+  assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, FILM_A.title]);
+  assert.strictEqual(seenOf(c)[MOVIES_URL], undefined);
+  const next = nextHome(c, { movies: [AVATAR], page2: [FILM_A] });
+  assert.deepStrictEqual(names(row(next, MOVIES_ROW)), [AVATAR.title, FILM_A.title]);
+  assert.deepStrictEqual(seenOf(next)[MOVIES_URL], memo([AVATAR, FILM_A], 0));
+});
+
+test('returning card not new', () => {
+  const movies = Object.assign(memo([AVATAR], 0, null, dayOf(TODAY) - 1), memo([ZOOTOPIA], 0, null, dayOf(TODAY) - 3));
+  const c = homeWith({ movies: [AVATAR, ZOOTOPIA], seen: seenWith(movies, SERIES_SEEN) });
+  assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title]);
+  assert.deepStrictEqual(seenOf(c)[MOVIES_URL], memo([AVATAR, ZOOTOPIA], 0));
+});
+
+test('absent 31 days forgotten, 29 days remembered', () => {
+  for (const [days, kept] of [[31, false], [30, true], [29, true]]) {
+    const gone = film('Ушедший', '2026');
+    const movies = Object.assign(memo([AVATAR], 0), memo([ZOOTOPIA, gone], 0, null, dayOf(TODAY) - days));
+    const c = homeWith({ movies: [AVATAR, ZOOTOPIA], seen: seenWith(movies, SERIES_SEEN) });
+    const order = kept ? [AVATAR.title, ZOOTOPIA.title] : [ZOOTOPIA.title, AVATAR.title];
+    assert.deepStrictEqual(names(row(c, MOVIES_ROW)), order, String(days));
+    assert.strictEqual(gone.id in seenOf(c)[MOVIES_URL], kept, String(days));
+  }
+});
+
+test('corrupt memory reseeded, warning', () => {
+  for (const seen of ['garbage', [], { [MOVIES_URL]: 5, [SERIES_URL]: {} }]) {
+    const c = homeWith({ movies: [AVATAR, ZOOTOPIA], seen });
+    assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title], JSON.stringify(seen));
+    assert.ok(warnedWith(c, SEEN), JSON.stringify(c.warn));
+    const next = nextHome(c, { movies: [ZOOTOPIA, AVATAR] });
+    assert.deepStrictEqual(names(row(next, MOVIES_ROW)), [ZOOTOPIA.title, AVATAR.title], JSON.stringify(seen));
+  }
+});
+
+test('unchanged memory not rewritten', () => {
+  const seen = seenWith(memo([AVATAR], 0), SERIES_SEEN);
+  assert.strictEqual(setsOf(homeWith({ seen }), SEEN), 0);
+  assert.strictEqual(setsOf(homeWith({ seen, today: '2026-11-19T12:00:00' }), SEEN), 1);
 });
 
 // --- Полный список новинок по «Ещё» (spec now-watching-new-releases) ---
@@ -1156,7 +1341,9 @@ test('main waits for history pass', () => {
 });
 
 test('two mains wait for one pass', () => {
-  const c = home({ history: [KP_FIGHT], find: findByImdb, defer: true, recs: [recMovie(1), recMovie(550)] });
+  // Без сериалов в ряду: третья Главная иначе ждёт отложенный поиск сезона запомненного сериала.
+  const parts = [HOME[0], part(SERIES_ROW, SERIES_URL, [AVATAR]), HOME[2]];
+  const c = home({ parts, history: [KP_FIGHT], find: findByImdb, defer: true, recs: [recMovie(1), recMovie(550)] });
   const second = c.main();
   assert.deepStrictEqual([c.home.length, second.length], [0, 0]);
   c.late.shift()();
