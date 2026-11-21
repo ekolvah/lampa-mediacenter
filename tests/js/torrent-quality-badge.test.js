@@ -96,21 +96,44 @@ function grey(item) {
   return item.render().classes.has('card--quality-miss');
 }
 
-// Lampa: фильтр, кэш вердиктов (все — «есть раздачи»), контроллер с записью фокуса.
-function lampa(t, { filter = {}, own = false } = {}) {
-  const calls = { filterReads: 0, cacheReads: 0, focus: [] };
+// Парсер как jackett() движка: синхронно читает movie.genres.map до запроса.
+// plan[id]: 'throw' — бросает при запуске, 'complete-throw' — oncomplete и бросает,
+// 'hold' — ждёт release; иначе сразу «раздач нет».
+function parser(calls, plan) {
+  return {
+    get(params, oncomplete) {
+      const { movie } = params;
+      calls.parsed.push(movie);
+      movie.genres.map((g) => g.id);
+      const mode = plan[movie.id];
+      if (mode === 'throw') throw new Error(`boom ${movie.id}`);
+      if (mode === 'hold') { calls.held.push({ id: movie.id, oncomplete }); return; }
+      oncomplete({ Results: [] });
+      if (mode === 'complete-throw') throw new Error(`late ${movie.id}`);
+    },
+  };
+}
+
+// Lampa: фильтр, кэш вердиктов (все — «есть раздачи», с cold — пустой), контроллер
+// с записью фокуса, парсер по плану plan.
+function lampa(t, { filter = {}, own = false, cold = false, plan = {} } = {}) {
+  const calls = { filterReads: 0, cacheReads: 0, focus: [], parsed: [], held: [] };
+  const coldCache = {};
   global.Lampa = {
     Storage: {
       get(key, def) {
         if (key === 'torrents_filter') { calls.filterReads += 1; return filter; }
         return def;
       },
+      field() { return undefined; },
       cache() {
         calls.cacheReads += 1;
+        if (cold) return coldCache;
         return new Proxy({}, { get: () => ({ ts: Date.now(), miss: false }) });
       },
       set() {},
     },
+    Parser: parser(calls, plan),
     Controller: {
       own: () => own,
       collectionSet() {},
@@ -393,4 +416,63 @@ test('grid refill stops at auto page limit', (t) => {
   for (let i = 0; i < 5; i += 1) refill(grid);
   assert.strictEqual(grid.object.page, 4);
   assert.strictEqual(grid.events.filter((e) => e === 'loadNext').length, 3);
+});
+
+// --- Очередь проверок: карточки TMDB без genres и сбой запуска парсера ---
+
+// Карточка ряда TMDB: из списка, с genre_ids и без genres.
+function tmdbCard(name, genreIds = [16, 35]) {
+  const c = card(name);
+  c.data = { id: name, title: `T-${name}`, genre_ids: genreIds, source: 'tmdb' };
+  return c;
+}
+
+function keptCard(item) {
+  return !item.destroyed && !grey(item);
+}
+
+test('tmdb card without genres is checked', async (t) => {
+  const calls = lampa(t, { filter: { quality: ['4k'] }, cold: true });
+  const errors = t.mock.method(console, 'error', () => {});
+  const grid = fullGrid({ count: 13 });
+  const append = attached(grid);
+  const scrooge = tmdbCard('scrooge');
+  append(scrooge);
+  await tick();
+  assert.strictEqual(errors.mock.callCount(), 0);
+  assert.deepStrictEqual(calls.parsed.map((m) => m.genres), [[{ id: 16 }, { id: 35 }]]);
+  assert.strictEqual('genres' in scrooge.data, false);
+  assert.strictEqual(grid.items.includes(scrooge), false);
+  assert.strictEqual(scrooge.destroyed, true);
+});
+
+test('parser throws keep cards and do not stall queue', async (t) => {
+  const plan = {
+    bad1: 'throw', bad2: 'throw', late: 'complete-throw', h1: 'hold', h2: 'hold', h3: 'hold',
+  };
+  const calls = lampa(t, { filter: { quality: ['4k'] }, cold: true, plan });
+  const errors = t.mock.method(console, 'error', () => {});
+  const grid = fullGrid({ count: 13 });
+  const append = attached(grid);
+  const [bad1, bad2, empty] = ['bad1', 'bad2', 'empty'].map((n) => tmdbCard(n, []));
+  [bad1, bad2, empty].forEach(append);
+  await tick();
+  assert.strictEqual(keptCard(bad1) && keptCard(bad2), true);
+  assert.strictEqual(empty.destroyed, true);
+  const logged = errors.mock.calls.map((c) => c.arguments.map(String).join(' '));
+  ['bad1', 'bad2'].forEach((n) => {
+    assert.ok(logged.some((s) => s.includes(`T-${n}`) && s.includes(`boom ${n}`)), logged.join('\n'));
+  });
+
+  // oncomplete, а затем исключение: слот освобождается один раз, третья ждёт.
+  const [late, h1, h2, h3] = ['late', 'h1', 'h2', 'h3'].map((n) => tmdbCard(n, []));
+  [late, h1, h2, h3].forEach(append);
+  await tick();
+  assert.strictEqual(late.destroyed, true);
+  assert.deepStrictEqual(calls.held.map((h) => h.id), ['h1', 'h2']);
+  calls.held.shift().oncomplete({ Results: [] });
+  assert.deepStrictEqual(calls.held.map((h) => h.id), ['h2', 'h3']);
+  calls.held.splice(0).forEach((h) => h.oncomplete({ Results: [] }));
+  await tick();
+  assert.strictEqual([h1, h2, h3].every((c) => c.destroyed), true);
 });

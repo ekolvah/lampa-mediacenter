@@ -4,8 +4,8 @@
 
 ## 1. RED
 
-- [ ] 1.1 Add to `tests/js/torrent-quality-badge.test.js` the two tests named in the map below. Drive cards through the existing `attached(fullGrid())` path; extend the `lampa()` double with a cold verdict cache (a plain object instead of the always-hit `Proxy`) and a `Parser.get` double that, like the engine's `jackett()`, calls `movie.genres.map(...)` synchronously, records the `movie` it got, and then calls `oncomplete` with configured results, throws for configured cards, or calls `oncomplete` and then throws. The throw test asserts the thrown message is among the `console.error` arguments; its `oncomplete`-then-throw case asserts a third card still waits while two are in flight
-- [ ] 1.2 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify both new tests fail on the thrown `TypeError` / stalled queue, not on the doubles; commit RED with the ticks
+- [x] 1.1 Add to `tests/js/torrent-quality-badge.test.js` the two tests named in the map below. Drive cards through the existing `attached(fullGrid())` path; extend the `lampa()` double with a cold verdict cache (a plain object instead of the always-hit `Proxy`) and a `Parser.get` double that, like the engine's `jackett()`, calls `movie.genres.map(...)` synchronously, records the `movie` it got, and then calls `oncomplete` with configured results, throws for configured cards, or calls `oncomplete` and then throws. The throw test asserts the thrown message is among the `console.error` arguments; its `oncomplete`-then-throw case asserts a third card still waits while two are in flight
+- [x] 1.2 Run `agent-process check_red tests/test_plugin_js.py::test_plugin_js`; verify both new tests fail on the thrown `TypeError` / stalled queue, not on the doubles; commit RED with the ticks
 
 ## 2. Plugin
 
