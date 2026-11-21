@@ -13,7 +13,7 @@
 
 ## 3. Live check
 
-- [ ] 3.1 Design 3: add `tests/live/hide-cards/queue-cold.js` and `tests/live/hide-cards/queue-drains.js`, run `queue-cold`, `rebuild-main`, then `queue-drains` (15 s per call, up to four calls) right after `restart_lampa` in `tests/live/hide-cards.sh` (not in the `grid` branch); verify `bash -n tests/live/hide-cards.sh`; commit
+- [x] 3.1 Design 3: add `tests/live/hide-cards/queue-cold.js` and `tests/live/hide-cards/queue-drains.js`, run `queue-cold`, `rebuild-main`, then `queue-drains` (15 s per call, up to four calls) right after `restart_lampa` in `tests/live/hide-cards.sh` (not in the `grid` branch); verify `bash -n tests/live/hide-cards.sh`; commit
 - [ ] 3.2 Device run: push the branch; snapshot per `docs/snapshots-convention.md`; switch the `torrent-quality-badge.js` URL to `@<branch head sha>` via `cdp.py`; force-stop and restart Lampa; run `bash tests/live/hide-cards.sh`, verify exit 0 and that «Скрудж» (or another card with cached `miss: true`) is absent from «Сейчас смотрят фильмы»; switch the URL back to the sha from the snapshot, force-stop, restart and check by `screencap` that Главная renders (CLAUDE.md, после живого тестирования)
 
 ## 4. Verify

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Живая проверка скрытия карточек без раздач (plugins/torrent-quality-badge.js).
+# Шаг 0 — очередь на TMDB-карточках (change badge-queue-tmdb-cards).
 # Шаги 1-5 — ряды (change hide-cards-without-torrents), 6-10 — сетка категории
 # (change hide-cards-in-category-grid, design.md решение 8). `hide-cards.sh grid` —
 # только рестарт и шаги сетки. Код выхода — итог: JS-шаг бросает исключение ->
@@ -43,6 +44,12 @@ if [ "${1:-}" = grid ]; then
   echo "OK: hide-cards grid"
   exit 0
 fi
+
+echo "== шаг 0: очередь проходит TMDB-карточки без genres"
+step queue-cold
+step rebuild-main
+# Шаг ждёт до 15 с, cdp.py держит запрос до 20 с: до четырёх вызовов, около 60 с.
+step queue-drains || step queue-drains || step queue-drains || step queue-drains
 
 echo "== шаг 1: вердикты из кэша применены очередью"
 step warm-cache
