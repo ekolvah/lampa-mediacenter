@@ -34,7 +34,9 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // Рекомендации на Главной (design.md kp-main-recommendations): Recomends.get повторяет get$4 ядра над
 // recomends_list, Router.call пишет вызовы в calls.routes, Arrays.shuffle — копия без перестановки;
 // Отдельные списки (design.md kp-split-recommendations): recsMovie, recsTv — сохранённые kp_recs_movie,
-// kp_recs_tv (по умолчанию ключей нет); Recomends.page двойника — заглушка ядра, Lang.translate отдаёт ключ.
+// kp_recs_tv (по умолчанию ключей нет); quota — ключи, запись которых падает, как QuotaExceededError в
+// Storage.set ядра (callerror, значение не сохранено); Recomends.page двойника — заглушка ядра,
+// Lang.translate отдаёт ключ.
 // drop — что убрать из двойника: 'Recomends', 'Recomends.get', 'Recomends.page', 'Router', 'Arrays'. fireMs(ms) запускает
 // только таймеры с этим ms.
 function load(over) {
@@ -101,7 +103,11 @@ function load(over) {
   const Storage = {
     field(name) { return name === 'tmdb_lang' ? 'ru' : undefined; },
     get(name, empty) { return name in store ? store[name] : JSON.parse(empty); },
-    set(name, value) {
+    set(name, value, nolisten, callerror) {
+      if ((opts.quota || []).includes(name)) {
+        if (callerror) callerror({ name: 'QuotaExceededError' });
+        return;
+      }
       store[name] = value;
       calls.sets.push(name);
       changes.forEach((fn) => fn({ name, value }));
@@ -1421,10 +1427,16 @@ test('recs lists keep movies when core writes series', () => {
   assert.strictEqual(c.ctx.Lampa.Recomends.get('movie').length, 30);
 });
 
-test('recs list capped at 100 per type', () => {
-  const c = recs({ recsMovie: movies(1, 90) });
-  coreWrite(c, movies(101, 20));
-  assert.deepStrictEqual(idsOf(c, 'kp_recs_movie'), range(11, 80).concat(range(101, 20)));
+test('recs list capped at 500 per type', () => {
+  const c = recs({ recsMovie: movies(1, 490) });
+  coreWrite(c, movies(1001, 20));
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_movie'), range(11, 480).concat(range(1001, 20)));
+});
+
+test('recs list not saved warns', () => {
+  const c = recs({ quota: ['kp_recs_movie'], recs: movies(1, 3).concat(shows(1001, 2)) });
+  assert.deepStrictEqual(idsOf(c, 'kp_recs_tv'), [1001, 1002]);
+  assertWarned(c, RECS_WARN + ' kp_recs_movie not saved', 'QuotaExceededError');
 });
 
 test('recs repeated title moves to end', () => {

@@ -38,8 +38,9 @@
   // Карточек в ряду рекомендаций Главной (у ядра 20) и карточек на странице его экрана «Ещё».
   var REC_ROW_LIMIT = 40;
   var REC_PAGE = 20;
-  // Тайтлов в списке рекомендаций одного типа — как общий лимит ядра (spec kp-main-recommendations).
-  var REC_TYPE_LIMIT = 100;
+  // Тайтлов в списке рекомендаций одного типа: весь круг сканов ядра по истории (design.md
+  // kp-split-recommendations, решение 4); у ядра 100 на оба типа — рекомендации 5–7 последних сканов.
+  var REC_TYPE_LIMIT = 500;
   // Добавка к заголовку ряда, собранного не до конца.
   var INCOMPLETE = ' · неполный';
   // Штатные ряды kp_source по url, который кладёт его getList.
@@ -668,7 +669,10 @@
       });
       Object.keys(REC_KEYS).forEach(function (type) {
         recLists[type] = recLists[type].slice(-REC_TYPE_LIMIT);
-        if (idsKey(recLists[type]) !== before[type]) Lampa.Storage.set(REC_KEYS[type], recLists[type]);
+        if (idsKey(recLists[type]) === before[type]) return;
+        Lampa.Storage.set(REC_KEYS[type], recLists[type], false, function (e) {
+          console.warn('kp-reactions-fix: recommendations: ' + REC_KEYS[type] + ' not saved', e && e.name);
+        });
       });
     }
     mergeRecs(Lampa.Storage.get('recomends_list', '[]'));

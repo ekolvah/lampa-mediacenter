@@ -43,12 +43,12 @@
     });
   });
 
-  // 3. Отдельные списки типа (change kp-split-recommendations): есть, не больше 100, тип совпадает,
+  // 3. Отдельные списки типа (change kp-split-recommendations): есть, не больше 500, тип совпадает,
   // фильмов не меньше, чем в общем списке ядра; ряд фильмов — из своего списка; get — замена плагина.
   var lists = { movie: Lampa.Storage.get('kp_recs_movie', '[]'), tv: Lampa.Storage.get('kp_recs_tv', '[]') };
   Object.keys(lists).forEach(function (type) {
     var list = lists[type];
-    Live.check(Array.isArray(list) && list.length && list.length <= 100, 'kp_recs_' + type + ': ' + (Array.isArray(list) ? list.length : typeof list));
+    Live.check(Array.isArray(list) && list.length && list.length <= 500, 'kp_recs_' + type + ': ' + (Array.isArray(list) ? list.length : typeof list));
     Live.check(list.every(function (e) { return isTv(e) === (type === 'tv'); }), 'в kp_recs_' + type + ' тайтл другого типа');
   });
   var coreMovies = Lampa.Storage.get('recomends_list', '[]').filter(function (e) { return !isTv(e); }).length;
