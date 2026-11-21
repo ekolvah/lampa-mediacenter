@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 1,
+  "reviewer": "architect-reviewer",
+  "reasoning": "A one-line hook command change that removes the root cause of both defects (implicit cwd = repo root). The cause is reproduced and backed by cited sources, and three RED tests run the real settings.json line; no open finding.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md Decision 1 compares the issue's absolute-path command (finds the script, but _relative() in scripts/claude_hook.py:52-56 still resolves against the session cwd, so a snapshot file is falsely blocked from a subdirectory) and a two-name script edit. test_snapshot_skipped_outside_root fails under the issue's alternative and passes under `cd \"$CLAUDE_PROJECT_DIR\" && ...`, so the scenarios do reject the alternative. Nothing simpler than a single cd remains: the script and ci_check.py stay unchanged.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "spec.md has three scenarios: 'Команда хука из чужого каталога', 'Снапшот из подкаталога не блокируется' and 'Секрет из подкаталога ловится'. tasks.md '## Scenario → test map' maps each to a named test in tests/test_claude_hook.py, and the third row pins the asserted header and finding line.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Task 1.2 runs check_red on all three node ids before Task 2.1. Each fails on the current command `python scripts/claude_hook.py` run from a subdirectory. Test 1 gets exit 2 and 'No such file'. Test 2 gets exit 2 where 0 is expected. Test 3 gets exit 2 as well, but the pinned stderr header `Файл docs/a.md не проходит гейты:` is missing, so it is RED for the right reason and not on the exit code alone. The implementer must send `tool_input.file_path` as an absolute path, which is what Claude Code sends. A path relative to the subdirectory cwd would break after the `cd`.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Hooks run in the session cwd: cited in proposal.md Why (code.claude.com/docs/en/hooks, 'Hook handler fields'). CLAUDE_PROJECT_DIR is exported to the hook process, and the shell is bash when Git Bash is installed: both cited in design.md Standard approach (hooks, 'Exec form and shell form' / 'Command hook fields'). Git Bash `cd` accepts the Windows-form path: the command output is in design.md. The failure is reproduced in proposal.md. Two claims are not observed, and neither is load-bearing. 'Хуки читаются при старте' (Migration) only affects when the live check after merge happens. 'CLAUDE_PROJECT_DIR может указывать на основную копию' in a worktree is harmless either way: the worktree lies under the main root, so _relative gives `.claude/worktrees/<c>/…`, and scan_device_secrets (scripts/ci_check.py:129) does not apply _EXCLUDE_DIRS, so the file is still scanned.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "The hook's implicit input changes from the session cwd to CLAUDE_PROJECT_DIR. design.md Risks lists the PowerShell case and the worktree-points-at-main case. A third case, unset or empty, was checked by the reviewer and degrades visibly: in Git Bash 5.2, `cd \"\"` is a no-op with exit 0, so the command falls back to today's behaviour, and from a subdirectory that is exit 2 with 'No such file', fed back to the model, not skipped silently. No guard is dropped: the snapshots/ skip and the scanner are unchanged.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "When the hook does not run (PowerShell, misconfigured env), the catcher actually reached is scripts/ci_check.py's secret scan. It runs in the manual pre-commit stage on the pre-push hook and in the `agent-process / quality` check on every PR head (CLAUDE.md 'Гейты качества'; .github/agent-process-quality.json `test`), and both fire before the public push lands. The hook's own regression is caught by tests/test_claude_hook.py in that same `test` run, because the tests read the live settings.json line.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Requirement 'Хук работает вне корня' is about 22 words; its test asserts 2 facts (exit 0, no 'No such file'). Requirement 'Путь файла от корня проекта' is about 33 words; its tests assert exit 0 for snapshots/, exit 2, the root-relative path in the header and `docs/a.md:1:`. Every clause in the requirements has an assertion; there are no unasserted prose rules.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "The design.md Standard approach cites Claude Code's own documented pattern for project scripts in hooks, which is `$CLAUDE_PROJECT_DIR` (hooks-guide). The design follows it, using `cd` rather than a script-path prefix for the _relative() reason given in Decision 1. The plan adds no new script or check: only a test file and one settings.json line.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}

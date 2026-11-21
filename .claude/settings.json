@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python scripts/claude_hook.py",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && python scripts/claude_hook.py",
             "timeout": 30
           }
         ]
