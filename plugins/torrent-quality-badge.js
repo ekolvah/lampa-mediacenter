@@ -634,30 +634,51 @@
   var active = 0;
   var inFlight = Object.create(null);
 
-  function pump() {
-    while (active < MAX_CONCURRENT && queue.length) {
-      var task = queue.shift();
-      active++;
+  // Карточки рядов TMDB построены из списков: там genre_ids, а не genres, и
+  // jackett() движка падает на genres.map. Парсер получает копию с genres из
+  // genre_ids — имён нет: JacRed их не читает, isAnimeMovie смотрит только id.
+  function withGenres(movie) {
+    if (Array.isArray(movie.genres)) return movie;
+    var copy = {};
+    for (var k in movie) copy[k] = movie[k];
+    copy.genres = (movie.genre_ids || []).map(function (id) { return { id: id }; });
+    return copy;
+  }
 
+  // Каждому active++ — ровно один finishTask: колбэки парсера и catch идут через
+  // один флаг, иначе oncomplete с последующим исключением освободил бы слот дважды.
+  function startTask(task) {
+    var done = false;
+    function finish(results) {
+      if (done) return;
+      done = true;
+      finishTask(task.key, results, task.filter);
+    }
+
+    try {
       Lampa.Parser.get(
         {
           search: buildSearch(task.movie),
-          movie: task.movie,
+          movie: withGenres(task.movie),
           from_search: false,
           clarification: false,
           other: false
         },
-        function (key, filter) {
-          return function (data) {
-            finishTask(key, ((data && data.Results) || []), filter);
-          };
-        }(task.key, task.filter),
-        function (key, filter) {
-          return function () {
-            finishTask(key, null, filter);
-          };
-        }(task.key, task.filter)
+        function (data) { finish((data && data.Results) || []); },
+        function () { finish(null); }
       );
+    } catch (err) {
+      console.error('torrent-quality-badge: проверка карточки не началась — «' +
+        (task.movie.title || task.movie.name) + '» (' +
+        (task.movie.release_date || task.movie.first_air_date || '') + ')', err);
+      finish(null);
+    }
+  }
+
+  function pump() {
+    while (active < MAX_CONCURRENT && queue.length) {
+      active++;
+      startTask(queue.shift());
     }
   }
 

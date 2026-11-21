@@ -439,7 +439,9 @@ test('tmdb card without genres is checked', async (t) => {
   const scrooge = tmdbCard('scrooge');
   append(scrooge);
   await tick();
-  assert.strictEqual(errors.mock.callCount(), 0);
+  // Только ошибки плагина: Node может дописать в console.error свой ExperimentalWarning.
+  const own = errors.mock.calls.filter((c) => String(c.arguments[0]).startsWith('torrent-quality-badge'));
+  assert.strictEqual(own.length, 0);
   assert.deepStrictEqual(calls.parsed.map((m) => m.genres), [[{ id: 16 }, { id: 35 }]]);
   assert.strictEqual('genres' in scrooge.data, false);
   assert.strictEqual(grid.items.includes(scrooge), false);

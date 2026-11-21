@@ -9,7 +9,7 @@
 
 ## 2. Plugin
 
-- [ ] 2.1 Design 1 and 2 in `pump()`, including the per-task finish-once guard; verify `python -m pytest tests/test_plugin_js.py` green (both new tests, the card's own `data` has no `genres`) and `node --check plugins/torrent-quality-badge.js`; commit
+- [x] 2.1 Design 1 and 2 in `pump()`, including the per-task finish-once guard; verify `python -m pytest tests/test_plugin_js.py` green (both new tests, the card's own `data` has no `genres`) and `node --check plugins/torrent-quality-badge.js`; commit
 
 ## 3. Live check
 
