@@ -42,7 +42,7 @@
 
 ## 5. Доки
 
-- [ ] 5.1 `docs/lampa-config-review.md`: в строке `kp-reactions-fix.js` описать порядок ряда, ключ
+- [x] 5.1 `docs/lampa-config-review.md`: в строке `kp-reactions-fix.js` описать порядок ряда, ключ
   `kp_now_watching_seen` и запросы TMDB о сезоне для запомненных новых сериалов. Обновить шапку
   `plugins/kp-reactions-fix.js`. Коммит.
 
