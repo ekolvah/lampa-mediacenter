@@ -25,6 +25,8 @@
   // копит в отдельных списках типа kp_recs_movie/kp_recs_tv, и Lampa.Recomends.get/page отдают их
   // (spec kp-main-recommendations).
 
+  // ---- Общее: константы, сравнение названий, источники движка, помощники TMDB ----
+
   var DAY = 60 * 24; // life кэша движка — в минутах
   var WEEK = DAY * 7;
   var TRAILER_SERVICE = 'http://127.0.0.1:9118/trailer';
@@ -72,9 +74,8 @@
     return [a, b].filter(function (t) { return typeof t === 'string' && t; }).map(normalizeTitle);
   }
 
-  // ---- Общее: помощники TMDB для обоих модулей ----
-
-  // Источники движка; присваивает patch(), код ниже зовётся только после него.
+  // Источники движка: cub — реакции карточки, tmdb — оба модуля. Присваивает patch(), код ниже
+  // зовётся только после него.
   var cub, tmdb;
 
   function cardName(movie) {

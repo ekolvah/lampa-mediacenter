@@ -26,7 +26,7 @@
 
 ## 4. Verify
 
-- [ ] 4.1 `/simplify`, коммит правок. Если правки задели плагин — повторить 3.1 на новом sha.
+- [x] 4.1 `/simplify`, коммит правок. Если правки задели плагин — повторить 3.1 на новом sha.
 - [ ] 4.2 `openspec validate --strict --all`.
 - [ ] 4.3 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 
