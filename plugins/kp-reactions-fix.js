@@ -680,12 +680,15 @@
     var kpWatched = {};
     // Замена Recomends.get ядра над списком типа (решение 2): id и тип, а не только id, как у ядра.
     function recsGet(type) {
-      var seen = Object.assign({}, kpWatched);
+      var seen = {};
       Lampa.Favorite.get({ type: 'history' }).forEach(function (h) {
         if (h.source === 'tmdb' || h.source === 'cub') seen[recKey(h.id, isTv(h))] = true;
       });
       var tv = type == 'tv';
-      return recLists[tv ? 'tv' : 'movie'].slice().reverse().filter(function (e) { return !seen[recKey(e.id, tv)]; });
+      return recLists[tv ? 'tv' : 'movie'].slice().reverse().filter(function (e) {
+        var key = recKey(e.id, tv);
+        return !seen[key] && !kpWatched[key];
+      });
     }
     recsGet.__kp_split = true; // только для живой проверки tests/live/main-recs.sh
     // Копия page ядра над recsGet: её зовёт экран «Ещё».

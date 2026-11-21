@@ -43,7 +43,7 @@
     });
   });
 
-  // 4. Отдельные списки типа (change kp-split-recommendations): есть, не больше 100, тип совпадает,
+  // 3. Отдельные списки типа (change kp-split-recommendations): есть, не больше 100, тип совпадает,
   // фильмов не меньше, чем в общем списке ядра; ряд фильмов — из своего списка; get — замена плагина.
   var lists = { movie: Lampa.Storage.get('kp_recs_movie', '[]'), tv: Lampa.Storage.get('kp_recs_tv', '[]') };
   Object.keys(lists).forEach(function (type) {
@@ -59,7 +59,7 @@
   });
   Live.check(Lampa.Recomends.get.__kp_split === true, 'Lampa.Recomends.get — не замена плагина');
 
-  // 3. «Ещё» сериалов — штатный экран рекомендаций ядра для сериалов; экран берёт страницу через
+  // 4. «Ещё» сериалов — штатный экран рекомендаций ядра для сериалов; экран берёт страницу через
   // Lampa.Recomends.page (замену плагина), запись её вызовов снимается после.
   var orgPage = Lampa.Recomends.page;
   var pageCalls = [];

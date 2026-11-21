@@ -42,7 +42,7 @@
 
 ## 5. Живая проверка
 
-- [x] 5.1 `tests/live/kp-history-recs/main-recs.js`: проверка 4 из сценария «Списки на приставке»
+- [x] 5.1 `tests/live/kp-history-recs/main-recs.js`: проверка 3 из сценария «Списки на приставке»
   (`kp_recs_movie`/`kp_recs_tv` есть, не больше 100, тип совпадает, фильмов не меньше, чем в
   `recomends_list`, карточки ряда фильмов — из `kp_recs_movie`, `Lampa.Recomends.get.__kp_split`).
   Перед `onlyMore()` сериалов `Lampa.Recomends.page` оборачивается записью вызовов: нужен вызов с
