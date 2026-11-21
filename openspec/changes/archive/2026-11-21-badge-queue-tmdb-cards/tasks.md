@@ -14,17 +14,17 @@
 ## 3. Live check
 
 - [x] 3.1 Design 3: add `tests/live/hide-cards/queue-cold.js` and `tests/live/hide-cards/queue-drains.js`, run `queue-cold`, `rebuild-main`, then `queue-drains` (15 s per call, up to four calls) right after `restart_lampa` in `tests/live/hide-cards.sh` (not in the `grid` branch); verify `bash -n tests/live/hide-cards.sh`; commit
-- [ ] 3.2 Device run: push the branch; snapshot per `docs/snapshots-convention.md`; switch the `torrent-quality-badge.js` URL to `@<branch head sha>` via `cdp.py`; force-stop and restart Lampa; run `bash tests/live/hide-cards.sh`, verify exit 0 and that «Скрудж» (or another card with cached `miss: true`) is absent from «Сейчас смотрят фильмы»; switch the URL back to the sha from the snapshot, force-stop, restart and check by `screencap` that Главная renders (CLAUDE.md, после живого тестирования)
+- [x] 3.2 Device run: push the branch; snapshot per `docs/snapshots-convention.md`; switch the `torrent-quality-badge.js` URL to `@<branch head sha>` via `cdp.py`; force-stop and restart Lampa; run `bash tests/live/hide-cards.sh`, verify exit 0 and that «Скрудж» (or another card with cached `miss: true`) is absent from «Сейчас смотрят фильмы»; switch the URL back to the sha from the snapshot, force-stop, restart and check by `screencap` that Главная renders (CLAUDE.md, после живого тестирования)
 
 ## 4. Verify
 
 - [x] 4.1 Run `/simplify` and commit its edits; if they touch the plugin, repeat the device run of 3.2
-- [ ] 4.2 Run `openspec validate --strict --all`
-- [ ] 4.3 Run `pre-commit run --hook-stage manual --all-files`
+- [x] 4.2 Run `openspec validate --strict --all`
+- [x] 4.3 Run `pre-commit run --hook-stage manual --all-files`
 
 ## 5. Deliver
 
-- [ ] 5.1 `agent-process archive_change badge-queue-tmdb-cards`, then `gh pr create --title "fix: badge-queue-tmdb-cards" --body-file <report>`, `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`
+- [x] 5.1 `agent-process archive_change badge-queue-tmdb-cards`, then `gh pr create --title "fix: badge-queue-tmdb-cards" --body-file <report>`, `gh pr merge <PR> --auto --squash`, `agent-process wait_for_pr <PR>`
 - [ ] 5.2 After the person merges: the device run of 3.2 on the merge commit's sha, keeping it pinned (design Migration Plan)
 
 ## Scenario → test map
