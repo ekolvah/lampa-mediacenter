@@ -16,18 +16,18 @@
 
 ## 2. Обёртки `tmdb.full` и `cub.full` (решение 1)
 
-- [ ] 2.1 В `startPlugin()` присвоить `cub`, `tmdb` (из `patch()` присваивания убрать, проверку
+- [x] 2.1 В `startPlugin()` присвоить `cub`, `tmdb` (из `patch()` присваивания убрать, проверку
   `!cub || !tmdb` оставить); нет `tmdb.full`, `cub.full`, `tmdb.videos` или `tmdb.get` — один
   `console.error` с именами, без обёрток. Проверка: `node --test tests/js/kp-reactions-fix.test.js`,
   тест «no cub.full: one error, tmdb card as is, KP card unchanged».
-- [ ] 2.2 Одна функция оборачивает `tmdb.full` и `cub.full`: тайтл `{method: params.method, id:
+- [x] 2.2 Одна функция оборачивает `tmdb.full` и `cub.full`: тайтл `{method: params.method, id:
   result.movie.id}`, у сериала `lastSeason`, затем `trailers(result, title, result.videos, season,
   …)`; результат без `movie` — движку как есть, как в `KP.full`. Проверка: та же, тесты «tmdb and cub card: service video first, no title search», «tmdb
   series season 2: service asked with season», все прежние тесты зелёные.
 
 ## 3. Помощники названия и даты (решение 2)
 
-- [ ] 3.1 `cardName` — `title || name || original_title || original_name`; оригинальное название —
+- [x] 3.1 `cardName` — `title || name || original_title || original_name`; оригинальное название —
   `original_title || original_name`; `releaseDate(movie, tv)` с признаком от вызывающего. Проверка:
   та же, тест «tmdb and cub card: service video first, no title search» сверяет `title`,
   `original_title`, `year=2021` в URL сервиса; тесты рядов «Сейчас смотрят» зелёные. Коммит групп 2–3.

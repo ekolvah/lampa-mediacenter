@@ -74,16 +74,22 @@
     return [a, b].filter(function (t) { return typeof t === 'string' && t; }).map(normalizeTitle);
   }
 
-  // Источники движка: cub — реакции карточки, tmdb — оба модуля. Присваивает patch(), код ниже
-  // зовётся только после него.
+  // Источники движка: cub — реакции карточки, tmdb — оба модуля. Присваивает startPlugin(), код
+  // ниже зовётся только после него.
   var cub, tmdb;
 
+  // Поля фильма и сериала: у сериала TMDB name/original_name, у KP-карточки и фильма — title.
   function cardName(movie) {
-    return movie.title || movie.original_title || '';
+    return movie.title || movie.name || originalName(movie);
   }
 
-  function releaseDate(movie) {
-    return (movie.type === 'tv' ? movie.first_air_date : movie.release_date) || '';
+  function originalName(movie) {
+    return movie.original_title || movie.original_name || '';
+  }
+
+  // tv — признак сериала от вызывающего: type сериала TMDB — его тип (Scripted…), а не 'tv'.
+  function releaseDate(movie, tv) {
+    return (tv ? movie.first_air_date : movie.release_date) || '';
   }
 
   // Поиск тайтла по названию: тип из карточки, год строгий; с годом — первый
@@ -91,7 +97,7 @@
   function searchByTitle(movie, cb) {
     var tv = movie.type === 'tv';
     var method = tv ? 'tv' : 'movie';
-    var year = releaseDate(movie).slice(0, 4);
+    var year = releaseDate(movie, tv).slice(0, 4);
     var url = 'search/' + method + '?query=' + encodeURIComponent(cardName(movie));
     if (year) url += (tv ? '&first_air_date_year=' : '&primary_release_year=') + year;
 
@@ -175,9 +181,8 @@
       if (--waiting === 0) trailers(result, title, videos, season, done);
     }
 
-    var getSeason = title.method === 'tv' ? lastSeason : function (t, cb) { cb(null); };
-    getSeason(title, function (last) {
-      season = last && last.number >= 2 ? last : null;
+    trailerSeason(title, function (last) {
+      season = last;
       ready();
     });
     // Сбой запроса движок отдаёт как пустой список — не отличить от «видео нет».
@@ -185,6 +190,12 @@
       videos = answer;
       ready();
     });
+  }
+
+  // Сезон для трейлера: последний вышедший сезон сериала, если он второй или дальше; иначе null.
+  function trailerSeason(title, cb) {
+    if (title.method !== 'tv') return cb(null);
+    lastSeason(title, function (last) { cb(last && last.number >= 2 ? last : null); });
   }
 
   // Список «Трейлеры»: видео TMDB, первым — русский трейлер сервиса; у сериала с последним
@@ -200,8 +211,9 @@
     if (hasRu && !season) return done();
 
     var movie = result.movie;
-    var date = season ? season.date : releaseDate(movie);
-    ruTrailer(movie, season, function (video) {
+    var tv = title.method === 'tv';
+    var date = season ? season.date : releaseDate(movie, tv);
+    ruTrailer(movie, tv, season, function (video) {
       if (video) {
         result.videos = { results: putFirst(video, date, list) };
         return done();
@@ -259,11 +271,12 @@
   // Русский трейлер с YouTube от сервиса трейлеров на приставке (tools/trailer_service.py),
   // в форме видео TMDB; season — трейлер этого сезона. cb(null) — ролика нет, причина уже в
   // console.warn.
-  function ruTrailer(movie, season, cb) {
+  function ruTrailer(movie, tv, season, cb) {
     var name = cardName(movie);
-    var year = releaseDate(movie).slice(0, 4);
+    var original = originalName(movie);
+    var year = releaseDate(movie, tv).slice(0, 4);
     var url = TRAILER_SERVICE + '?title=' + encodeURIComponent(name);
-    if (movie.original_title) url += '&original_title=' + encodeURIComponent(movie.original_title);
+    if (original) url += '&original_title=' + encodeURIComponent(original);
     if (year) url += '&year=' + year;
     if (season) url += '&season=' + season.number;
 
@@ -342,12 +355,37 @@
     play.after(buttons).remove();
   }
 
+  // Карточки источников ядра tmdb и cub (spec kp-card-trailers, «Трейлеры карточки TMDB»): id
+  // карточки — TMDB id, видео и реакции уже в ответе full, трейлеры ставятся до отрисовки.
+  function patchSourceCards() {
+    var missing = [['tmdb.full', tmdb && tmdb.full], ['cub.full', cub && cub.full],
+      ['tmdb.videos', tmdb && tmdb.videos], ['tmdb.get', tmdb && tmdb.get]]
+      .filter(function (f) { return typeof f[1] !== 'function'; })
+      .map(function (f) { return f[0]; });
+    if (missing.length) {
+      return console.error('kp-reactions-fix: no trailers for tmdb and cub cards, missing', missing.join(', '));
+    }
+
+    [tmdb, cub].forEach(function (source) {
+      var orgFull = source.full;
+      source.full = function (params, oncomplite, onerror) {
+        return orgFull.call(source, params, function (result) {
+          var movie = result && result.movie;
+          if (!movie) return oncomplite(result);
+
+          var title = { method: params.method, id: movie.id };
+          trailerSeason(title, function (season) {
+            trailers(result, title, result.videos, season, function () { oncomplite(result); });
+          });
+        }, onerror);
+      };
+    });
+  }
+
   // ---- Источник KP: KP.full, Главная, «Ещё», KP-история в рекомендациях ----
 
   function patch() {
     var KP = Lampa.Api.sources.KP;
-    cub = Lampa.Api.sources.cub;
-    tmdb = Lampa.Api.sources.tmdb;
 
     if (!KP || !cub || !tmdb || KP.__reactions_patched) return;
 
@@ -386,7 +424,7 @@
     // со старым стартом — последний эпизод по TMDB за 365 дней. 'episode' — нужна дата эпизода
     // (lastEpisodeDate не передан), 'unknown' — проверить нечем.
     function isNewRelease(card, rule, lastEpisodeDate) {
-      var year = parseInt(releaseDate(card).slice(0, 4), 10);
+      var year = parseInt(releaseDate(card, card.type === 'tv').slice(0, 4), 10);
       if (!year) return 'unknown';
       if (year >= rule.minYear) return 'new';
       if (card.type !== 'tv') return 'old';
@@ -909,7 +947,10 @@
   }
 
   function startPlugin() {
+    cub = Lampa.Api.sources.cub;
+    tmdb = Lampa.Api.sources.tmdb;
     Lampa.Listener.follow('full', onFull);
+    patchSourceCards();
     if (Lampa.Api.sources.KP) return patch();
 
     // kp_source грузится отдельным тегом script — порядок завершения между

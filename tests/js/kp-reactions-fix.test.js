@@ -677,7 +677,7 @@ test('tmdb and cub card: service video first, no title search', () => {
     const list = plain(c.done[0].videos.results);
     assert.deepStrictEqual(list.slice(1), EN_VIDEOS.results, source);
     assert.strictEqual(list[0].key, PICK.video_id, source);
-    assertFirstByEngine(list);
+    assert.strictEqual(list[0].iso_639_1, 'ru', source);
     assert.deepStrictEqual(plain(c.done[0].reactions), REACTIONS, source);
     assert.deepStrictEqual(c.get, [], source);
     assert.deepStrictEqual(c.videos, [], source);
@@ -695,7 +695,7 @@ test('tmdb series season 2: service asked with season', () => {
   const list = plain(c.done[0].videos.results);
   assert.strictEqual(list[0].key, GENT_PICK.video_id);
   assert.deepStrictEqual(list.slice(1), EN_VIDEOS.results);
-  assertFirstByEngine(list);
+  assert.strictEqual(list[0].iso_639_1, 'ru');
   assert.strictEqual(c.done.length, 1);
 });
 
