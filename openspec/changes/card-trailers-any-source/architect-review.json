@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "All five round-1 findings are answered in the artifacts. The plan now wraps only tmdb.full and cub.full and leaves the KP path untouched, it rests on the live observation 6, it guards every engine function the new wrappers need, and each scenario has a test.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md decision 1 adopts the smaller option: one shared function wraps `tmdb.full` and `cub.full`, and `KP.full`/`enrich` do not change. The dispatcher wrapper is now the rejected alternative, with its concrete costs: `tmdb_title` passed out of `KP.full`, the season wait moved out of `enrich`, a slower KP-series path, and a non-TMDB id that could reach TMDB. The `complite` event is rejected because it fires after the trailer list is built. Decision 5 rejects a second season path. Nothing simpler satisfies the tmdb/cub scenarios.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "'Русский трейлер карточки TMDB' → 'tmdb and cub card: service video first, no title search' (task 3.1 also checks title/original_title/year=2021 in the service URL). 'Последний сезон карточки TMDB' → 'tmdb series season 2: service asked with season'. 'Источник без full' → 'no cub.full: one error, tmdb card as is, KP card unchanged'; the name covers each THEN clause (one error, tmdb card with source videos and no service request, KP card with the service video first). 'Русский трейлер карточки TMDB с пульта' → live kp-trailers.sh, step open-card-tmdb.js. The requirement now says the KP card keeps its trailers, so it no longer conflicts with 'Русский трейлер с YouTube' or 'Трейлер последнего сезона'. The Purpose update is task 4.1 (decision 3).",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Task 1.1 adds the three mapped tests, `tmdb.full`/`cub.full` doubles, a `drop` that accepts a path of any depth (the current two-level split is at tests/js/kp-reactions-fix.test.js:145), and the `BLACK_LOTUS` fixture from observation 4. The KP opening in `load()` and the existing tests stay as they are. Task 1.2 runs `check_red` and commits. On current code all three fail for the right reason: no trailers for tmdb/cub, and no console.error without `cub.full`.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Observation 6 (cdp.py, 2026-11-21, counters removed and the removal checked) shows four things. The dispatcher looks up the source's `full` at call time. Opening a card calls `tmdb.full` with `{method: 'tv', id: 213375}` and `cub.full` with `{method: 'tv', id: 206916}`, a TMDB id. Opening a cub card does not call `tmdb.full`. Going back and staying on Main make no calls. Observations 4–5 give the shape of `movie` and `videos` for both sources. Not observed: whether opening a KP card calls `tmdb.full`/`cub.full`. It is excluded by construction: kp_source returns no TMDB videos or reactions, which is why the KP.full wrapper exists (plugins/kp-reactions-fix.js:4–10).",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Replaced: the assignment of `cub`/`tmdb` moves from `patch()` to `startPlugin()`, and `patch()` keeps its `!cub || !tmdb` check (decision 1, task 2.1). The tv flag of `releaseDate` now comes from the caller (decision 2). `cardName` and the original title now read the TMDB series fields (decision 2). New guard: if `tmdb.full`, `cub.full`, `tmdb.videos` or `tmdb.get` is missing, the plugin logs one console.error and installs no wrappers; the KP path keeps its own checks in `enrich` and `patch()`. No existing guard is dropped. Implementation note for task 2.2, not a plan gap: it should pass a result without `movie` through unchanged, as `KP.full` does at plugins/kp-reactions-fix.js:359. Otherwise `result.movie.id` throws inside the engine callback when the source's main request fails.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "design.md Risks, Risk 1: if the engine stops calling the source's `full`, the trailers disappear silently, the same exposure the KP.full wrapper already has. The catcher is named honestly: the person notices there is no Russian trailer, and `kp-trailers.sh` diagnoses it. The runtime-mark alternative is rejected with reasons: the link between the result and `complite` was not observed, and the mechanism would exist for this one risk only. Risk 2 (`full` called outside card opening) cites observation 6. In this delivery, task 6.2 runs the live script, which covers both KP and TMDB cards.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Requirement 'Трейлеры карточки TMDB'. Sentence 1, about 44 words: TMDB title from the card's id and method, no title search, no repeated video or reaction requests, the Russian trailer, the season trailer. Asserted by the two TMDB-card tests, about 38 words; the rest refers to existing requirements, whose shared `trailers` path has KP tests. Sentence 2, about 27 words: the error, tmdb/cub cards with source videos, KP card as before. All asserted by the 'no cub.full' test; the four missing-function cases share one condition, and `cub.full` is its tested instance. Each scenario THEN clause is asserted.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "design.md '## Standard approach': no existing Lampa plugin provides a Russian card trailer, and 'none found' is plausible because the trailer service is this repository's own (docs/jacred-on-ugoos.md). The design follows the plugin's established way of wrapping an engine function (KP.full, KP.main, KP.list, Recomends.get). The plan adds no script or check. The live step open-card-tmdb.js reuses the shared helper in tests/live/kp-trailers/lib.js.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
