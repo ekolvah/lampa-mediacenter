@@ -6,15 +6,15 @@
 
 ## 1. RED
 
-- [ ] 1.1 no RED: чистый рефакторинг (design.md, решение 2).
+- [x] 1.1 no RED: чистый рефакторинг (design.md, решение 2).
 
 ## 2. Разделение модулей (design.md, решение 1)
 
-- [ ] 2.1 Общее: вынести из `patch()` `var cub, tmdb;` и `cardName`, `releaseDate`,
+- [x] 2.1 Общее: вынести из `patch()` `var cub, tmdb;` и `cardName`, `releaseDate`,
   `searchByTitle`, `resolveTitle`, `lastSeason`. Проверка: `node --test tests/js/kp-reactions-fix.test.js`.
-- [ ] 2.2 Карточка: вынести `enrich`, `trailers`, `time`, `newest`, `putFirst`, `seasonTrailer`,
+- [x] 2.2 Карточка: вынести `enrich`, `trailers`, `time`, `newest`, `putFirst`, `seasonTrailer`,
   `ruTrailer`, кнопки поставить следом. Проверка: та же.
-- [ ] 2.3 Заголовки модулей, шапочный комментарий разбить на абзацы «Карточка» и «Источник KP».
+- [x] 2.3 Заголовки модулей, шапочный комментарий разбить на абзацы «Карточка» и «Источник KP».
   Проверка: та же, `git diff --stat` — только `plugins/kp-reactions-fix.js`. Коммит группы.
 
 ## 3. Живая проверка (design.md, решение 3)
