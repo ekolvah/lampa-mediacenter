@@ -23,7 +23,7 @@
 
 ## 4. Живая проверка и issue библиотеки
 
-- [ ] 4.1 `tests/live/kp-trailers/open-card-no-title.js` (`KP_14897335`, проверка
+- [x] 4.1 `tests/live/kp-trailers/open-card-no-title.js` (`KP_14897335`, проверка
   `!('reactions' in full)`, `serviceFirst`, `openCard`, `window.__kpRuTrailer`) и блок
   «Буду рядом» с `play_trailer_button` в `tests/live/kp-trailers.sh` (решение 4). Коммит.
 - [ ] 4.2 Issue в `ekolvah/trailer-search`: ролик без сверки года и типа. Три примера из design.md,

@@ -2,7 +2,8 @@
 # Живая проверка трейлеров в KP-карточках (plugins/kp-reactions-fix.js, change
 # kp-card-trailers, design.md решение 9; change kp-trailers-ru-youtube — русский трейлер
 # сервиса 127.0.0.1:9118; change trailers-external-player — трейлер играет SmartTube;
-# change card-trailers-any-source — русский трейлер карточки tmdb).
+# change card-trailers-any-source — русский трейлер карточки tmdb; change kp-trailer-without-title —
+# KP-карточка без TMDB-тайтла).
 # Код выхода — итог: JS-шаг бросает исключение -> cdp.py выходит с 1, ui.py не туда -> 1,
 # trailer_plays не дождался -> 1 -> set -e.
 #
@@ -89,6 +90,10 @@ play_trailer_button
 
 echo "== «Чёрный лотос» (карточка tmdb, видео TMDB только en): кнопка «Трейлер» играет русский трейлер сервиса"
 step open-card-tmdb
+play_trailer_button
+
+echo "== «Буду рядом» (KP без TMDB-тайтла): кнопка «Трейлер» играет русский трейлер сервиса"
+step open-card-no-title
 play_trailer_button
 
 echo "OK: kp-trailers"
