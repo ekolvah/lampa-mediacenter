@@ -17,7 +17,7 @@
 
 ## 3. Доки
 
-- [ ] 3.1 Шапка `plugins/kp-reactions-fix.js` и строка `kp-reactions-fix.js` в
+- [x] 3.1 Шапка `plugins/kp-reactions-fix.js` и строка `kp-reactions-fix.js` в
   `docs/lampa-config-review.md`: вместо «карточка без трейлеров» — «реакций нет, русский трейлер
   сервиса без `season`, если он есть». Проверка: `python scripts/ci_check.py --only links`. Коммит.
 
