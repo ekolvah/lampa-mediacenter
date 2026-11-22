@@ -26,17 +26,17 @@
 - [x] 4.1 `tests/live/kp-trailers/open-card-no-title.js` (`KP_14897335`, проверка
   `!('reactions' in full)`, `serviceFirst`, `openCard`, `window.__kpRuTrailer`) и блок
   «Буду рядом» с `play_trailer_button` в `tests/live/kp-trailers.sh` (решение 4). Коммит.
-- [ ] 4.2 Issue в `ekolvah/trailer-search`: ролик без сверки года и типа. Три примера из design.md,
+- [x] 4.2 Issue в `ekolvah/trailer-search`: ролик без сверки года и типа. Три примера из design.md,
   наблюдение 2, с запросом и ответом сервиса. Ссылку на issue записать в design.md, Risks.
 
 ## 5. Verify
 
 - [x] 5.1 `/simplify`, коммит его правок.
-- [ ] 5.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
+- [x] 5.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
   `bash tests/live/kp-trailers.sh` → `OK`.
-- [ ] 5.3 `openspec validate --strict --all`.
-- [ ] 5.4 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
-- [ ] 5.5 Перезапуск Lampa (`am force-stop` + запуск), `screencap` карточки «Буду рядом» с
+- [x] 5.3 `openspec validate --strict --all`.
+- [x] 5.4 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 5.5 Перезапуск Lampa (`am force-stop` + запуск), `screencap` карточки «Буду рядом» с
   трейлером первым (Migration Plan: скрипт перезапускает Lampa до шагов `cdp.py`, не после).
 
 ## 6. Deliver
