@@ -10,7 +10,7 @@
 
 ## 2. Плагин
 
-- [ ] 2.1 Обёртка `KP.full` зовёт `trailers(result, null, result.videos, null, …)` при
+- [x] 2.1 Обёртка `KP.full` зовёт `trailers(result, null, result.videos, null, …)` при
   `resolveTitle` → `null`; две правки `trailers` под пустой тайтл (решение 1); текст `find failed,
   no reactions` (решение 2). Проверка: `node --test tests/js/kp-reactions-fix.test.js` зелёный.
   Коммит.
