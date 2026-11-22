@@ -42,7 +42,7 @@
 
 ## 5. Verify
 
-- [ ] 5.1 `/simplify`, коммит его правок.
+- [x] 5.1 `/simplify`, коммит его правок.
 - [ ] 5.2 Выкатка и живая проверка по design.md, Migration Plan 1–4 (сначала уточнить у
   пользователя ADB и IP).
 - [ ] 5.3 `openspec validate --strict --all`.

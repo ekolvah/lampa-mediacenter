@@ -51,8 +51,8 @@ class SearchFailed(Exception):
 
 
 class BadRequest(ValueError):
-    """Запрос без `title`, с нечисловым `year`, `season` не от 1, `series` не 0/1 или профиль,
-    отвергнутый библиотекой (`season` с `series=0`)."""
+    """Запрос без `title`, с нечисловым `year`, `season` не от 1, `series` не 0/1 или с профилем,
+    который библиотека отвергла (`ValueError` конструктора `FilmProfile`)."""
 
 
 class TrailerFinder(Protocol):
@@ -65,11 +65,11 @@ def _int_param(
     raw = params.get(name, [""])[0].strip()
     if not raw:
         return None
-    too_big = maximum is not None and raw.isdecimal() and int(raw) > maximum
-    if not raw.isdecimal() or int(raw) < minimum or too_big:
+    value = int(raw) if raw.isdecimal() else None
+    if value is None or value < minimum or (maximum is not None and value > maximum):
         bounds = f">= {minimum}" if maximum is None else f"in {minimum}..{maximum}"
         raise BadRequest(f"{name} must be an integer {bounds}, got {raw!r}")
-    return int(raw)
+    return value
 
 
 def parse_query(raw: str) -> TrailerQuery:

@@ -137,7 +137,12 @@ def test_bad_request_400(service: Service, path: str) -> None:
 @pytest.mark.parametrize("service", [[PICK]], indirect=True)
 @pytest.mark.parametrize(
     ("suffix", "season", "series"),
-    [("&season=2", 2, None), ("&series=1", None, True), ("&series=0", None, False), ("", None, None)],
+    [
+        ("&season=2", 2, None),
+        ("&series=1", None, True),
+        ("&series=0", None, False),
+        ("", None, None),
+    ],
 )
 def test_param_passed_to_finder(
     service: Service, suffix: str, season: int | None, series: bool | None
@@ -232,16 +237,19 @@ def test_cache_expires_after_24h(service: Service) -> None:
 
 @pytest.mark.parametrize("service", [[NO_PICK, PICK]], indirect=True)
 @pytest.mark.parametrize(
-    ("first", "second", "field", "values"),
-    [("", "&season=2", "season", [None, 2]), ("&series=0", "&series=1", "series", [False, True])],
+    ("first", "second", "params"),
+    [
+        ("", "&season=2", [(None, None), (2, None)]),
+        ("&series=0", "&series=1", [(None, False), (None, True)]),
+    ],
 )
 def test_cache_key_includes_params(
-    service: Service, first: str, second: str, field: str, values: list[Any]
+    service: Service, first: str, second: str, params: list[tuple[Any, Any]]
 ) -> None:
     get(service, GENTLEMEN + first)
     status, body = get(service, GENTLEMEN + second)
     assert (status, body["video_id"]) == (200, "J2VS_OlUJtA")
-    assert [getattr(q, field) for q in service.finder.queries] == values
+    assert [(q.season, q.series) for q in service.finder.queries] == params
 
 
 @pytest.mark.parametrize("service", [[SearchFailed("blocked"), PICK]], indirect=True)
@@ -289,9 +297,7 @@ def test_library_adapter_maps_pick() -> None:
     assert seen == [FakeProfile("Зверь", "The Beast", 2026)]
 
 
-@pytest.mark.parametrize(
-    ("season", "series"), [(2, None), (None, True), (None, False)]
-)
+@pytest.mark.parametrize(("season", "series"), [(2, None), (None, True), (None, False)])
 def test_library_adapter_passes_params(season: int | None, series: bool | None) -> None:
     seen: list[Any] = []
 
@@ -302,9 +308,7 @@ def test_library_adapter_passes_params(season: int | None, series: bool | None) 
     finder = LibraryFinder(find, FakeProfile, FakeRetrievalError)
     answer = finder.find(TrailerQuery("Джентльмены", "The Gentlemen", 2024, season, series))
     assert answer == TrailerAnswer("3xow3-n2VQM", "Джентльмены (2 сезон)", 0.9, "ru language")
-    assert seen == [
-        FakeProfile("Джентльмены", "The Gentlemen", 2024, season=season, series=series)
-    ]
+    assert seen == [FakeProfile("Джентльмены", "The Gentlemen", 2024, season=season, series=series)]
 
 
 def test_rejected_profile_400() -> None:
@@ -314,13 +318,9 @@ def test_rejected_profile_400() -> None:
     def reject(*_args: Any, **_kwargs: Any) -> Any:
         raise ValueError("season 2 contradicts series=False")
 
-    finder = LibraryFinder(searched.append, reject, FakeRetrievalError)
-    with serving(finder, Clock()) as base:
-        try:
-            with urllib.request.urlopen(base + GENTLEMEN + "&season=2&series=0", timeout=5):
-                pytest.fail("expected HTTP 400")
-        except urllib.error.HTTPError as err:
-            status, body = err.code, json.loads(err.read())
+    clock = Clock()
+    with serving(LibraryFinder(searched.append, reject, FakeRetrievalError), clock) as base:
+        status, body = get(Service(FakeFinder(), clock, base), GENTLEMEN + "&season=2&series=0")
     assert status == 400
     assert "contradicts" in body["detail"]
     assert searched == []
