@@ -41,7 +41,7 @@
 
 ## 6. Deliver
 
-- [ ] 6.1 `agent-process archive_change kp-trailer-without-title`, `gh pr create --title "fix:
+- [x] 6.1 `agent-process archive_change kp-trailer-without-title`, `gh pr create --title "fix:
   kp-trailer-without-title" --body-file <report>`, `gh pr merge <PR> --auto --squash`,
   `agent-process wait_for_pr <PR>`.
 
