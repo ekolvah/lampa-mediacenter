@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/test_trailer_service.py`: `FakeProfile.series`; параметризация вместо копий:
+- [x] 1.1 `tests/test_trailer_service.py`: `FakeProfile.series`; параметризация вместо копий:
   `test_season_passed_to_finder` → `test_param_passed_to_finder` (`season=2`, `series=1` → `True`,
   `series=0` → `False`, без `series` → `None`), `test_library_adapter_passes_season` →
   `test_library_adapter_passes_params` (`season`, `series`), `test_bad_season_400` →
@@ -13,11 +13,11 @@
   `test_cache_key_includes_season` → `test_cache_key_includes_params` (`season=2` после запроса без
   сезона, `series=1` после `series=0`); новый `test_rejected_profile_400` — `LibraryFinder` с классом профиля, бросающим `ValueError`:
   400, поиска нет (решение 4).
-- [ ] 1.2 `tests/js/kp-reactions-fix.test.js`: построитель URL сервиса рядом с `q()` вместо пяти
+- [x] 1.2 `tests/js/kp-reactions-fix.test.js`: построитель URL сервиса рядом с `q()` вместо пяти
   ручных URL (`SERVICE_URL`, `LOTUS_URL`, `NEAR_URL`, `GENT_URL`, строка 624) с `&series=` последним;
   проверки `endsWith('&season=2')` (строки 538, 718) — на `&season=2&series=1`; новый `service asked
   with card type` (сериал «Огонь» → `series=1`, фильм → `series=0`).
-- [ ] 1.3 `agent-process check_red tests/test_trailer_service.py tests/test_plugin_js.py::test_plugin_js`,
+- [x] 1.3 `agent-process check_red tests/test_trailer_service.py tests/test_plugin_js.py::test_plugin_js`,
   коммит RED.
 
 ## 2. Сервис
