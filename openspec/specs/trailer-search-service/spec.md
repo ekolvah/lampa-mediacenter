@@ -7,12 +7,15 @@
 
 ### Requirement: Поиск трейлера по названию
 Сервис SHALL отвечать на `GET /trailer` с параметрами `title` (обязателен), `original_title`,
-`year` и `season` (необязательны) JSON-объектом с полями `video_id`, `title`, `confidence` и
+`year`, `season` и `series` (необязательны) JSON-объектом с полями `video_id`, `title`, `confidence` и
 `reason`. Ролик SHALL выбираться библиотекой `trailer-search`. Если подходящего ролика нет, ответ
 SHALL быть HTTP 200 с `video_id: null` и причиной в `reason`. С `season` подходит только ролик этого
 сезона. Если библиотека взамен выбрала ролик другого сезона, ответ SHALL быть HTTP 200 с
-`video_id: null`, а `reason` MUST сохранять причину библиотеки. Сервис SHALL слушать только
-`127.0.0.1`. Каждый ответ MUST нести `Access-Control-Allow-Origin: *`, чтобы его читала страница Lampa.
+`video_id: null`, а `reason` MUST сохранять причину библиотеки. `series=1` SHALL искать трейлер
+сериала, `series=0` — трейлер фильма; без `series` тип SHALL считаться неизвестным, как до появления
+параметра. Запрос, который библиотека отвергает как противоречивый (`season` с `series=0`),
+SHALL получать HTTP 400 без поиска. Сервис SHALL слушать только `127.0.0.1`. Каждый ответ MUST нести
+`Access-Control-Allow-Origin: *`, чтобы его читала страница Lampa.
 
 #### Scenario: Ответ читает страница Lampa
 - **WHEN** запрос пришёл с заголовком `Origin: http://lampa.mx`
@@ -42,6 +45,14 @@ SHALL быть HTTP 200 с `video_id: null` и причиной в `reason`. С 
 - **WHEN** приходит запрос с `season`, который не целое число от 1
 - **THEN** ответ HTTP 400 с описанием ошибки, поиска нет
 
+#### Scenario: Тип карточки
+- **WHEN** приходит `GET /trailer?title=Огонь&original_title=Огонь&year=2025` с `series=1`, с `series=0` или без `series`
+- **THEN** поиск идёт как поиск сериала, фильма или с неизвестным типом соответственно
+
+#### Scenario: Неверный тип
+- **WHEN** приходит запрос с `series`, отличным от `0` и `1`, или с `season` вместе с `series=0`
+- **THEN** ответ HTTP 400 с описанием ошибки, поиска нет
+
 ### Requirement: Ошибка поиска видна
 Ошибка поиска на YouTube SHALL NOT выглядеть как «ролик не найден». Она MUST давать HTTP 502
 с полями `error` и `detail` и запись уровня ERROR в лог сервиса.
@@ -52,7 +63,7 @@ SHALL быть HTTP 200 с `video_id: null` и причиной в `reason`. С 
 
 ### Requirement: Кэш ответов
 Успешный ответ (с роликом или с `video_id: null`) SHALL кэшироваться в памяти на 24 часа по
-`title`, `original_title`, `year` и `season`. Ошибка поиска SHALL NOT кэшироваться.
+`title`, `original_title`, `year`, `season` и `series`. Ошибка поиска SHALL NOT кэшироваться.
 
 #### Scenario: Повторный запрос
 - **WHEN** тот же запрос приходит повторно в течение 24 часов после успешного ответа
@@ -69,6 +80,10 @@ SHALL быть HTTP 200 с `video_id: null` и причиной в `reason`. С 
 #### Scenario: Другой сезон
 - **WHEN** после успешного ответа на запрос без `season` приходит запрос с тем же названием и годом и `season=2`
 - **THEN** поиск на YouTube идёт заново, с сезоном 2
+
+#### Scenario: Другой тип
+- **WHEN** после успешного ответа на запрос с `series=0` приходит тот же запрос с `series=1`
+- **THEN** поиск на YouTube идёт заново, как поиск сериала
 
 ### Requirement: Автозапуск
 После загрузки приставки сервис SHALL подниматься сам, общим boot-хуком сервисов chroot.

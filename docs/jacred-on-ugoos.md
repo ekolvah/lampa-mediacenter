@@ -51,18 +51,20 @@ Lampa настроена на этот адрес: `jackett_url` = `http://127.0
 
 ```bash
 # внутри chroot: в самом Android curl нет
-curl 'http://127.0.0.1:9118/trailer?title=Зверь&original_title=The%20Beast&year=2026'
+curl 'http://127.0.0.1:9118/trailer?title=Зверь&original_title=The%20Beast&year=2026&series=0'
 # {"video_id": "…", "title": "…", "confidence": …, "reason": "…"}; не нашёл — "video_id": null
-curl 'http://127.0.0.1:9118/trailer?title=Джентльмены&original_title=The%20Gentlemen&year=2024&season=2'
+curl 'http://127.0.0.1:9118/trailer?title=Джентльмены&original_title=The%20Gentlemen&year=2024&season=2&series=1'
 # year — год 1-го сезона; ролика 2-го сезона нет — "video_id": null, reason "…; season 2 fallback"
 ```
 
-Поиск на YouTube делает библиотека `ekolvah/trailer-search` (yt-dlp). С `season` библиотека
+Поиск на YouTube делает библиотека `ekolvah/trailer-search` (yt-dlp). `series=1` — ищется трейлер
+сериала, `series=0` — фильма (ролики с пометкой сериала отсеиваются), без `series` тип неизвестен;
+плагин шлёт тип карточки всегда. С `season` библиотека
 при отсутствии ролика сезона берёт ролик другого сезона и пишет об этом в `reason`; сервис такой
 ролик не отдаёт (`video_id: null`, WARNING в логе). Ответы, включая
-«не нашёл», кэшируются в памяти на 24 ч (ключ — название, год и сезон); ошибка YouTube не
-кэшируется — `502` и ERROR в `/opt/trailer-search/run.log`. Без `title`, с нечисловым `year` или
-`season` не от 1 — `400`. Каждый ответ несёт
+«не нашёл», кэшируются в памяти на 24 ч (ключ — название, год, сезон и тип); ошибка YouTube не
+кэшируется — `502` и ERROR в `/opt/trailer-search/run.log`. Без `title`, с нечисловым `year`,
+`season` не от 1, `series` не `0`/`1` или с `season` вместе с `series=0` — `400`. Каждый ответ несёт
 `Access-Control-Allow-Origin: *`: страница Lampa открыта с origin `http://lampa.mx`, и без
 заголовка WebView отдаёт ей статус 0 вместо ответа.
 

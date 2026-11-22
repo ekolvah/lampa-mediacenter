@@ -293,10 +293,14 @@ const LIFE_TV = { id: 318582, name: 'Жизнь заново', original_name: '�
 const BLACK_LOTUS = { id: 84553, type: 'Scripted', name: 'Бегущий по лезвию: Чёрный лотос', original_name: 'Blade Runner: Black Lotus', first_air_date: '2021-11-14', imdb_id: 'tt9359796' };
 
 const q = (title) => encodeURIComponent(title);
-const SERVICE_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Зверь') + '&original_title=The%20Beast&year=2026';
-const LOTUS_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Бегущий по лезвию: Чёрный лотос') + '&original_title=' + q('Blade Runner: Black Lotus') + '&year=2021';
-const NEAR_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Буду рядом') + '&original_title=' + q('Буду рядом') + '&year=2026';
-const GENT_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Джентльмены') + '&original_title=The%20Gentlemen&year=2024&season=2';
+// URL запроса к сервису трейлеров в порядке параметров плагина; series — тип карточки, всегда последним.
+const serviceUrl = (title, original, year, series, season) => 'http://127.0.0.1:9118/trailer?title=' + q(title)
+  + (original ? '&original_title=' + q(original) : '') + (year ? '&year=' + year : '')
+  + (season ? '&season=' + season : '') + '&series=' + (series ? 1 : 0);
+const SERVICE_URL = serviceUrl('Зверь', 'The Beast', '2026', false);
+const LOTUS_URL = serviceUrl('Бегущий по лезвию: Чёрный лотос', 'Blade Runner: Black Lotus', '2021', true);
+const NEAR_URL = serviceUrl('Буду рядом', 'Буду рядом', '2026', true);
+const GENT_URL = serviceUrl('Джентльмены', 'The Gentlemen', '2024', true, 2);
 // «Зверь» без imdb_id, найден поиском по названию: дальше решают видео TMDB и сервис.
 const BEAST_CARD = { movie: BEAST, search: { results: [BEAST_2026] } };
 // Пункты списка «Трейлеры», как их собрал движок для «Зверя» (proposal, Why): ролик сервиса,
@@ -535,7 +539,7 @@ test('last season 2: service asked with season despite ru video, its video first
 test('last season from last episode, not number of seasons', () => {
   const c = load({ ...GENT_CARD, service: GENT_PICK });
   assert.deepStrictEqual(c.tv, [{ url: 'tv/236235', cache: { life: DAY_MIN } }]);
-  assert.ok(c.service[0].url.endsWith('&season=2'), c.service[0].url);
+  assert.ok(c.service[0].url.endsWith('&season=2&series=1'), c.service[0].url);
 });
 
 test('service gave nothing: newest TMDB season trailer first, warning', () => {
@@ -621,14 +625,22 @@ test('empty or missing videos: service video only', () => {
 test('service request without optional params', () => {
   const movie = { imdb_id: '', type: 'tv', title: 'Жизнь заново', original_title: '', first_air_date: '' };
   const c = load({ movie, search: { results: [LIFE_TV] }, videos: { results: [] }, service: PICK });
-  assert.deepStrictEqual(c.service.map((s) => s.url), ['http://127.0.0.1:9118/trailer?title=' + q('Жизнь заново')]);
+  assert.deepStrictEqual(c.service.map((s) => s.url), [serviceUrl('Жизнь заново', '', '', true)]);
   assert.strictEqual(c.done[0].videos.results[0].published_at, '');
 });
 
 test('tv card asks service with first air date year', () => {
   const c = load({ movie: Object.assign({}, LIFE, { first_air_date: '2026-10-26' }), search: { results: [LIFE_TV] }, videos: EN_VIDEOS, service: PICK });
-  assert.ok(c.service[0].url.endsWith('&year=2026'), c.service[0].url);
+  assert.ok(c.service[0].url.endsWith('&year=2026&series=1'), c.service[0].url);
   assert.strictEqual(c.done[0].videos.results[0].published_at, '2026-10-26');
+});
+
+// «Огонь» (KP 8941010): без типа сервис отдавал сериалу трейлер фильма 2020 года (issue #102).
+test('service asked with card type', () => {
+  const series = load({ movie: show('Огонь', '2025'), search: { results: [{ id: 1, name: 'Огонь', original_name: 'Огонь', first_air_date: '2025-03-01' }] }, videos: EN_VIDEOS, service: PICK });
+  assert.deepStrictEqual(series.service.map((s) => s.url), [serviceUrl('Огонь', 'Огонь', '2025', true)]);
+  const movie = load({ movie: film('Огонь', '2020'), search: { results: [{ id: 2, title: 'Огонь', original_title: 'Огонь', release_date: '2020-12-24' }] }, videos: EN_VIDEOS, service: PICK });
+  assert.deepStrictEqual(movie.service.map((s) => s.url), [serviceUrl('Огонь', 'Огонь', '2020', false)]);
 });
 
 // Отказы сервиса и подстрока причины в предупреждении.
@@ -715,7 +727,7 @@ test('tmdb series season 2: service asked with season', () => {
   const c = load({ open: false, movie: BLACK_LOTUS, videos: EN_VIDEOS, tv: GENT_TV, service: GENT_PICK });
   openSource(c, 'tmdb', { id: 84553, method: 'tv' });
   assert.strictEqual(c.service.length, 1);
-  assert.ok(c.service[0].url.startsWith(LOTUS_URL) && c.service[0].url.endsWith('&season=2'), c.service[0].url);
+  assert.strictEqual(c.service[0].url, serviceUrl('Бегущий по лезвию: Чёрный лотос', 'Blade Runner: Black Lotus', '2021', true, 2));
   const list = plain(c.done[0].videos.results);
   assert.strictEqual(list[0].key, GENT_PICK.video_id);
   assert.deepStrictEqual(list.slice(1), EN_VIDEOS.results);

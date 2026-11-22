@@ -13,6 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -26,6 +27,7 @@ from trailer_service import (  # noqa: E402
     LibraryFinder,
     SearchFailed,
     TrailerAnswer,
+    TrailerFinder,
     TrailerQuery,
     build_server,
     main,
@@ -71,18 +73,24 @@ class Service:
     base: str
 
 
-@pytest.fixture
-def service(request: pytest.FixtureRequest) -> Iterator[Service]:
-    finder = FakeFinder(*request.param)
-    clock = Clock()
+@contextmanager
+def serving(finder: TrailerFinder, clock: Clock) -> Iterator[str]:
     server = build_server(finder, clock, port=0)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield Service(finder, clock, f"http://127.0.0.1:{server.server_address[1]}")
+        yield f"http://127.0.0.1:{server.server_address[1]}"
     finally:
         server.shutdown()
         server.server_close()
+
+
+@pytest.fixture
+def service(request: pytest.FixtureRequest) -> Iterator[Service]:
+    finder = FakeFinder(*request.param)
+    clock = Clock()
+    with serving(finder, clock) as base:
+        yield Service(finder, clock, base)
 
 
 def get(svc: Service, path: str) -> tuple[int, Any]:
@@ -127,18 +135,34 @@ def test_bad_request_400(service: Service, path: str) -> None:
 
 
 @pytest.mark.parametrize("service", [[PICK]], indirect=True)
-def test_season_passed_to_finder(service: Service) -> None:
-    status, body = get(service, GENTLEMEN + "&season=2")
+@pytest.mark.parametrize(
+    ("suffix", "season", "series"),
+    [
+        ("&season=2", 2, None),
+        ("&series=1", None, True),
+        ("&series=0", None, False),
+        ("", None, None),
+    ],
+)
+def test_param_passed_to_finder(
+    service: Service, suffix: str, season: int | None, series: bool | None
+) -> None:
+    status, body = get(service, GENTLEMEN + suffix)
     assert (status, body["video_id"]) == (200, "J2VS_OlUJtA")
-    assert service.finder.queries == [TrailerQuery("Джентльмены", "The Gentlemen", 2024, 2)]
+    assert service.finder.queries == [
+        TrailerQuery("Джентльмены", "The Gentlemen", 2024, season, series)
+    ]
 
 
 @pytest.mark.parametrize("service", [[]], indirect=True)
-@pytest.mark.parametrize("season", ["0", "-1", "x", "1.5", "²"])
-def test_bad_season_400(service: Service, season: str) -> None:
-    status, body = get(service, GENTLEMEN + "&season=" + urllib.parse.quote(season))
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("season", v) for v in ["0", "-1", "x", "1.5", "²"]] + [("series", "2"), ("series", "true")],
+)
+def test_bad_int_param_400(service: Service, name: str, value: str) -> None:
+    status, body = get(service, GENTLEMEN + f"&{name}=" + urllib.parse.quote(value))
     assert status == 400
-    assert "season" in body["detail"]
+    assert name in body["detail"]
     assert service.finder.queries == []
 
 
@@ -212,11 +236,20 @@ def test_cache_expires_after_24h(service: Service) -> None:
 
 
 @pytest.mark.parametrize("service", [[NO_PICK, PICK]], indirect=True)
-def test_cache_key_includes_season(service: Service) -> None:
-    get(service, GENTLEMEN)
-    status, body = get(service, GENTLEMEN + "&season=2")
+@pytest.mark.parametrize(
+    ("first", "second", "params"),
+    [
+        ("", "&season=2", [(None, None), (2, None)]),
+        ("&series=0", "&series=1", [(None, False), (None, True)]),
+    ],
+)
+def test_cache_key_includes_params(
+    service: Service, first: str, second: str, params: list[tuple[Any, Any]]
+) -> None:
+    get(service, GENTLEMEN + first)
+    status, body = get(service, GENTLEMEN + second)
     assert (status, body["video_id"]) == (200, "J2VS_OlUJtA")
-    assert [q.season for q in service.finder.queries] == [None, 2]
+    assert [(q.season, q.series) for q in service.finder.queries] == params
 
 
 @pytest.mark.parametrize("service", [[SearchFailed("blocked"), PICK]], indirect=True)
@@ -236,6 +269,7 @@ class FakeProfile:
     original_title: str
     year: int | None
     season: int | None = None
+    series: bool | None = None
 
 
 @dataclass
@@ -263,7 +297,8 @@ def test_library_adapter_maps_pick() -> None:
     assert seen == [FakeProfile("Зверь", "The Beast", 2026)]
 
 
-def test_library_adapter_passes_season() -> None:
+@pytest.mark.parametrize(("season", "series"), [(2, None), (None, True), (None, False)])
+def test_library_adapter_passes_params(season: int | None, series: bool | None) -> None:
     seen: list[Any] = []
 
     def find(profile: Any) -> FakePick:
@@ -271,9 +306,24 @@ def test_library_adapter_passes_season() -> None:
         return FakePick("3xow3-n2VQM", "Джентльмены (2 сезон)", 0.9, "ru language")
 
     finder = LibraryFinder(find, FakeProfile, FakeRetrievalError)
-    answer = finder.find(TrailerQuery("Джентльмены", "The Gentlemen", 2024, 2))
+    answer = finder.find(TrailerQuery("Джентльмены", "The Gentlemen", 2024, season, series))
     assert answer == TrailerAnswer("3xow3-n2VQM", "Джентльмены (2 сезон)", 0.9, "ru language")
-    assert seen == [FakeProfile("Джентльмены", "The Gentlemen", 2024, season=2)]
+    assert seen == [FakeProfile("Джентльмены", "The Gentlemen", 2024, season=season, series=series)]
+
+
+def test_rejected_profile_400() -> None:
+    # trailer-search v0.3.0 отвергает `season` с `series=False` в FilmProfile (design.md, решение 4).
+    searched: list[Any] = []
+
+    def reject(*_args: Any, **_kwargs: Any) -> Any:
+        raise ValueError("season 2 contradicts series=False")
+
+    clock = Clock()
+    with serving(LibraryFinder(searched.append, reject, FakeRetrievalError), clock) as base:
+        status, body = get(Service(FakeFinder(), clock, base), GENTLEMEN + "&season=2&series=0")
+    assert status == 400
+    assert "contradicts" in body["detail"]
+    assert searched == []
 
 
 def test_library_adapter_season_fallback_null() -> None:

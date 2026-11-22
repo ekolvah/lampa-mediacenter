@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Находка раунда 1 закрыта: ключ кэша в спеке перечислен явно, у series в ключе есть сценарий «Другой тип» и тест test_cache_key_includes_params; план — минимальный проброс типа в библиотеку, RED и карта сценариев полные.",
+  "classes": {
+    "simpler": {
+      "evidence": "Рассмотрены: type=movie|tv (design.md, решение 1 — лишнее отображение), проверка season+series=0 в parse_query (решение 4 — правило в двух местах), слать только series=1. Последнее отвергает сценарий «Тип карточки в запросе» (фильм спрошен с series=0) и Risk 2: отсев сериальных роликов для фильма работает только при series=False. Нормализация ключа кэша отвергнута обоснованно (решение 5). Построитель URL в тестах JS (tasks 1.2) не лишний рефакторинг: все пять ручных URL всё равно меняются из-за &series=.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "Все 14 сценариев trailer-search-service (включая «Другой тип» → test_cache_key_includes_params) и 6 сценариев kp-card-trailers есть в tasks.md, Scenario → test map. «Тип карточки» → test_param_passed_to_finder (series 1/0/нет → True/False/None) и test_library_adapter_passes_params; «Неверный тип» → test_bad_int_param_400 (series=2, true) и test_rejected_profile_400; «Тип карточки в запросе» → JS `service asked with card type`; «Русский трейлер с пульта» → tests/live/kp-trailers.sh. Тесты, которые переименовываются (test_season_passed_to_finder, test_library_adapter_passes_season, test_bad_season_400), сохраняют прежние случаи как параметры.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Группа 1: tasks 1.1–1.2 краснеют на текущем коде. TrailerQuery без поля series, поэтому test_param_passed_to_finder падает. LibraryFinder (tools/trailer_service.py, find) не ловит ValueError конструктора, и test_rejected_profile_400 получает обрыв соединения вместо 400. JS-проверки ждут &series=, которого ruTrailer (plugins/kp-reactions-fix.js:325-332) не добавляет. Шаг 1.3 запускает check_red на оба файла; tests/test_plugin_js.py::test_plugin_js существует (строка 10).",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "FilmProfile.series и ValueError при season с series=False: исходник strategy.py на теге v0.3.0 и README процитированы в design.md, Standard approach. Отбор по типу наблюдался на живой библиотеке (ekolvah/trailer-search#17, «Огонь» series=True → GQBB6DznFvc). Что плагин считает «Огонь» сериалом, косвенно видно в воспроизведении из proposal: year=2025 взят из того же флага tv (plugins/kp-reactions-fix.js:265). Что старый сервис игнорирует незнакомый series, видно из кода: parse_query читает только свои параметры.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Ни одна проверка не убирается. Входы, которые меняются: _int_param получает maximum, и текст ошибки называет верхнюю границу (решение 3); ключ кэша — пять явных полей (решение 5, спека); в лог 502 добавляется series. Всё это перечислено в Decisions.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Противоречивый профиль: LibraryFinder поднимает BadRequest, do_GET отвечает 400, в плагине срабатывает fail() → console.warn со статусом (spec «Сервис ролик не дал»). BadRequest — исключение, поэтому не попадает в кэш (CachedFinder.find пишет только после успешного find). Неудачный поиск: 502 с ERROR в логе, теперь и с series. Неверный тип KP-карточки (Risk 1) явно принят без защиты. Последнюю линию на выкатке задают Migration Plan 3 (curl «Огонь» series=1 ≠ CAVdJB1qj9E) и tasks 5.5 (screencap карточки «Огонь»).",
+      "result": "ok"
+    },
+    "length": {
+      "result": "ok",
+      "evidence": "«Поиск трейлера по названию»: добавлено около 40 слов о series, 0/1/без параметра и 400 на противоречие. Их проверяют test_param_passed_to_finder, test_bad_int_param_400 и test_rejected_profile_400. «Русский трейлер с YouTube»: добавлено около 10 слов о типе, их проверяет JS `service asked with card type`. «Кэш ответов»: ключ теперь перечислен явно — `title`, `original_title`, `year`, `season` и `series` (spec.md:52-53). Добавленные `season` и `series` проверяет test_cache_key_includes_params (season=2 после запроса без сезона; series=1 после series=0), в карте он стоит у сценариев «Другой сезон» и «Другой тип». Этот тест краснеет на текущем коде: series не разбирается, поэтому второго поиска нет."
+    },
+    "bespoke": {
+      "evidence": "Standard approach ссылается на README trailer-search v0.3.0 и FilmProfile. Это и есть штатный способ задать тип — через поле библиотеки, и дизайн ему следует: правило противоречия не копируется, его ValueError переводится в 400 (решение 4). Новых скриптов, проверок и зависимостей нет: пин v0.3.0 уже стоит в tools/trailer-search.requirements.txt.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
