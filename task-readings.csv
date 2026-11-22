@@ -21,3 +21,4 @@ pr,change,task_id,start,merged_at,hours,agent_hours,lines,plan_rounds,code_round
 97,separate-card-module,issue-93,2026-11-21T16:06:42Z,2026-11-21T17:04:34Z,0.96,0.60,709,1,1,9.2268,200,5,0,1,
 98,card-trailers-any-source,issue-94,2026-11-21T17:07:31Z,2026-11-21T19:34:57Z,2.46,0.51,627,2,1,12.4979,207,7,5,1,
 99,now-watching-open-any-source,issue-95,2026-11-21T19:37:36Z,2026-11-21T20:38:01Z,1.01,0.53,563,2,1,10.4413,195,6,3,1,
+100,kp-trailer-without-title,issue-96,2026-11-22T05:16:45Z,2026-11-22T17:10:03Z,11.89,9.65,470,1,1,12.8100,254,10,7,1,
