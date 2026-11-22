@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 1,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Root cause is named and reproduced on the device (proposal Why), the fix reuses `trailers` with a null title instead of a second path, every delta scenario maps to a test that is RED today, and the accepted risk (foreign trailers, 3 of 6) is the person's recorded scope decision with its library issue in task 4.2.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md Decision 1 compares a separate wrapper branch (ruTrailer + putFirst + oncomplite) and rejects it as a duplicate of the trailers core; the chosen diff is one wrapper line plus two null-title guards in `trailers` (plugins/kp-reactions-fix.js:252-276, 452-466). Risks rejects calling the service in parallel with resolveTitle (extra request for ~98% of cards) and a plugin-side year/type filter (would drop the correct «Мосгаз» trailer). Nothing simpler covers the scenarios.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md Scenario → test map covers all 11 delta scenarios: «Ролик сервиса без тайтла» → new no-title test (full service URL via deepStrictEqual proves name, original, year, no season; c.videos/c.reactions empty) plus find-error test; «Сервис ролик не дал без тайтла» → outcome table reused, needles ('no candidates', 'HTTP 0', 'timeout', '500', HTTP 502 text) do not occur in the resolveTitle warning, so warnedWith cannot pass on the wrong line; «Трейлер без тайтла с пульта» → kp-trailers.sh step open-card-no-title + play_trailer_button; the 8 MODIFIED scenarios keep their existing tests (tests/js/kp-reactions-fix.test.js:460-482 etc.).",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Group 1 writes the design.md Decision 3 tests and runs `agent-process check_red tests/test_plugin_js.py::test_plugin_js` (node exists, tests/test_plugin_js.py:10). They fail on main: the wrapper never calls the service without a title (plugins/kp-reactions-fix.js:460-463), so c.service is empty and the find-error test gets no service video.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Engine draws .view--trailer from result.videos on a KP answer: already observed by the existing live step open-card-no-imdb.js on a KP card (tests/live/kp-trailers/lib.js:64). kp_source answer carries no videos for these cards: design.md observation 3 (device, 2026-11-22). Service answer for «Буду рядом» (cnF03C1vYmA) is in proposal Why with the exact query. Service caches null answers 24 h: tools/trailer_service.py:80-81 docstring. No asserted-only platform behaviour.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Dropped guard: the service is no longer gated on a TMDB title, which implicitly confirmed card identity. design.md lists the failure mode with data (observation 2: 3 of 6 foreign trailers), what stops being proven (year/type match), and the mitigation (Non-Goals, Risks, task 4.2 issue in ekolvah/trailer-search, the person's decision 2026-11-22). The suppressed 'no videos' warning without a title is justified in Decision 1: resolveTitle already logged the cause (§IV kept).",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Live example disappearing: open-card-no-title.js checks full.reactions === undefined before serviceFirst/openCard and fails with a named message; reached by `bash tests/live/kp-trailers.sh` in task 5.2 on the branch pin. Service failure without a title: the ruTrailer warning (plugins/kp-reactions-fix.js:332-334), asserted by the no-title outcome-table test in the pre-commit pytest stage (task 5.4). Both traceable.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "ADDED «Трейлер без TMDB-тайтла»: requirement 2 sentences (~45 words); tests assert service URL without season, timeout 10000, video list [PICK_VIDEO], no reactions, no tmdb videos/reactions calls, as-is answer and warning on 5 outcomes — every clause is asserted except 'with KP videos instead of TMDB' when KP videos are non-empty, which observation 3 shows does not occur. MODIFIED «Поиск тайтла по названию»: one edited sentence (~12 words, delegation to the new requirement), asserted by the no-title and find-error tests through the shared cb(null) path. Scenario sentences are short and each has an assertion.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "design.md Standard approach points to the recorded search in change card-trailers-any-source and reuses only existing plugin parts; convincing for a one-path extension of the existing service integration. The plan adds no script or check: the new live step follows the existing open-card-no-imdb.js pattern inside kp-trailers.sh.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}

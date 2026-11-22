@@ -7,7 +7,8 @@
   // Патч дорезолвливает TMDB-тайтл через imdb_id (который KP отдаёт), а без
   // imdb_id или при пустом find — поиском TMDB по названию и году со сверкой
   // названия, и подставляет в ответ KP.full() reactions и videos тем же способом,
-  // каким их получает штатный источник tmdb — см. docs/lampa-config-review.md.
+  // каким их получает штатный источник tmdb — см. docs/lampa-config-review.md. Тайтл не найден —
+  // реакций нет, а в «Трейлеры» идёт русский трейлер сервиса без season, если он есть.
   // Если русского видео у TMDB нет, первым в список ставится русский трейлер с
   // YouTube от сервиса трейлеров на приставке (docs/jacred-on-ugoos.md). У сериала,
   // чей последний вышедший сезон N ≥ 2, первым ставится трейлер сезона N: от сервиса,
@@ -138,7 +139,7 @@
       else if (film) cb({ method: 'movie', id: film.id });
       else searchByTitle(movie, cb);
     }, function () {
-      console.warn('kp-reactions-fix: find failed, no reactions and trailers', cardName(movie), movie.imdb_id);
+      console.warn('kp-reactions-fix: find failed, no reactions', cardName(movie), movie.imdb_id);
       cb(null);
     }, { life: WEEK });
   }
@@ -249,9 +250,10 @@
 
   // Список «Трейлеры»: видео TMDB, первым — русский трейлер сервиса; у сериала с последним
   // сезоном N ≥ 2 — трейлер сезона N, при отказе сервиса — из видео сезона в TMDB.
+  // title null — TMDB-тайтла нет (причина уже в console.warn), videos — из ответа источника.
   function trailers(result, title, videos, season, done) {
     var list = (videos && videos.results) || [];
-    if (!list.length) {
+    if (!list.length && title) {
       console.warn('kp-reactions-fix: no videos', title.method, title.id);
     }
     result.videos = videos;
@@ -260,7 +262,7 @@
     if (hasRu && !season) return done();
 
     var movie = result.movie;
-    var tv = title.method === 'tv';
+    var tv = title ? title.method === 'tv' : movie.type === 'tv';
     var date = season ? season.date : releaseDate(movie, tv);
     ruTrailer(movie, tv, season, function (video) {
       if (video) {
@@ -458,7 +460,7 @@
 
         resolveTitle(movie, function (title) {
           if (title) enrich(result, title, oncomplite);
-          else oncomplite(result);
+          else trailers(result, null, result.videos, null, function () { oncomplite(result); });
         });
       }, onerror);
       if (params && params.card) markOpened(params.card.id);
