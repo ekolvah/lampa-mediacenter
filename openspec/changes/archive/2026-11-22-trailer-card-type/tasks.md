@@ -43,16 +43,16 @@
 ## 5. Verify
 
 - [x] 5.1 `/simplify`, коммит его правок.
-- [ ] 5.2 Выкатка и живая проверка по design.md, Migration Plan 1–4 (сначала уточнить у
+- [x] 5.2 Выкатка и живая проверка по design.md, Migration Plan 1–4 (сначала уточнить у
   пользователя ADB и IP).
-- [ ] 5.3 `openspec validate --strict --all`.
-- [ ] 5.4 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
-- [ ] 5.5 Перезапуск Lampa (`am force-stop` + запуск), `screencap` карточки «Огонь» (KP 8941010)
+- [x] 5.3 `openspec validate --strict --all`.
+- [x] 5.4 `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
+- [x] 5.5 Перезапуск Lampa (`am force-stop` + запуск), `screencap` карточки «Огонь» (KP 8941010)
   с трейлером сериала первым.
 
 ## 6. Deliver
 
-- [ ] 6.1 `agent-process archive_change trailer-card-type`, `gh pr create --title "fix:
+- [x] 6.1 `agent-process archive_change trailer-card-type`, `gh pr create --title "fix:
   trailer-card-type" --body-file <report>`, `gh pr merge <PR> --auto --squash`,
   `agent-process wait_for_pr <PR>`.
 
