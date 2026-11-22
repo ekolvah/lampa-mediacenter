@@ -35,7 +35,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 `docs/jacred-on-ugoos.md`: `series` в примере запроса, 400 на неверный тип и на
+- [x] 4.1 `docs/jacred-on-ugoos.md`: `series` в примере запроса, 400 на неверный тип и на
   `season` с `series=0`, тип в ключе кэша; строка `kp-reactions-fix.js` в
   `docs/lampa-config-review.md` и шапка `ruTrailer`: в запросе тип карточки. Проверка:
   `python scripts/ci_check.py --only links`. Коммит.
