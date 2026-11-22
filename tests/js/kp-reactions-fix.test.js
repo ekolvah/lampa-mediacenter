@@ -676,7 +676,7 @@ test('find error warns with imdb_id, card opens', () => {
 // --- Трейлер без TMDB-тайтла (spec kp-card-trailers, «Трейлер без TMDB-тайтла») ---
 
 test('no title: service video only, no tmdb videos or reactions', () => {
-  const c = load({ movie: NEAR, search: NO_RESULTS, service: PICK });
+  const c = load({ movie: NEAR, service: PICK });
   assert.deepStrictEqual(c.service, [{ url: NEAR_URL, timeout: 10000 }]);
   assert.strictEqual(c.done.length, 1);
   assert.deepStrictEqual(plain(c.done[0].videos.results), [PICK_VIDEO]);
@@ -686,10 +686,7 @@ test('no title: service video only, no tmdb videos or reactions', () => {
 
 test('no title, service gave nothing: answer as is, warning', () => {
   for (const [service, needle] of SERVICE_FAILURES) {
-    const c = load({ movie: NEAR, search: NO_RESULTS, service });
-    assert.strictEqual(c.done.length, 1, needle);
-    assert.strictEqual(c.done[0].videos, undefined, needle);
-    assert.ok(warnedWith(c, 'Буду рядом', '2026', needle), JSON.stringify(c.warn));
+    assertNoTmdbTitle(load({ movie: NEAR, service }), 'Буду рядом', '2026', needle);
   }
 });
 

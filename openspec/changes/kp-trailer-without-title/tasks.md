@@ -31,7 +31,7 @@
 
 ## 5. Verify
 
-- [ ] 5.1 `/simplify`, коммит его правок.
+- [x] 5.1 `/simplify`, коммит его правок.
 - [ ] 5.2 Снапшот пина по `docs/snapshots-convention.md`. Пин `kp-reactions-fix.js` на sha ветки,
   `bash tests/live/kp-trailers.sh` → `OK`.
 - [ ] 5.3 `openspec validate --strict --all`.
