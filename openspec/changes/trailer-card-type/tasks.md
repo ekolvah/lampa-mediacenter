@@ -22,7 +22,7 @@
 
 ## 2. Сервис
 
-- [ ] 2.1 `TrailerQuery.series`, `maximum` у `_int_param` (решение 3), `ValueError` конструктора
+- [x] 2.1 `TrailerQuery.series`, `maximum` у `_int_param` (решение 3), `ValueError` конструктора
   профиля → `BadRequest` в `LibraryFinder` и 400 в `do_GET` (решение 4), `series=` в `FilmProfile`,
   `series` в логе 502 (решение 5). Проверка: `python -m pytest tests/test_trailer_service.py`
   зелёный. Коммит.

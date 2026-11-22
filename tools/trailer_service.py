@@ -1,8 +1,8 @@
 """HTTP-сервис трейлеров на приставке (spec trailer-search-service, design.md решения 2–5).
 
-`GET /trailer?title=…&original_title=…&year=…&season=…` → русский трейлер с YouTube, выбранный
-библиотекой `trailer-search`: 200 с роликом или `video_id: null` (и когда вместо сезона `season`
-нашёлся только другой), 400 на неверный запрос,
+`GET /trailer?title=…&original_title=…&year=…&season=…&series=0|1` → русский трейлер с YouTube,
+выбранный библиотекой `trailer-search`: 200 с роликом или `video_id: null` (и когда вместо сезона
+`season` нашёлся только другой), 400 на неверный запрос и на профиль, отвергнутый библиотекой,
 502 при неудачном поиске (с ERROR в логе). Успешные ответы кэшируются в памяти на 24 часа.
 Слушает только 127.0.0.1:9118 — клиент один, плагин Lampa на той же приставке.
 
@@ -35,6 +35,7 @@ class TrailerQuery:
     original_title: str
     year: int | None
     season: int | None = None
+    series: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -50,19 +51,24 @@ class SearchFailed(Exception):
 
 
 class BadRequest(ValueError):
-    """Запрос без `title`, с нечисловым `year` или с `season` не от 1."""
+    """Запрос без `title`, с нечисловым `year`, `season` не от 1, `series` не 0/1 или профиль,
+    отвергнутый библиотекой (`season` с `series=0`)."""
 
 
 class TrailerFinder(Protocol):
     def find(self, query: TrailerQuery) -> TrailerAnswer: ...
 
 
-def _int_param(params: dict[str, list[str]], name: str, minimum: int) -> int | None:
+def _int_param(
+    params: dict[str, list[str]], name: str, minimum: int, maximum: int | None = None
+) -> int | None:
     raw = params.get(name, [""])[0].strip()
     if not raw:
         return None
-    if not raw.isdecimal() or int(raw) < minimum:
-        raise BadRequest(f"{name} must be an integer >= {minimum}, got {raw!r}")
+    too_big = maximum is not None and raw.isdecimal() and int(raw) > maximum
+    if not raw.isdecimal() or int(raw) < minimum or too_big:
+        bounds = f">= {minimum}" if maximum is None else f"in {minimum}..{maximum}"
+        raise BadRequest(f"{name} must be an integer {bounds}, got {raw!r}")
     return int(raw)
 
 
@@ -72,8 +78,13 @@ def parse_query(raw: str) -> TrailerQuery:
     if not title:
         raise BadRequest("title is required")
     original = params.get("original_title", [""])[0].strip()
+    series = _int_param(params, "series", 0, maximum=1)
     return TrailerQuery(
-        title, original, _int_param(params, "year", 0), _int_param(params, "season", 1)
+        title,
+        original,
+        _int_param(params, "year", 0),
+        _int_param(params, "season", 1),
+        None if series is None else bool(series),
     )
 
 
@@ -111,18 +122,18 @@ def build_server(
                 return
             try:
                 query = parse_query(url.query)
+                answer = cached.find(query)
             except BadRequest as err:
                 self._send(400, {"error": "bad request", "detail": str(err)})
                 return
-            try:
-                answer = cached.find(query)
             except SearchFailed as err:
                 log.exception(
-                    "search failed: title=%r original_title=%r year=%s season=%s: %s",
+                    "search failed: title=%r original_title=%r year=%s season=%s series=%s: %s",
                     query.title,
                     query.original_title,
                     query.year,
                     query.season,
+                    query.series,
                     err,
                 )
                 self._send(502, {"error": "search failed", "detail": str(err)})
@@ -147,7 +158,8 @@ def build_server(
 
 
 class LibraryFinder:
-    """Адаптер `trailer-search`: `find(FilmProfile) -> TrailerPick`, `error_cls` → `SearchFailed`.
+    """Адаптер `trailer-search`: `find(FilmProfile) -> TrailerPick`, `error_cls` → `SearchFailed`,
+    `ValueError` конструктора профиля (противоречивый запрос) → `BadRequest`.
 
     Ролик другого сезона вместо запрошенного — не ответ: `video_id: null` с причиной библиотеки.
     """
@@ -163,9 +175,16 @@ class LibraryFinder:
         self._error_cls = error_cls
 
     def find(self, query: TrailerQuery) -> TrailerAnswer:
-        profile = self._profile_cls(
-            query.title, query.original_title, query.year, season=query.season
-        )
+        try:
+            profile = self._profile_cls(
+                query.title,
+                query.original_title,
+                query.year,
+                season=query.season,
+                series=query.series,
+            )
+        except ValueError as err:
+            raise BadRequest(str(err)) from err
         try:
             pick = self._find(profile)
         except self._error_cls as err:
