@@ -29,9 +29,9 @@
 
 ## 3. Плагин и живая проверка
 
-- [ ] 3.1 `ruTrailer` добавляет `&series=` последним (решение 2). Проверка:
+- [x] 3.1 `ruTrailer` добавляет `&series=` последним (решение 2). Проверка:
   `node --test tests/js/kp-reactions-fix.test.js` зелёный.
-- [ ] 3.2 `askService` в `tests/live/kp-trailers/lib.js` шлёт `series` так же (решение 6). Коммит.
+- [x] 3.2 `askService` в `tests/live/kp-trailers/lib.js` шлёт `series` так же (решение 6). Коммит.
 
 ## 4. Доки
 

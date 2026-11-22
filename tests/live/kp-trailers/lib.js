@@ -26,7 +26,8 @@ function askService(params, movie, season) {
   var date = (tv ? movie.first_air_date : movie.release_date) || '';
   var url = 'http://127.0.0.1:9118/trailer?title=' + encodeURIComponent(movie.title || movie.name)
     + '&original_title=' + encodeURIComponent(movie.original_title || movie.original_name)
-    + '&year=' + date.slice(0, 4) + (season ? '&season=' + season : '');
+    + '&year=' + date.slice(0, 4) + (season ? '&season=' + season : '')
+    + '&series=' + (tv ? 1 : 0);
   return new Promise(function (ok, fail) {
     var request = new Lampa.Reguest();
     request.timeout(10000);

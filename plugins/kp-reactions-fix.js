@@ -320,7 +320,8 @@
   }
 
   // Русский трейлер с YouTube от сервиса трейлеров на приставке (tools/trailer_service.py),
-  // в форме видео TMDB; season — трейлер этого сезона. cb(null) — ролика нет, причина уже в
+  // в форме видео TMDB; season — трейлер этого сезона, tv — тип карточки (series=1|0), чтобы
+  // сериалу не достался трейлер одноимённого фильма. cb(null) — ролика нет, причина уже в
   // console.warn.
   function ruTrailer(movie, tv, season, cb) {
     var name = cardName(movie);
@@ -330,6 +331,7 @@
     if (original) url += '&original_title=' + encodeURIComponent(original);
     if (year) url += '&year=' + year;
     if (season) url += '&season=' + season.number;
+    url += '&series=' + (tv ? 1 : 0);
 
     function fail(reason) {
       console.warn('kp-reactions-fix: no russian trailer', name, year, season ? 'season ' + season.number : '', reason);
