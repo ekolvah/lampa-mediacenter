@@ -5,8 +5,8 @@
 
 ## 1. RED
 
-- [ ] 1.1 Тесты по design.md, решение 3, в `tests/js/kp-reactions-fix.test.js`.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.1 Тесты по design.md, решение 3, в `tests/js/kp-reactions-fix.test.js`.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Плагин
 

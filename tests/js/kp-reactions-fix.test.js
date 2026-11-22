@@ -295,6 +295,7 @@ const BLACK_LOTUS = { id: 84553, type: 'Scripted', name: 'Бегущий по л
 const q = (title) => encodeURIComponent(title);
 const SERVICE_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Зверь') + '&original_title=The%20Beast&year=2026';
 const LOTUS_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Бегущий по лезвию: Чёрный лотос') + '&original_title=' + q('Blade Runner: Black Lotus') + '&year=2021';
+const NEAR_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Буду рядом') + '&original_title=' + q('Буду рядом') + '&year=2026';
 const GENT_URL = 'http://127.0.0.1:9118/trailer?title=' + q('Джентльмены') + '&original_title=The%20Gentlemen&year=2024&season=2';
 // «Зверь» без imdb_id, найден поиском по названию: дальше решают видео TMDB и сервис.
 const BEAST_CARD = { movie: BEAST, search: { results: [BEAST_2026] } };
@@ -314,6 +315,8 @@ const SERIES_ROW = 'Сейчас смотрят сериалы';
 const NEXT = function next() {};
 const film = (title, year) => ({ id: 'KP_' + title, type: 'movie', title, original_title: title, imdb_id: '', release_date: year });
 const show = (title, year, imdb) => ({ id: 'KP_' + title, type: 'tv', title, name: title, original_title: title, imdb_id: imdb || '', first_air_date: year });
+// «Буду рядом» (KP 14897335): TMDB-тайтла нет (design.md kp-trailer-without-title, наблюдение 1).
+const NEAR = show('Буду рядом', '2026');
 const part = (title, url, results) => ({ title, url, results, page: 1, total_pages: 35, total_results: 0, more: true });
 const AVATAR = film('Аватар: Пламя и пепел', '2025');
 const ZOOTOPIA = film('Зверополис 2', '2025');
@@ -385,9 +388,9 @@ function assertWarned(c, ...needles) {
   assert.ok(needles.every((n) => c.warn[0].includes(n)), JSON.stringify(c.warn));
 }
 
-// Исход «тайтла нет»: одно предупреждение со всеми needles, без видео и реакций, карточка открыта.
-function assertWarnedNoTrailers(c, ...needles) {
-  assertWarned(c, ...needles);
+// Исход «тайтла нет»: предупреждение со всеми needles, без видео и реакций, карточка открыта.
+function assertNoTmdbTitle(c, ...needles) {
+  assert.ok(warnedWith(c, ...needles), JSON.stringify(c.warn));
   assert.strictEqual(c.videos.length + c.reactions.length, 0);
   assert.strictEqual(c.done.length, 1);
   assert.strictEqual(c.done[0].videos, undefined);
@@ -468,17 +471,17 @@ test('no year single match searches without year', () => {
 test('no year ambiguous title warns, no videos', () => {
   const c = load({ movie: Object.assign({}, BEAST, { release_date: '' }), search: { results: [BEAST_2026, BEAST_2022] } });
   assert.deepStrictEqual(c.get.map((g) => g.url), ['search/movie?query=' + q('Зверь')]);
-  assertWarnedNoTrailers(c, 'Зверь');
+  assertNoTmdbTitle(c, 'Зверь');
 });
 
 test('no title match warns with title and year', () => {
   const c = load({ movie: FOREST, search: { results: [WITCH_FOREST] } });
-  assertWarnedNoTrailers(c, 'Лес', '2026');
+  assertNoTmdbTitle(c, 'Лес', '2026');
 });
 
 test('search error warns with title and year, card opens', () => {
   const c = load({ movie: FOREST, search: 'error' });
-  assertWarnedNoTrailers(c, 'Лес', '2026');
+  assertNoTmdbTitle(c, 'Лес', '2026');
 });
 
 test('empty videos, service gave nothing: no trailers, warning', () => {
@@ -628,15 +631,17 @@ test('tv card asks service with first air date year', () => {
   assert.strictEqual(c.done[0].videos.results[0].published_at, '2026-10-26');
 });
 
+// Отказы сервиса и подстрока причины в предупреждении.
+const SERVICE_FAILURES = [
+  [NO_PICK, 'no candidates'],
+  [{ status: 502, responseJSON: { error: 'search failed', detail: 'Sign in to confirm you are not a bot' } }, 'HTTP 502 search failed: Sign in to confirm you are not a bot'],
+  [{ status: 0, statusText: 'error' }, 'HTTP 0'],
+  [{ status: 0, statusText: 'timeout' }, 'timeout'],
+  [{ status: 500, responseText: 'Traceback' }, '500'],
+];
+
 test('service null, error or timeout: TMDB videos, warning', () => {
-  const outcomes = [
-    [NO_PICK, 'no candidates'],
-    [{ status: 502, responseJSON: { error: 'search failed', detail: 'Sign in to confirm you are not a bot' } }, 'HTTP 502 search failed: Sign in to confirm you are not a bot'],
-    [{ status: 0, statusText: 'error' }, 'HTTP 0'],
-    [{ status: 0, statusText: 'timeout' }, 'timeout'],
-    [{ status: 500, responseText: 'Traceback' }, '500'],
-  ];
-  for (const [service, needle] of outcomes) {
+  for (const [service, needle] of SERVICE_FAILURES) {
     const c = load({ ...BEAST_CARD, videos: EN_VIDEOS, service });
     assert.deepStrictEqual(c.done[0].videos, EN_VIDEOS, needle);
     assert.strictEqual(c.done.length, 1, needle);
@@ -660,11 +665,32 @@ test('find requested with cache life', () => {
 });
 
 test('find error warns with imdb_id, card opens', () => {
-  const c = load({ find: 'error' });
+  const c = load({ find: 'error', service: PICK });
   assert.strictEqual(c.warn.length, 1);
   assert.ok(c.warn[0].includes('tt1675434'), JSON.stringify(c.warn));
   assert.strictEqual(c.get.length, 1);
   assert.strictEqual(c.done.length, 1);
+  assert.strictEqual(c.done[0].videos.results[0].key, PICK.video_id);
+});
+
+// --- Трейлер без TMDB-тайтла (spec kp-card-trailers, «Трейлер без TMDB-тайтла») ---
+
+test('no title: service video only, no tmdb videos or reactions', () => {
+  const c = load({ movie: NEAR, search: NO_RESULTS, service: PICK });
+  assert.deepStrictEqual(c.service, [{ url: NEAR_URL, timeout: 10000 }]);
+  assert.strictEqual(c.done.length, 1);
+  assert.deepStrictEqual(plain(c.done[0].videos.results), [PICK_VIDEO]);
+  assert.ok(!('reactions' in c.done[0]));
+  assert.strictEqual(c.videos.length + c.reactions.length, 0);
+});
+
+test('no title, service gave nothing: answer as is, warning', () => {
+  for (const [service, needle] of SERVICE_FAILURES) {
+    const c = load({ movie: NEAR, search: NO_RESULTS, service });
+    assert.strictEqual(c.done.length, 1, needle);
+    assert.strictEqual(c.done[0].videos, undefined, needle);
+    assert.ok(warnedWith(c, 'Буду рядом', '2026', needle), JSON.stringify(c.warn));
+  }
 });
 
 // --- Трейлеры карточек tmdb и cub (spec kp-card-trailers, «Трейлеры карточки TMDB») ---
