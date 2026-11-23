@@ -32,6 +32,12 @@
   // карточки tmdb/cub таких тайтлов не открываются, а поиск их убирает. Плагин делает поле всегда
   // false — умолчанием ядра, запись ядра игнорируется (spec tmdb-access). Не удалось — Noty и
   // console.error. Карточку cub это не открывает: такие тайтлы режет сам сервер CUB (blocked: true).
+  //
+  // Кинопоиск. По списку CUB <cub_domain>/api/kinopoisk/list ядро ставит в карточке «Смотреть на
+  // Кинопоиске» вместо своих кнопок и не шлёт плагинам события full, так что «Торренты» и «Трейлер»
+  // плагина не появляются. Плагин до старта приложения включает выключатель ядра
+  // lampa_settings.disable_features.kinopoisk (spec tmdb-access). Не удалось или приложение уже
+  // стартовало — Noty и console.error.
 
   // ---- Общее: константы, сравнение названий, источники движка, помощники TMDB ----
 
@@ -1017,8 +1023,25 @@
     }
   }
 
+  // Ядро читает флаг один раз, в startApp сразу после записи app_time_launch: при позднем старте
+  // плагина список уже загружен.
+  function disableKinopoisk() {
+    try {
+      if (!window.lampa_settings || !window.lampa_settings.disable_features) {
+        throw new Error('no window.lampa_settings.disable_features');
+      }
+      window.lampa_settings.disable_features.kinopoisk = true;
+      if (window.app_time_launch) throw new Error('app already started');
+    } catch (e) {
+      var reason = e && e.message ? e.message : String(e);
+      console.error('kp-reactions-fix: Kinopoisk list not disabled', reason);
+      Lampa.Noty.show('Кнопка «Смотреть на Кинопоиске» не отключена: ' + reason);
+    }
+  }
+
   function startPlugin() {
     disableDmca();
+    disableKinopoisk();
     cub = Lampa.Api.sources.cub;
     tmdb = Lampa.Api.sources.tmdb;
     Lampa.Listener.follow('full', onFull);

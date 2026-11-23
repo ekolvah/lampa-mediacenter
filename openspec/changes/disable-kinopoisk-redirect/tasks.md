@@ -15,7 +15,7 @@
 
 ## 2. Плагин
 
-- [ ] 2.1 `disableKinopoisk()` первым шагом `startPlugin()` рядом с `disableDmca()` (решения 1–2),
+- [x] 2.1 `disableKinopoisk()` первым шагом `startPlugin()` рядом с `disableDmca()` (решения 1–2),
   абзац «Кинопоиск» в шапке плагина. Проверка: `node --test tests/js/kp-reactions-fix.test.js`
   зелёный. Коммит.
 
