@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/js/kp-reactions-fix.test.js`: в `load()` опция `bookmarks` (массив `{type, data}` в
+- [x] 1.1 `tests/js/kp-reactions-fix.test.js`: в `load()` опция `bookmarks` (массив `{type, data}` в
   порядке ядра; записи `history` — из прежней опции `history`, так что `Favorite.get` двойника идёт
   через `Account.Bookmarks.get` и тесты `recs` проходят через обёртку): двойник
   `Account.Bookmarks.get` отдаёт его по типу, `Favorite.check` ищет запись по
@@ -22,7 +22,7 @@
   вызовами), `missing favorites fn fails visibly` (цикл по `drop` для каждой функции решения 5, по
   образцу `missing recomends get fails visibly`: имя в `calls.noty` и `calls.error`, функции ядра
   не подменены).
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Плагин
 

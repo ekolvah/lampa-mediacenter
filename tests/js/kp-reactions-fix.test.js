@@ -45,9 +45,16 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // «Слово пацана» и флаг Кинопоиска ядра (false), null — свойства нет.
 // launched — window.app_time_launch (design.md disable-kinopoisk-redirect): по умолчанию не задан,
 // приложение ещё не стартовало.
+// Закладки (design.md favorites-dedup-across-sources): bookmarks — записи CUB { type, data } в порядке
+// ядра, за ними записи history. Account.Bookmarks.get отдаёт записи типа; Favorite.get при sync идёт
+// через Account.Bookmarks.get, без неё — мимо; Favorite.check ищет запись по id во всех типах;
+// Favorite.toggle/remove пишут [where, id] в calls.toggles/calls.removes и список не меняют, как ядро
+// до обновления через 500 мс; toggle отвечает, как ядро: false, если запись была. sync — геттер
+// Account.Permit.sync, читает calls.sync (тест меняет его между вызовами). calls.originals — функции
+// двойника до плагина.
 function load(over) {
-  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [] }, over);
-  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [] };
+  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [], bookmarks: [], sync: true }, over);
+  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [], toggles: [], removes: [], sync: opts.sync };
   calls.fire = () => calls.timers.splice(0).forEach((t) => t.fn());
   calls.fireMs = (ms) => calls.timers.filter((t) => t.ms === ms).forEach((t) => {
     calls.timers.splice(calls.timers.indexOf(t), 1);
@@ -124,7 +131,28 @@ function load(over) {
     },
     listener: { follow(type, fn) { if (type === 'change') changes.push(fn); } },
   };
-  const Favorite = { get(params) { return params.type === 'history' ? plain(opts.history) : []; } };
+  const TYPES = ['like', 'wath', 'book', 'history', 'look', 'viewed', 'scheduled', 'continued', 'thrown'];
+  const bookmarks = plain(opts.bookmarks).concat(opts.history.map((data) => ({ type: 'history', data: plain(data) })));
+  const records = (params) => bookmarks.filter((b) => b.type === params.type).map((b) => b.data);
+  const own = (where, card) => bookmarks.some((b) => b.type === where && b.data.id == card.id);
+  const Account = { Bookmarks: { get: records }, Permit: { get sync() { return calls.sync; } } };
+  const Favorite = {
+    get(params) { return calls.sync ? ctx.Lampa.Account.Bookmarks.get(params) : records(params); },
+    check(card) {
+      const result = { any: false };
+      TYPES.forEach((t) => {
+        result[t] = own(t, card);
+        if (result[t]) result.any = true;
+      });
+      return result;
+    },
+    toggle(where, card) {
+      calls.toggles.push([where, card.id]);
+      return !own(where, card);
+    },
+    remove(where, card) { calls.removes.push([where, card.id]); },
+  };
+  calls.originals = { 'Favorite.check': Favorite.check, 'Favorite.toggle': Favorite.toggle, 'Favorite.remove': Favorite.remove, 'Account.Bookmarks.get': records };
   const Noty = { show(text) { calls.noty.push(text); } };
   const Activity = { active() { return opts.active; } };
   const Recomends = {
@@ -143,7 +171,7 @@ function load(over) {
     constructor(...args) { if (args.length) super(...args); else super(now); }
   }
   const ctx = {
-    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Favorite, Noty, Activity, Recomends, Router, Arrays, Lang },
+    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Favorite, Account, Noty, Activity, Recomends, Router, Arrays, Lang },
     appready: opts.appready,
     $: element,
     Date: FakeDate,
@@ -1690,5 +1718,132 @@ test('kinopoisk list not disabled: noty and error', () => {
     const errors = c.error.filter((args) => args[0] === 'kp-reactions-fix: Kinopoisk list not disabled');
     assert.strictEqual(errors.length, 1, JSON.stringify(c.error));
     assert.strictEqual(c.ctx.Lampa.Api.sources.KP.__reactions_patched, true);
+  }
+});
+
+// --- Закладки: одна карточка тайтла из разных источников (spec favorites-across-sources) ---
+
+const LIST_TMDB = { id: 120911, source: 'tmdb', name: 'Список смертников', imdb_id: 'tt11743610', first_air_date: '2022-06-30' };
+const LIST_KP = { id: 'KP_4396199', source: 'KP', name: 'Список смертников', kinopoisk_id: 4396199, imdb_id: 'tt11743610', first_air_date: '2022-06-30' };
+const THRONES_TMDB = { id: 1399, source: 'tmdb', name: 'Игра престолов', imdb_id: 'tt0944947', first_air_date: '2011-04-17' };
+const LIFE_KP = { id: 'KP_5', source: 'KP', name: 'Жизнь заново', imdb_id: '' };
+const LIFE_KP2 = { id: 'KP_6', source: 'KP', name: 'Жизнь заново' };
+const LIFE_TMDB = { id: 318582, source: 'tmdb', name: 'Жизнь заново', imdb_id: 'tt0318582' };
+const FIGHT_TMDB = { id: 550, source: 'tmdb', title: 'Бойцовский клуб', imdb_id: 'tt0137523', release_date: '1999-10-15' };
+const FAVORITE_FNS = ['Favorite.check', 'Favorite.toggle', 'Favorite.remove', 'Account.Bookmarks.get'];
+const FAVORITES_WARN = 'kp-reactions-fix: favorites:';
+const mark = (type, data) => ({ type, data });
+const favIds = (list) => plain(list).map((e) => e.id);
+const fnAt = (lampa, path) => path.split('.').reduce((obj, key) => obj && obj[key], lampa);
+
+function favs(bookmarks, over) {
+  return load(Object.assign({ open: false, bookmarks }, over));
+}
+
+test('book list shows one card per imdb', () => {
+  const c = favs([mark('book', LIST_KP), mark('book', THRONES_TMDB), mark('book', LIST_TMDB)]);
+  const L = c.ctx.Lampa;
+  assert.deepStrictEqual(favIds(L.Favorite.get({ type: 'book' })), [120911, 1399]);
+  assert.deepStrictEqual(favIds(L.Account.Bookmarks.get({ type: 'book' })), [120911, 1399]);
+  assert.deepStrictEqual(c.warn, []);
+  assert.deepStrictEqual(c.error, []);
+});
+
+test('card without imdb kept', () => {
+  const c = favs([mark('book', LIFE_KP), mark('book', LIFE_KP2), mark('book', LIFE_TMDB)]);
+  assert.deepStrictEqual(favIds(c.ctx.Lampa.Favorite.get({ type: 'book' })), ['KP_5', 'KP_6', 318582]);
+});
+
+test('dup in other type kept', () => {
+  const c = favs([mark('book', LIST_TMDB), mark('like', LIST_KP)]);
+  const F = c.ctx.Lampa.Favorite;
+  assert.deepStrictEqual(favIds(F.get({ type: 'book' })), [120911]);
+  assert.deepStrictEqual(favIds(F.get({ type: 'like' })), ['KP_4396199']);
+});
+
+test('check finds same imdb other source', () => {
+  const c = favs([mark('book', LIST_TMDB)]);
+  const F = c.ctx.Lampa.Favorite;
+  const found = F.check(LIST_KP);
+  assert.strictEqual(found.book, true);
+  assert.strictEqual(found.any, true);
+  assert.strictEqual(found.like, false);
+  assert.strictEqual(found.history, false);
+  assert.strictEqual(F.check(LIFE_KP).any, false);
+});
+
+test('check finds pair despite own history', () => {
+  const c = favs([mark('book', LIST_TMDB)], { history: [LIST_KP] });
+  const found = c.ctx.Lampa.Favorite.check(LIST_KP);
+  assert.strictEqual(found.history, true);
+  assert.strictEqual(found.book, true);
+  assert.strictEqual(found.any, true);
+});
+
+test('toggle removes all records of imdb', () => {
+  const c = favs([mark('book', LIST_KP), mark('book', THRONES_TMDB), mark('book', LIST_TMDB)]);
+  assert.strictEqual(c.ctx.Lampa.Favorite.toggle('book', LIST_TMDB), false);
+  assert.deepStrictEqual(c.toggles, [['book', 'KP_4396199']]);
+  assert.deepStrictEqual(c.removes, [['book', 120911]]);
+});
+
+test('toggle does not add second record', () => {
+  const c = favs([mark('book', LIST_TMDB)], { history: [LIST_KP] });
+  assert.strictEqual(c.ctx.Lampa.Favorite.toggle('book', LIST_KP), false);
+  assert.deepStrictEqual(c.toggles, [['book', 120911]]);
+  assert.deepStrictEqual(c.removes, []);
+});
+
+test('exclusive mark moves on paired record', () => {
+  const c = favs([mark('look', LIST_TMDB)]);
+  const F = c.ctx.Lampa.Favorite;
+  assert.strictEqual(F.toggle('viewed', LIST_KP), true);
+  assert.deepStrictEqual(c.toggles, [['viewed', 120911]]);
+  // «Закладки» — не метка: пара в метке её не перенаправляет.
+  assert.strictEqual(F.toggle('book', LIST_KP), true);
+  assert.deepStrictEqual(c.toggles, [['viewed', 120911], ['book', 'KP_4396199']]);
+  assert.deepStrictEqual(c.removes, []);
+});
+
+test('recs with tmdb and kp pair in history', () => {
+  const c = recs({ history: [KP_FIGHT, FIGHT_TMDB], recsMovie: [recMovie(550), recMovie(551)] });
+  assert.deepStrictEqual(favIds(c.ctx.Lampa.Favorite.get({ type: 'history' })), [550]);
+  assert.deepStrictEqual(recIdsOf(c.ctx.Lampa.Recomends.get('movie')), [551]);
+  assert.deepStrictEqual(c.get, []);
+});
+
+test('no sync passes to core', () => {
+  const c = favs([mark('book', LIST_KP), mark('book', LIST_TMDB), mark('like', LIST_TMDB)], { sync: false });
+  const L = c.ctx.Lampa;
+  const F = L.Favorite;
+  const raw = () => {
+    assert.deepStrictEqual(favIds(F.get({ type: 'book' })), ['KP_4396199', 120911]);
+    assert.deepStrictEqual(favIds(L.Account.Bookmarks.get({ type: 'book' })), ['KP_4396199', 120911]);
+    assert.strictEqual(F.check(LIST_KP).like, false);
+  };
+  raw();
+  assert.strictEqual(F.toggle('like', LIST_KP), true);
+  assert.deepStrictEqual(c.toggles, [['like', 'KP_4396199']]);
+  c.sync = true;
+  assert.deepStrictEqual(favIds(F.get({ type: 'book' })), [120911]);
+  assert.strictEqual(F.check(LIST_KP).like, true);
+  c.sync = false;
+  raw();
+  assert.deepStrictEqual(c.removes, []);
+  assert.strictEqual(c.warn.filter((w) => String(w[0]).startsWith(FAVORITES_WARN)).length, 1, JSON.stringify(c.warn));
+  assert.deepStrictEqual(c.error, []);
+});
+
+test('missing favorites fn fails visibly', () => {
+  for (const drop of FAVORITE_FNS) {
+    const c = favs([mark('book', LIST_KP), mark('book', LIST_TMDB)], { drop: [drop] });
+    assert.strictEqual(c.noty.length, 1, drop);
+    assert.ok(c.noty[0].startsWith('Закладки из разных источников не сведены'), c.noty[0]);
+    assert.ok(c.noty[0].includes('Lampa.' + drop), c.noty[0]);
+    assert.strictEqual(c.error.length, 1, drop);
+    assert.ok(c.error[0].join(' ').includes('Lampa.' + drop), JSON.stringify(c.error));
+    for (const path of FAVORITE_FNS.filter((p) => p !== drop)) {
+      assert.strictEqual(fnAt(c.ctx.Lampa, path), c.originals[path], drop + ': ' + path);
+    }
   }
 });
