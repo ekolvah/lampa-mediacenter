@@ -27,7 +27,7 @@
   `tmdb-unfiltered.js`, который переходит на них (решение 4); ожидание alcopac/tmdbproxy
   остаётся в `tmdb-unfiltered.js`.
 - [x] 3.2 `tests/live/tmdb-access/dmca-unblocked.js` (решение 4: фикстура в `/blocked`,
-  `Live.waitFor` на `lampa_settings.dcma === false`, `tmdb.full` и `cub.full` для `tv/234763`, каждый
+  `Live.waitFor` на `lampa_settings.dcma === false`, `tmdb.full` для `tv/234763`
   не дольше 10 с) и
   `step dmca-unblocked` в `tests/live/tmdb-access.sh`, с комментарием в шапке. Коммит.
 
@@ -59,7 +59,7 @@
 
 | Capability | Scenario | Test |
 | --- | --- | --- |
-| tmdb-access | Тайтл из DMCA-списка открывается карточками tmdb и cub | `tests/live/tmdb-access.sh` (шаг `dmca-unblocked`) |
+| tmdb-access | Тайтл из DMCA-списка открывается карточкой tmdb | `tests/live/tmdb-access.sh` (шаг `dmca-unblocked`) |
 | tmdb-access | Тайтл из DMCA-списка остаётся в выдаче поиска | n/a: ручная проверка 5.4 (`tools/screen.py lampa`), фильтр живёт в UI-компоненте поиска |
 | tmdb-access | Список, записанный ядром после старта плагина, не действует | `dmca list before and after start reads false` |
 | tmdb-access | Список, записанный до старта плагина, не действует | `dmca list before and after start reads false` |

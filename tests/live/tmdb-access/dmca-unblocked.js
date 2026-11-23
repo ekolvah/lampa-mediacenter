@@ -19,16 +19,13 @@
   Live.check(await Live.waitFor(function () {
     return window.lampa_settings && window.lampa_settings.dcma === false;
   }, 10000), 'lampa_settings.dcma не false за 10 с: ' + JSON.stringify((window.lampa_settings || {}).dcma).slice(0, 200));
-  // Сценарий «Тайтл из DMCA-списка открывается карточками tmdb и cub».
-  var names = [];
-  for (var source of ['tmdb', 'cub']) {
-    var what = source + '.full ' + METHOD + '/' + ID;
-    var card = await call(what, function (ok, err) {
-      Lampa.Api.sources[source].full({ method: METHOD, id: ID }, ok, err);
-    });
-    var name = card && card.movie && (card.movie.name || card.movie.title);
-    Live.check(name && name.indexOf(NAME) === 0, what + ': карточка ' + JSON.stringify(name));
-    names.push(source + ' -> ' + name);
-  }
-  return 'ok: ' + blocked.length + ' в /blocked, ' + names.join(', ');
+  // Сценарий «Тайтл из DMCA-списка открывается карточкой tmdb». cub не проверяется: этот тайтл
+  // режет сам сервер CUB (design.md, Non-Goals).
+  var what = 'tmdb.full ' + METHOD + '/' + ID;
+  var card = await call(what, function (ok, err) {
+    Lampa.Api.sources.tmdb.full({ method: METHOD, id: ID }, ok, err);
+  });
+  var name = card && card.movie && (card.movie.name || card.movie.title);
+  Live.check(name && name.indexOf(NAME) === 0, what + ': карточка ' + JSON.stringify(name));
+  return 'ok: ' + blocked.length + ' в /blocked, tmdb -> ' + name;
 })()
