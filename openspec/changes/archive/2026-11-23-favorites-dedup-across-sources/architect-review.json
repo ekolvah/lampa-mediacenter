@@ -1,0 +1,47 @@
+{
+  "verdict": "approve",
+  "round": 3,
+  "reviewer": "architect-reviewer",
+  "reasoning": "The round-2 findings are answered with an observation and a test. Exclusive marks now move on the paired record (core line cited, spec scenario and test added). The no-index decision rests on a device measurement, 0.647 ms per card in the worst case. The requirement sentence is per type and matches its scenarios.",
+  "classes": {
+    "simpler": {
+      "evidence": "Decisions 1-3 weigh a TMDB-id key, deleting duplicates from the account, and an imdb_id index. The measurement in Decision 3 rejects the index as unneeded. Decision 6 makes the no-sync case a pure pass-through to the core. Without the check/toggle wrappers the scenarios 'KP-карточка тайтла…', 'Проигранная KP-карточка', 'Взаимоисключающая метка не разъезжается' and 'Добавление второй записи не происходит' would fail.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md '## Scenario → test map' maps all 9 scenarios of spec.md, including «Взаимоисключающая метка не разъезжается» → `exclusive mark moves on paired record` (also listed in task 1.1). The «Избранное»-screen half of the first scenario is covered by tests/live/favorites.sh only (see scenario_coverage).",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Task 1.1 names 11 tests. The double keeps lists unchanged after toggle/remove, as the core does with sync on before the 500 ms refresh, and a `sync` option flips between calls. Task 1.2 runs check_red on tests/test_plugin_js.py::test_plugin_js and commits RED before plugin task 2.1.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Every core behaviour the design relies on now has an observation beside it. Observations 1-4: export map, call-site counts, the slice(0,1) probe on the device, imdb_id coverage. Decision 3: `Favorite.add('history', movie, 100)` on playback; async remove$3 → push$7 → update$d after 500 ms; toggle$b's `return find[where] ? false : true`; the marks line `var added = marks.find(a => find[a]); if (added && added !== where) remove$3(added, card)`; and the device measurement {\"cards\": 90, \"types\": 9, \"total_ms\": 58, \"per_card_ms\": 0.647}. Decision 6 cites Permit.sync as a live getter. I checked all of these against http://lampa.mx/app.min.js (2026-11-23).",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Decision 2 changes what every core reader of Account.Bookmarks.get receives. It keeps the tmdb/cub record in the group's first slot and lists the readers that use only tmdb/cub (Timetable favorites(), the Recomendations history scan, Favorite.continues, the plugin's recsGet). Risks covers historyRecs with `recs with tmdb and kp pair in history`. Decision 6 states that without sync all three wrappers pass the call to the core unchanged.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Each catcher is reached: `missing favorites fn fails visibly` (checks the function name and that the core functions are untouched) runs in task 2.1 and in the 5.2 quality run; `no sync passes to core` and `recs with tmdb and kp pair in history` run in the same places; tests/live/favorites.sh runs at task 5.3, and its header (task 3.1) says when to run it again. `python scripts/ci_check.py --only links` is green on the plan.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Approximate word counts. 'Одна карточка тайтла в списке' (~45): asserted by `book list shows one card per imdb`, `card without imdb kept` and `dup in other type kept`. 'Метка закладки у карточки другого источника' (~35, now per type, plus the marks sentence): asserted by `check finds same imdb other source`, `check finds pair despite own history` and `exclusive mark moves on paired record`. 'Снятие закладки снимает все записи тайтла' (~30): asserted by the two toggle tests. 'Сбой схлопывания видно' (~32): asserted by `missing favorites fn fails visibly` and `no sync passes to core`.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "The 'none found' in '## Standard approach' records the query and source (deepwiki lampa-source), and the departure from the core's id-only comparison rests on observation 1. The plan adds no script or gate; tests/live/favorites.sh follows the existing tests/live pattern (lib.sh, lib.js).",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "favorites-across-sources",
+      "scenario": "Один сериал из TMDB и из KP",
+      "reason": "The «Избранное»-screen half goes through Favorite.all, which reaches the wrapped Account.Bookmarks.get only through the core's closures, so only tests/live/favorites.sh proves it (tasks.md 1.1; design observations 2-3)."
+    }
+  ]
+}
