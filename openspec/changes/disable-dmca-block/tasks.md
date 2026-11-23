@@ -23,10 +23,10 @@
 
 ## 3. Живая проверка
 
-- [ ] 3.1 `tests/live/tmdb-access/lib.js`: ожидание загрузки Lampa и вызов с таймаутом из
+- [x] 3.1 `tests/live/tmdb-access/lib.js`: ожидание загрузки Lampa и вызов с таймаутом из
   `tmdb-unfiltered.js`, который переходит на них (решение 4); ожидание alcopac/tmdbproxy
   остаётся в `tmdb-unfiltered.js`.
-- [ ] 3.2 `tests/live/tmdb-access/dmca-unblocked.js` (решение 4: фикстура в `/blocked`,
+- [x] 3.2 `tests/live/tmdb-access/dmca-unblocked.js` (решение 4: фикстура в `/blocked`,
   `Live.waitFor` на `lampa_settings.dcma === false`, `tmdb.full` и `cub.full` для `tv/234763`, каждый
   не дольше 10 с) и
   `step dmca-unblocked` в `tests/live/tmdb-access.sh`, с комментарием в шапке. Коммит.
