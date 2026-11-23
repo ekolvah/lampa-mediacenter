@@ -155,7 +155,7 @@ function load(over) {
     const last = keys.pop();
     delete keys.reduce((obj, key) => obj[key], ctx.Lampa)[last];
   }
-  const settings = opts.settings === undefined ? { dcma: [DMCA_ENTRY], disable_features: { dmca: false } } : opts.settings;
+  const settings = opts.settings === undefined ? { dcma: [DMCA_ENTRY] } : opts.settings;
   if (settings !== null) ctx.lampa_settings = settings;
   ctx.window = ctx;
   calls.ctx = ctx;

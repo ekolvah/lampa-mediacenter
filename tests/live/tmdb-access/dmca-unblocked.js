@@ -7,7 +7,11 @@
   Live.check(Lampa.Manifest && Lampa.Manifest.cub_domain, 'нет Lampa.Manifest.cub_domain');
   // Фикстура ещё в списке: иначе шаг прошёл бы и без плагина.
   var url = Lampa.Utils.protocol() + 'tmdb.' + Lampa.Manifest.cub_domain + '/blocked';
-  var blocked = await call(url, function (ok, err) { new Lampa.Reguest().silent(url, ok, err); });
+  var blocked = await call(url, function (ok, err) {
+    var request = new Lampa.Reguest();
+    request.timeout(10000);
+    request.silent(url, ok, err);
+  });
   Live.check(Array.isArray(blocked), url + ': не массив, ' + JSON.stringify(blocked).slice(0, 200));
   Live.check(blocked.some(function (e) { return e.id == ID && e.cat === METHOD; }),
     'фикстура устарела: ' + METHOD + '/' + ID + ' нет в ' + url);
