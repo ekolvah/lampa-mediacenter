@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`. Двойник в `load()`:
+- [x] 1.1 Тесты из карты ниже в `tests/js/kp-reactions-fix.test.js`. Двойник в `load()`:
   - `KP.menu(params, ok)` отдаёт список жанров из опции `genres` (по умолчанию девять из design.md,
     «Standard approach»), `genres: 'never'` — не отвечает; опция `drop: ['KP.menu']` убирает функцию.
   - `KP.list` уже отвечает через `opts.pages(url, page)`; ответы рядов новинок задаются по `url`,
@@ -25,7 +25,7 @@
   за ними ряды первой порции подгрузки. Ряды новинок, не заданные в `opts.pages`, двойник отдаёт
   пустой 1-й страницей, поэтому дополнение по «Короткой первой порции» не меняет ожиданий прочих
   старых тестов первой порции (с `recs: []` у них 2 ряда и меньше).
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Ряды и запросы (решения 1–3)
 

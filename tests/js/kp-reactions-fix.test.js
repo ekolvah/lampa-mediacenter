@@ -23,9 +23,11 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // season — ответ tmdb.videos для tv/<id>/season: 'never' — колбэк не приходит, 'late' — колбэк
 // в calls.late, его зовёт тест. setTimeout — двойник: таймеры в calls.timers, fire() их запускает.
 // find, search, tv могут быть функцией от URL (find, search) или id (tv), 'never' — ответа нет.
-// Главная (design.md, решение 7): parts — первая порция KP.main; pages(url, page) — ответ KP.list,
-// 'error' или 'never'; active — Lampa.Activity.active(); today — «сейчас» для Date; open: false —
-// без KP.full в конце load().
+// Главная (design.md, решение 7): parts — ряды kp_source, их KP.list отдаёт ответом 1-й страницы их url;
+// pages(url, page) — прочие ответы KP.list, 'error' или 'never'; active — Lampa.Activity.active(); today —
+// «сейчас» для Date; open: false — без KP.full в конце load(). KP.main двойника считает вызовы в
+// calls.mains (design.md kp-main-new-release-rows, решение 1: плагин его не зовёт). genres — ответ
+// KP.menu (список жанров), 'never' — ответа нет; убрать KP.menu — drop: ['Api.sources.KP.menu'].
 // Рекомендации (design.md kp-history-recommendations): history — ответ Favorite.get истории;
 // appready — window.appready; scan, recs — ключи recomends_scan и recomends_list. Storage.get отдаёт
 // один объект на ключ, как ядро; Storage.set шлёт change в Storage.listener, записи — в calls.sets.
@@ -53,8 +55,8 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // Account.Permit.sync, читает calls.sync (тест меняет его между вызовами). calls.originals — функции
 // двойника до плагина.
 function load(over) {
-  const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [], bookmarks: [], sync: true }, over);
-  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [], toggles: [], removes: [], sync: opts.sync };
+  const opts = Object.assign({ genres: GENRES, movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [], bookmarks: [], sync: true }, over);
+  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [], toggles: [], removes: [], sync: opts.sync, mains: 0 };
   calls.fire = () => calls.timers.splice(0).forEach((t) => t.fn());
   calls.fireMs = (ms) => calls.timers.filter((t) => t.ms === ms).forEach((t) => {
     calls.timers.splice(calls.timers.indexOf(t), 1);
@@ -72,11 +74,13 @@ function load(over) {
   const reply = (a, ok, err) => { if (a === 'error') err(); else if (a !== 'never') ok(a); };
   const KP = {
     full(params, ok) { ok({ movie: opts.movie }); },
-    main(params, ok) { ok(plain(opts.parts)); return NEXT; },
+    main(params, ok) { calls.mains++; ok(plain(opts.parts)); return NEXT; },
     list(params, ok, err) {
       calls.list.push(plain(params));
-      reply(opts.pages(params.url, params.page), (json) => ok(plain(json)), err);
+      const own = params.page === 1 && opts.parts.find((p) => p && p.url === params.url);
+      reply(own || opts.pages(params.url, params.page), (json) => ok(plain(json)), err);
     },
+    menu(params, ok) { if (opts.genres !== 'never') ok(plain(opts.genres)); },
   };
   // full источника ядра: ответ уже несёт видео и реакции источника.
   const sourceFull = (params, ok) => ok({ movie: opts.movie, videos: opts.videos, reactions: opts.reactions });
@@ -198,6 +202,10 @@ function load(over) {
   return calls;
 }
 
+// Список жанров KP.menu на приставке 2026-11-23 (design.md kp-main-new-release-rows, Standard approach).
+const GENRES = [[1, 'триллер'], [2, 'драма'], [5, 'детектив'], [6, 'фантастика'], [11, 'боевик'], [13, 'комедия'], [17, 'ужасы'], [18, 'мультфильм'], [19, 'семейный']]
+  .map(([id, title]) => ({ id, title, url: 'genre' }));
+
 // Запись DMCA-списка CUB (tmdb.<cub_domain>/blocked).
 const DMCA_ENTRY = { id: 234763, cat: 'tv', kpid: 5304403 };
 
@@ -208,11 +216,12 @@ function openSource(c, source, params) {
 }
 
 // Главная KP открыта: Lampa зовёт KP.main, порции — в c.home (c.raw — те же объекты с функциями),
-// возвращённая подгрузка — c.next. По умолчанию проход по KP-истории закончен: приложение готово,
-// истории нет. c.main() открывает Главную ещё раз и возвращает массив её порций.
+// возвращённая подгрузка — c.next, вызовы onerror — c.empty. По умолчанию проход по KP-истории
+// закончен: приложение готово, истории нет. c.main() открывает Главную ещё раз и возвращает массив её порций.
 function home(over) {
   const c = load(Object.assign({ open: false, appready: true }, over));
-  const open = (sink) => c.ctx.Lampa.Api.sources.KP.main({}, sink, () => {});
+  c.empty = 0;
+  const open = (sink) => c.ctx.Lampa.Api.sources.KP.main({}, sink, () => { c.empty++; });
   c.main = () => {
     const got = [];
     open((parts) => got.push(plain(parts)));
@@ -903,18 +912,10 @@ test('not intercepted, warning', () => {
 test('original row filtered in place', () => {
   const parts = [part(MOVIES_ROW, MOVIES_URL, [AVATAR, INTERSTELLAR, ZOOTOPIA])].concat(HOME.slice(1));
   const c = home({ parts });
-  assert.deepStrictEqual(c.home[0].map((p) => [p.title, p.url]), plain(parts).map((p) => [p.title, p.url]));
+  assert.deepStrictEqual(c.home[0].map((p) => [p.title, p.url]), [[MOVIES_ROW, MOVIES_URL], [SERIES_ROW, SERIES_URL]]);
   assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title]);
   assert.deepStrictEqual(names(row(c, SERIES_ROW)), [PLURIBUS.title]);
   assert.strictEqual(c.home.length, 1);
-});
-
-test('other rows unchanged', () => {
-  const parts = HOME.concat([part('Сейчас смотрят ещё', MOVIES_URL + 'x', [INTERSTELLAR])]);
-  const c = home({ parts });
-  const others = (list) => list.filter((p) => p.url !== MOVIES_URL && p.url !== SERIES_URL);
-  assert.deepStrictEqual(others(c.home[0]), others(plain(parts)));
-  assert.strictEqual(c.next, NEXT);
 });
 
 test('more button kept', () => {
@@ -930,8 +931,8 @@ test('new items from later pages', () => {
   const late = film('Грешники', '2025');
   const c = homeWith({ movies: [AVATAR, ZOOTOPIA], page2: [INTERSTELLAR, late, old] });
   assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title, late.title]);
-  assert.deepStrictEqual(c.list.filter((l) => l.url === MOVIES_URL).map((l) => l.page), [2, 3, 4, 5]);
-  assert.deepStrictEqual(c.list.filter((l) => l.url === SERIES_URL).map((l) => l.page), [2, 3, 4, 5]);
+  assert.deepStrictEqual(c.list.filter((l) => l.url === MOVIES_URL).map((l) => l.page), [1, 2, 3, 4, 5]);
+  assert.deepStrictEqual(c.list.filter((l) => l.url === SERIES_URL).map((l) => l.page), [1, 2, 3, 4, 5]);
 });
 
 test('empty row skipped, warning', () => {
@@ -1043,17 +1044,6 @@ test('tmdb timeout is unknown', () => {
   assert.strictEqual(c.home.length, 1);
   assert.deepStrictEqual(names(row(c, SERIES_ROW)), [THRONES.title]);
   assert.ok(warnedWith(c, 'new release not checked', THRONES.title, 'timeout'), JSON.stringify(c.warn));
-});
-
-test('missing original row, noty', () => {
-  const parts = [HOME[0], HOME[2]];
-  const c = home({ parts });
-  assert.deepStrictEqual(c.home, [plain(parts)]);
-  assert.strictEqual(c.noty.length, 1);
-  assert.ok(c.noty[0].includes('Ряды новинок не построены'), c.noty[0]);
-  assert.strictEqual(c.error.length, 1);
-  assert.ok(c.error[0].join(' ').includes(SERIES_ROW), JSON.stringify(c.error));
-  assert.deepStrictEqual(c.list, []);
 });
 
 test('late patch, noty', () => {
@@ -1482,7 +1472,6 @@ test('pass deadline counts rest as unresolved', () => {
 
 const REC_MOVIES = 'Рекомендуем посмотреть фильмы';
 const REC_SERIES = 'Рекомендуем посмотреть сериалы';
-const TOP_ROW = HOME[2].title;
 const recMovie = (n) => ({ id: n, source: 'tmdb', title: 'Фильм ' + n, release_date: '2020-01-01' });
 const recShow = (n) => ({ id: n, source: 'tmdb', title: 'Сериал ' + n, name: 'Сериал ' + n, first_air_date: '2020-01-01' });
 const BOTH_RECS = [recMovie(1), recShow(2)];
@@ -1493,7 +1482,7 @@ const MAIN_WARN = 'kp-reactions-fix: recommendations: KP history not resolved be
 test('recs rows after now watching', () => {
   const c = home({ recs: BOTH_RECS });
   assert.strictEqual(c.home.length, 1);
-  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, REC_MOVIES, REC_SERIES, TOP_ROW]);
+  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, REC_MOVIES, REC_SERIES]);
   assert.deepStrictEqual(recIds(row(c, REC_MOVIES)), [1]);
   assert.deepStrictEqual(recIds(row(c, REC_SERIES)), [2]);
 });
@@ -1501,13 +1490,12 @@ test('recs rows after now watching', () => {
 test('recs rows keep place of hidden row', () => {
   const parts = [part(MOVIES_ROW, MOVIES_URL, [AVATAR]), part(SERIES_ROW, SERIES_URL, [STRANGER]), HOME[2]];
   const c = home({ parts, recs: BOTH_RECS, find: findTv, tv: () => aired('2025-06-01') });
-  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, REC_MOVIES, REC_SERIES, TOP_ROW]);
+  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, REC_MOVIES, REC_SERIES]);
 });
 
 test('recs rows first without now watching', () => {
-  const parts = [HOME[2], part('Популярные фильмы', 'api/v2.2/films/collections?type=POPULAR', [INTERSTELLAR])];
-  const c = home({ parts, recs: BOTH_RECS });
-  assert.deepStrictEqual(titlesOf(c.home[0]), [REC_MOVIES, REC_SERIES, TOP_ROW, 'Популярные фильмы']);
+  const c = newHome({ [MOVIES_ROW]: 'error', [SERIES_ROW]: 'error' }, { parts: [HOME[2]] });
+  assert.deepStrictEqual(titlesOf(c.home[0]), [REC_MOVIES, REC_SERIES].concat(NEW_ROWS.slice(0, 5).map((r) => r.title)));
 });
 
 test('recs row capped at 40, pages counted', () => {
@@ -1567,7 +1555,7 @@ test('recs incomplete after deadline', () => {
 
 test('no tv recs warns', () => {
   const c = home({ recs: [recMovie(1)] });
-  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, REC_MOVIES, TOP_ROW]);
+  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, REC_MOVIES]);
   assert.ok(warnedWith(c, 'kp-reactions-fix: no recommendations', 'tv'), JSON.stringify(c.warn));
   assert.ok(!warnedWith(c, 'kp-reactions-fix: no recommendations', 'movie'), JSON.stringify(c.warn));
 });
@@ -1581,7 +1569,7 @@ test('missing recomends get fails visibly', () => {
   ];
   for (const [drop, missing] of cases) {
     const c = home({ drop, recs: BOTH_RECS });
-    assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, TOP_ROW], drop.join());
+    assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW], drop.join());
     assert.deepStrictEqual(names(row(c, MOVIES_ROW)), [AVATAR.title, ZOOTOPIA.title], drop.join());
     assert.strictEqual(c.noty.length, 1, drop.join());
     assert.ok(c.noty[0].includes('Ряды рекомендаций не построены'), c.noty[0]);
@@ -1845,4 +1833,192 @@ test('missing favorites fn fails visibly', () => {
       assert.strictEqual(fnAt(c.ctx.Lampa, path), c.originals[path], drop + ': ' + path);
     }
   }
+});
+
+// --- Ряды новинок на Главной KP (spec kp-main-new-release-rows) ---
+
+// Таблица рядов новинок (spec, «Ряды новинок вместо рядов kp_source»); TODAY — 2026 год, id жанров — GENRES.
+const newUrl = (type, genre) => 'api/v2.2/films?order=NUM_VOTE&type=' + type + '&yearFrom=2025&yearTo=2026' + (genre ? '&genres=' + genre : '');
+const NEW_ROWS = [
+  ['Топ новинок: фильмы', 'FILM'], ['Топ новинок: сериалы', 'TV_SERIES'], ['Топ новинок: мини-сериалы', 'MINI_SERIES'],
+  ['Новые комедии', 'FILM', 13], ['Новые ужасы', 'FILM', 17], ['Новая фантастика', 'FILM', 6], ['Новые боевики', 'FILM', 11],
+  ['Новые триллеры', 'FILM', 1], ['Новые мультфильмы', 'FILM', 18], ['Новые семейные фильмы', 'FILM', 19],
+  ['Новые детективные сериалы', 'TV_SERIES', 5], ['Новые комедийные сериалы', 'TV_SERIES', 13], ['Новые драматические сериалы', 'TV_SERIES', 2],
+].map(([title, type, genre]) => ({ title, url: newUrl(type, genre) }));
+const rowTitles = (from, to) => NEW_ROWS.slice(from, to).map((r) => r.title);
+const portionTitles = (got) => got.map((p) => (p === 'end' ? p : titlesOf(p)));
+
+// Главная с рядами новинок и рекомендациями обоих типов. answers — ответ KP.list 1-й страницы по
+// заголовку ряда: массив карточек, 'error' или 'never'; ряд новинок без ответа в answers — одна своя
+// карточка film(<заголовок>), 5 страниц. Заголовок ряда «Сейчас смотрят» — ответ 1-й страницы его
+// коллекции, если ряда нет в parts; прочие страницы коллекций пусты.
+function newHome(answers, over) {
+  const own = NEW_ROWS.concat([{ title: MOVIES_ROW, url: MOVIES_URL }, { title: SERIES_ROW, url: SERIES_URL }]);
+  const byUrl = Object.fromEntries(own.map((r) => [r.url, r.title]));
+  const pages = (url, page) => {
+    const title = byUrl[url];
+    if (!title) return NO_RESULTS;
+    const collection = url === MOVIES_URL || url === SERIES_URL;
+    const a = answers && title in answers && page === 1 ? answers[title] : collection ? [] : [film(title, '2026')];
+    return Array.isArray(a) ? { results: a, url, page, total_pages: 5 } : a;
+  };
+  return home(Object.assign({ recs: BOTH_RECS, pages }, over));
+}
+
+// Подгрузка Главной до «больше нет»: порции по вызовам, «больше нет» — 'end'. Только синхронные ответы.
+function drain(c) {
+  const got = [];
+  let more = true;
+  while (more) {
+    more = false;
+    c.next((rows) => { got.push(plain(rows)); more = true; }, () => got.push('end'));
+  }
+  return got;
+}
+const newRowCalls = (c) => c.list.filter((l) => NEW_ROWS.some((r) => r.url === l.url));
+
+test('kp rows replaced', () => {
+  const c = newHome();
+  assert.strictEqual(c.mains, 0);
+  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, REC_MOVIES, REC_SERIES]);
+  const firstPages = c.list.filter((l) => l.page === 1 && (l.url === MOVIES_URL || l.url === SERIES_URL));
+  assert.deepStrictEqual(firstPages, [{ url: MOVIES_URL, page: 1 }, { url: SERIES_URL, page: 1 }]);
+  assert.strictEqual(drain(c)[0][0].title, NEW_ROWS[0].title);
+});
+
+test('new release row url', () => {
+  const c = newHome();
+  const rows = drain(c).slice(0, -1).flat();
+  assert.deepStrictEqual(rows.map((r) => [r.title, r.url, r.total_pages]), NEW_ROWS.map((r) => [r.title, r.url, 5]));
+  assert.strictEqual(rows.find((r) => r.title === 'Новые ужасы').url, 'api/v2.2/films?order=NUM_VOTE&type=FILM&yearFrom=2025&yearTo=2026&genres=17');
+  const more = fullList(c, NEW_ROWS[1].url, 2);
+  assert.deepStrictEqual(more.asked, [2]);
+  assert.deepStrictEqual(more.got, [{ results: [plain(film(NEW_ROWS[1].title, '2026'))], url: NEW_ROWS[1].url, page: 2, total_pages: 5 }]);
+});
+
+test('now watching card not repeated', () => {
+  const first = film('Первый', '2026');
+  const second = film('Второй', '2025');
+  const c = newHome({ [NEW_ROWS[0].title]: [first, AVATAR, second] });
+  assert.deepStrictEqual(names(drain(c)[0][0]), [first.title, second.title]);
+});
+
+test('repeat across portions removed', () => {
+  const twice = film('Дважды', '2026');
+  const cartoon = film('Мульт', '2026');
+  const c = newHome({ [NEW_ROWS[0].title]: [twice], 'Новые мультфильмы': [twice, cartoon] });
+  const got = drain(c);
+  assert.deepStrictEqual(names(got[0][0]), [twice.title]);
+  assert.deepStrictEqual(names(got[1].find((r) => r.title === 'Новые мультфильмы')), [cartoon.title]);
+});
+
+test('row of repeats dropped', () => {
+  const top = film('Топ', '2026');
+  const c = newHome({ [NEW_ROWS[0].title]: [top], 'Новые семейные фильмы': [top] });
+  assert.deepStrictEqual(portionTitles(drain(c).slice(1)), [rowTitles(5, 9), rowTitles(10, 13), 'end']);
+});
+
+test('rows in portions of five', () => {
+  const c = newHome();
+  assert.deepStrictEqual(newRowCalls(c), []);
+  const first = [];
+  c.next((rows) => first.push(titlesOf(rows)), () => {});
+  assert.deepStrictEqual(first, [rowTitles(0, 5)]);
+  assert.deepStrictEqual(newRowCalls(c).map((l) => [l.url, l.page]), NEW_ROWS.slice(0, 5).map((r) => [r.url, 1]));
+  assert.deepStrictEqual(portionTitles(drain(c)), [rowTitles(5, 10), rowTitles(10, 13), 'end']);
+});
+
+test('empty portion loads next', () => {
+  const top = film('Топ', '2026');
+  const repeats = Object.fromEntries(rowTitles(5, 10).map((t) => [t, [top]]));
+  const c = newHome(Object.assign({ [NEW_ROWS[0].title]: [top] }, repeats));
+  assert.deepStrictEqual(portionTitles(drain(c).slice(1)), [rowTitles(10, 13), 'end']);
+});
+
+test('short first portion padded', () => {
+  const c = newHome({ [MOVIES_ROW]: 'error', [SERIES_ROW]: 'error' }, { parts: [], recs: [] });
+  assert.deepStrictEqual(c.home.map(titlesOf), [rowTitles(0, 5)]);
+  assert.deepStrictEqual(titlesOf(drain(c)[0]), rowTitles(5, 10));
+});
+
+test('empty main calls onerror', () => {
+  const answers = Object.fromEntries(NEW_ROWS.map((r) => [r.title, 'error']).concat([[MOVIES_ROW, 'error'], [SERIES_ROW, 'error']]));
+  const c = newHome(answers, { parts: [], recs: [] });
+  assert.deepStrictEqual([c.home, c.empty], [[], 1]);
+});
+
+test('failed and late rows warn', () => {
+  const c = newHome({ [NEW_ROWS[1].title]: 'error', 'Новые ужасы': 'never' });
+  const got = [];
+  c.next((rows) => got.push(titlesOf(rows)), () => got.push('end'));
+  assert.deepStrictEqual(got, []);
+  assert.deepStrictEqual(c.timers.map((t) => t.ms), [5000]);
+  c.fireMs(5000);
+  assert.deepStrictEqual(got, [[NEW_ROWS[0].title, NEW_ROWS[2].title, NEW_ROWS[3].title]]);
+  assert.ok(warnedWith(c, 'kp-reactions-fix:', NEW_ROWS[1].title, 'failed'), JSON.stringify(c.warn));
+  assert.ok(warnedWith(c, 'kp-reactions-fix:', 'Новые ужасы', 'timeout'), JSON.stringify(c.warn));
+});
+
+test('missing genre warns', () => {
+  const c = newHome({}, { genres: GENRES.filter((g) => g.title !== 'семейный') });
+  const rows = drain(c).slice(0, -1).flat();
+  assert.deepStrictEqual(rows.map((r) => r.title), NEW_ROWS.map((r) => r.title).filter((t) => t !== 'Новые семейные фильмы'));
+  assert.ok(warnedWith(c, 'kp-reactions-fix:', 'Новые семейные фильмы', 'семейный'), JSON.stringify(c.warn));
+  assert.deepStrictEqual([c.noty, c.error], [[], []]);
+});
+
+// Жанровых рядов нет, ряды «Топ новинок» на месте, уведомление и ошибка с причиной.
+function assertTopRowsOnly(c, reason) {
+  assert.deepStrictEqual(portionTitles(drain(c)), [rowTitles(0, 3), 'end']);
+  assert.strictEqual(c.noty.length, 1);
+  assert.ok(c.noty[0].includes('Ряды новинок не построены'), c.noty[0]);
+  assert.strictEqual(c.error.length, 1);
+  assert.ok(c.error[0].join(' ').includes(reason), JSON.stringify(c.error));
+}
+
+test('no kp menu keeps top rows', () => {
+  assertTopRowsOnly(newHome({}, { drop: ['Api.sources.KP.menu'] }), 'Lampa.Api.sources.KP.menu');
+});
+
+test('empty kp menu noty', () => {
+  assertTopRowsOnly(newHome({}, { genres: [] }), 'KP.menu');
+});
+
+test('late kp menu noty', () => {
+  const c = newHome({}, { genres: 'never' });
+  assert.strictEqual(c.home.length, 0);
+  assert.deepStrictEqual(c.timers.map((t) => t.ms), [5000]);
+  c.fireMs(5000);
+  assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, SERIES_ROW, REC_MOVIES, REC_SERIES]);
+  assertTopRowsOnly(c, 'KP.menu');
+});
+
+test('other rows unchanged', () => {
+  const old = [INTERSTELLAR, film('Начало', '2010')];
+  const c = newHome({ [NEW_ROWS[0].title]: old });
+  const got = drain(c);
+  const answer = (r, results) => ({ results: plain(results), url: r.url, page: 1, total_pages: 5, title: r.title });
+  assert.deepStrictEqual(got[0], [answer(NEW_ROWS[0], old)].concat(NEW_ROWS.slice(1, 5).map((r) => answer(r, [film(r.title, '2026')]))));
+});
+
+test('now watching page 1 failed warns', () => {
+  for (const broken of ['error', 'never']) {
+    const c = newHome({ [SERIES_ROW]: broken }, { parts: [HOME[0]] });
+    if (broken === 'never') {
+      assert.strictEqual(c.home.length, 0, broken);
+      c.fireMs(5000);
+    }
+    assert.deepStrictEqual(titlesOf(c.home[0]), [MOVIES_ROW, REC_MOVIES, REC_SERIES], broken);
+    assert.ok(warnedWith(c, SERIES_ROW, broken === 'error' ? 'failed' : 'timeout'), broken + ' ' + JSON.stringify(c.warn));
+    assert.deepStrictEqual([c.noty, c.error], [[], []], broken);
+  }
+});
+
+test('both now watching failed, noty', () => {
+  const c = newHome({ [MOVIES_ROW]: 'error', [SERIES_ROW]: 'error' }, { parts: [] });
+  assert.deepStrictEqual(titlesOf(c.home[0]).slice(0, 2), [REC_MOVIES, REC_SERIES]);
+  assert.strictEqual(c.noty.length, 1);
+  assert.ok(c.noty[0].includes('Ряды новинок не построены'), c.noty[0]);
+  assert.strictEqual(c.error.length, 1);
+  assert.ok(c.error[0].join(' ').includes(MOVIES_ROW), JSON.stringify(c.error));
 });
