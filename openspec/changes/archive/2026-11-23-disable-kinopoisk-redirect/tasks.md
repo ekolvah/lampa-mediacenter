@@ -31,15 +31,15 @@
 
 ## 5. Verify
 
-- [ ] 5.1 `/simplify`, коммит его правок.
-- [ ] 5.2 `openspec validate --strict --all` и
+- [x] 5.1 `/simplify`, коммит его правок.
+- [x] 5.2 `openspec validate --strict --all` и
   `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
-- [ ] 5.3 Выкатка по design.md, Migration Plan, на sha ветки: снапшот, смена sha плагина,
+- [x] 5.3 Выкатка по design.md, Migration Plan, на sha ветки: снапшот, смена sha плагина,
   `bash tests/live/tmdb-access.sh`.
 
 ## 6. Deliver
 
-- [ ] 6.1 `agent-process archive_change disable-kinopoisk-redirect`, `gh pr create --title "fix:
+- [x] 6.1 `agent-process archive_change disable-kinopoisk-redirect`, `gh pr create --title "fix:
   disable-kinopoisk-redirect" --body-file <report>`, `gh pr merge <PR> --auto --squash`,
   `agent-process wait_for_pr <PR>`.
 
