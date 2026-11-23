@@ -21,7 +21,7 @@
 
 ## 3. Живая проверка
 
-- [ ] 3.1 `tests/live/tmdb-access/kinopoisk-card.js` (решение 3) и `step kinopoisk-card` в
+- [x] 3.1 `tests/live/tmdb-access/kinopoisk-card.js` (решение 3) и `step kinopoisk-card` в
   `tests/live/tmdb-access.sh`, с упоминанием change в шапке. Коммит.
 
 ## 4. Доки
