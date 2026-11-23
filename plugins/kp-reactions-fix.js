@@ -27,6 +27,11 @@
   // рекомендаций фильмов и сериалов: kp_source их на Главную не ставит. Рекомендации ядра плагин
   // копит в отдельных списках типа kp_recs_movie/kp_recs_tv, и Lampa.Recomends.get/page отдают их
   // (spec kp-main-recommendations).
+  //
+  // DMCA. Ядро кладёт список CUB tmdb.<cub_domain>/blocked в lampa_settings.dcma, и по нему
+  // карточки tmdb/cub таких тайтлов не открываются, а поиск их убирает. Плагин делает поле всегда
+  // false — умолчанием ядра, запись ядра игнорируется (spec tmdb-access). Не удалось — Noty и
+  // console.error. Карточку cub это не открывает: такие тайтлы режет сам сервер CUB (blocked: true).
 
   // ---- Общее: константы, сравнение названий, источники движка, помощники TMDB ----
 
@@ -993,7 +998,27 @@
     KP.__reactions_patched = true;
   }
 
+  // lampa_settings.dcma всегда false: ядро пишет список после сетевого ответа, до или после
+  // старта плагина, поэтому сеттер, а не разовая запись. Переопределить нельзя — defineProperty
+  // бросает TypeError.
+  function disableDmca() {
+    try {
+      if (!window.lampa_settings) throw new Error('no window.lampa_settings');
+      Object.defineProperty(window.lampa_settings, 'dcma', {
+        get: function () { return false; },
+        set: function () {},
+        configurable: true,
+        enumerable: true,
+      });
+    } catch (e) {
+      var reason = e && e.message ? e.message : String(e);
+      console.error('kp-reactions-fix: DMCA block not disabled', reason);
+      Lampa.Noty.show('DMCA-блокировка не отключена: ' + reason);
+    }
+  }
+
   function startPlugin() {
+    disableDmca();
     cub = Lampa.Api.sources.cub;
     tmdb = Lampa.Api.sources.tmdb;
     Lampa.Listener.follow('full', onFull);

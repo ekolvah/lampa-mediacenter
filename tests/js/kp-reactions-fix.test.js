@@ -41,6 +41,8 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // 'Api.sources.cub.full'. fireMs(ms) запускает только таймеры с этим ms.
 // Карточки tmdb и cub (design.md card-trailers-any-source, решение 4): их full отвечает
 // { movie, videos, reactions } из opts, открывает их openSource.
+// settings — window.lampa_settings (design.md disable-dmca-block): по умолчанию DMCA-список ядра с
+// «Слово пацана», null — свойства нет.
 function load(over) {
   const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [] }, over);
   const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [] };
@@ -153,6 +155,8 @@ function load(over) {
     const last = keys.pop();
     delete keys.reduce((obj, key) => obj[key], ctx.Lampa)[last];
   }
+  const settings = opts.settings === undefined ? { dcma: [DMCA_ENTRY] } : opts.settings;
+  if (settings !== null) ctx.lampa_settings = settings;
   ctx.window = ctx;
   calls.ctx = ctx;
   calls.originalShow = Select.show;
@@ -162,6 +166,9 @@ function load(over) {
   if (opts.open) KP.full({ id: 'KP_1', method: 'movie' }, (result) => calls.done.push(result), () => {});
   return calls;
 }
+
+// Запись DMCA-списка CUB (tmdb.<cub_domain>/blocked).
+const DMCA_ENTRY = { id: 234763, cat: 'tv', kpid: 5304403 };
 
 // Карточка источника ядра открыта: движок зовёт full источника (design.md card-trailers-any-source,
 // наблюдение 6). Результат — в c.done.
@@ -1639,4 +1646,26 @@ test('recs page slices list', () => {
   assert.deepStrictEqual(got.map((d) => d.results.map((e) => e.id)), [range(11, 20).reverse(), range(1, 10).reverse()]);
   assert.deepStrictEqual(got.map((d) => [d.total_pages, d.page, d.title]), [[2, 1, 'title_recomend_watch'], [2, 2, 'title_recomend_watch']]);
   assert.deepStrictEqual(empty, [{ status: 404 }]);
+});
+
+// --- DMCA-список CUB не действует (spec tmdb-access, design.md disable-dmca-block) ---
+
+test('dmca list before and after start reads false', () => {
+  const c = load();
+  assert.strictEqual(c.ctx.lampa_settings.dcma, false);
+  c.ctx.lampa_settings.dcma = [DMCA_ENTRY];
+  assert.strictEqual(c.ctx.lampa_settings.dcma, false);
+  assert.deepStrictEqual(c.noty, []);
+  assert.deepStrictEqual(c.error, []);
+});
+
+test('dmca not disabled: noty and error', () => {
+  for (const settings of [Object.freeze({ dcma: [DMCA_ENTRY] }), null]) {
+    const c = load({ settings });
+    const noty = c.noty.filter((t) => t.startsWith('DMCA-блокировка не отключена'));
+    assert.strictEqual(noty.length, 1, JSON.stringify(c.noty));
+    const errors = c.error.filter((args) => args[0] === 'kp-reactions-fix: DMCA block not disabled');
+    assert.strictEqual(errors.length, 1, JSON.stringify(c.error));
+    assert.strictEqual(c.ctx.Lampa.Api.sources.KP.__reactions_patched, true);
+  }
 });

@@ -1,0 +1,47 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Round 1 findings are applied. The live step now calls both tmdb.full and cub.full, Risks names what each catcher covers, and the search promise has a scenario mapped to the manual 5.4 check with its reason.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md Decision 1 compares five alternatives: replacing Utils.dcma (search reads the field directly), a one-time write (loses the race with the async core write, design.md Context), polling, adopting levende/anti-dmca.js, and disable_features.dmca. Decision 2 (keep it inside kp-reactions-fix.js, no second sha) and Decision 3 (no read-back after defineProperty) are the simplest options that still satisfy the before-start, after-start and failure scenarios.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md Scenario → test map covers all 5 scenarios in specs/tmdb-access/spec.md. The tmdb and cub cards are checked by the tests/live/tmdb-access.sh step dmca-unblocked (tasks 3.2). Search is mapped to n/a: the manual check 5.4 with tools/screen.py lampa, because the filter lives in the search UI component. Before-start and after-start are covered by 'dmca list before and after start reads false', and the failure case by 'dmca not disabled: noty and error'.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "tasks.md 1.1 adds both unit tests through the new settings option of load() (vm context, ctx.window = ctx). They fail before the change. They match the DMCA text in calls.noty and calls.error, so other paths that write there (kp-reactions-fix.js:419, 506, 734) cannot satisfy them. 1.2 runs check_red tests/test_plugin_js.py::test_plugin_js (tests/test_plugin_js.py:10).",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Each claim has an observation beside it. The property descriptor (configurable/writable, not frozen) and disable_features.dmca=false: design.md Context, cdp.py on 2026-11-23. The client-side block (Utils.dcma returns the record, tmdb.full and cub.full go to onerror without a request, GET tv/234763 returns 200): proposal.md Why. The async write via Network.silent → ServiceKinopoisk.ready: core code at app.min.js?v=1994901, matching yumata/lampa-source. startPlugin() runs as soon as Lampa.Api exists, before the KP wait: plugin lines 996-1018. 'Core reads disable_features.dmca before plugins load' is cited from code reading without a line. It only rejects an alternative and the design does not rest on it.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "The change removes the core's DMCA guard. design.md Risks names it as the user's decision (#106) and records it in the doc as plugin behaviour. No project-declared input is replaced by one the caller supplies.",
+      "result": "ok"
+    },
+    "catcher": {
+      "result": "ok",
+      "evidence": "design.md Risks now names each path. Live step 3 (Decision 4, tasks 3.2) catches a core change in tmdb.full and cub.full, and in full.onError, because the stub is drawn only when full fails. Search is caught only by the manual check 5.4 at delivery, and the design gives the reason (a UI-driven check from a script). The unit tests run in the manual stage of pre-commit (pre-push and agent-process / quality, on every head). tests/live/tmdb-access.sh runs at 5.3 and before each sha update (docs/lampa-config-review.md)."
+    },
+    "length": {
+      "result": "ok",
+      "evidence": "The requirement 'Без DMCA-блокировки клиента' is unchanged at about 65 words. Its parts and their checks: tmdb and cub cards by the dmca-unblocked live step; search by scenario 'остаётся в выдаче поиска', which is n/a with a reason (manual 5.4); false before and after start by the unit test; Noty plus console.error with the reason by the unit test that matches the text. Every clause now has a scenario, and every scenario except search has an automated test."
+    },
+    "bespoke": {
+      "evidence": "design.md '## Standard approach' cites the core's own defaults (yumata/lampa-source src/app.js) and three plugin families (levende anti-dmca.js, Kirill9732 anti-dmca.js, nb557 free.js / lampainit.js), with URLs. The design takes the defineProperty technique from levende and rejects the plugin itself for its Lampac proxy (#73) and its empty catches. Of the additions, dmca-unblocked.js is a step in an existing live-check script. tests/live/tmdb-access/lib.js follows the existing per-scenario lib.js convention (hide-cards/, kp-trailers/, now-watching/, kp-history-recs/) and has two users. The alcopac/tmdbproxy wait stays in tmdb-unfiltered.js (tasks 3.1).",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": [
+    {
+      "capability": "tmdb-access",
+      "scenario": "Тайтл из DMCA-списка остаётся в выдаче поиска",
+      "reason": "n/a: ручная проверка 5.4 (tools/screen.py lampa), фильтр живёт в UI-компоненте поиска"
+    }
+  ]
+}
