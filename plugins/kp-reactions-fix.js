@@ -182,13 +182,18 @@
     return !!x && typeof x === 'object' && !Array.isArray(x);
   }
 
-  // Пути от Lampa ('Account.Bookmarks.get'), где нет функции.
+  // Причина сбоя «no Lampa.<путь>, …» для путей от Lampa ('Account.Bookmarks.get'), где нет функции;
+  // '' — все на месте.
   function missingFns(paths) {
-    return paths.filter(function (path) {
-      var obj = Lampa;
-      path.split('.').forEach(function (key) { obj = obj ? obj[key] : obj; });
-      return typeof obj !== 'function';
+    var missing = paths.filter(function (path) {
+      var fn = path.split('.').reduce(function (obj, key) { return obj && obj[key]; }, Lampa);
+      return typeof fn !== 'function';
     });
+    return missing.length ? 'no ' + missing.map(function (path) { return 'Lampa.' + path; }).join(', ') : '';
+  }
+
+  function isCoreSource(card) {
+    return card.source === 'tmdb' || card.source === 'cub';
   }
 
   // Ключ TMDB-тайтла в памяти рядов: id фильма и сериала в TMDB из разных пространств.
@@ -867,7 +872,7 @@
     function recsGet(type) {
       var seen = {};
       Lampa.Favorite.get({ type: 'history' }).forEach(function (h) {
-        if (h.source === 'tmdb' || h.source === 'cub') seen[recKey(h.id, isTv(h))] = true;
+        if (isCoreSource(h)) seen[recKey(h.id, isTv(h))] = true;
       });
       var tv = type == 'tv';
       return recLists[tv ? 'tv' : 'movie'].slice().reverse().filter(function (e) {
@@ -890,8 +895,8 @@
       var active = Lampa.Activity.active();
       if (active && active.component === 'main' && active.source === 'KP') rowsFailed('main screen built before patch');
       var recsMissing = missingFns(['Recomends.get', 'Recomends.page', 'Router.call', 'Arrays.shuffle']);
-      var recsReady = !recsMissing.length;
-      if (!recsReady) recsFailed('no ' + recsMissing.map(function (path) { return 'Lampa.' + path; }).join(', '));
+      var recsReady = !recsMissing;
+      if (!recsReady) recsFailed(recsMissing);
       else {
         Lampa.Recomends.get = recsGet;
         Lampa.Recomends.page = recsPage;
@@ -1024,10 +1029,6 @@
   var MARKS = ['look', 'viewed', 'scheduled', 'continued', 'thrown'];
   var FAVORITE_FNS = ['Favorite.check', 'Favorite.toggle', 'Favorite.remove', 'Account.Bookmarks.get'];
 
-  function isCoreSource(card) {
-    return card.source === 'tmdb' || card.source === 'cub';
-  }
-
   // Записи одного imdb_id — одна, на месте первой: tmdb/cub, если есть в группе, иначе первая (design.md
   // favorites-dedup-across-sources, решение 2: часть читателей ядра берёт только tmdb/cub).
   function oneCardPerImdb(list) {
@@ -1035,8 +1036,8 @@
     var out = [];
     list.forEach(function (card) {
       var imdb = card && card.imdb_id;
-      if (!imdb) return out.push(card);
-      if (!(imdb in slot)) {
+      if (!imdb) out.push(card);
+      else if (!(imdb in slot)) {
         slot[imdb] = out.length;
         out.push(card);
       } else if (!isCoreSource(out[slot[imdb]]) && isCoreSource(card)) out[slot[imdb]] = card;
@@ -1053,7 +1054,7 @@
   // локальное хранилище, а не CUB — обёртки отдают вызов ядру как есть (решение 6).
   function patchFavorites() {
     var missing = missingFns(FAVORITE_FNS);
-    if (missing.length) return favoritesFailed('no ' + missing.map(function (path) { return 'Lampa.' + path; }).join(', '));
+    if (missing) return favoritesFailed(missing);
     var Favorite = Lampa.Favorite;
     var Bookmarks = Lampa.Account.Bookmarks;
     if (Favorite.__kp_merged) return;
@@ -1076,6 +1077,11 @@
       return orgGet.call(Bookmarks, { type: type }).filter(function (r) { return r.imdb_id === imdb; });
     }
 
+    // check зовётся на каждую отрисованную карточку: до первого совпадения, без массива.
+    function hasTitle(type, imdb) {
+      return orgGet.call(Bookmarks, { type: type }).some(function (r) { return r.imdb_id === imdb; });
+    }
+
     Bookmarks.get = function () {
       var list = orgGet.apply(this, arguments);
       return synced() ? oneCardPerImdb(list) : list;
@@ -1089,7 +1095,7 @@
       if (!imdb || !synced()) return result;
       Object.keys(result).forEach(function (type) {
         if (type === 'any' || result[type]) return;
-        if (sameTitle(type, imdb).length) result[type] = result.any = true;
+        if (hasTitle(type, imdb)) result[type] = result.any = true;
       });
       return result;
     };
@@ -1103,17 +1109,16 @@
       var same = sameTitle(where, imdb);
       if (same.length) {
         var added = orgToggle.call(this, where, same[0]);
-        same.slice(1).forEach(function (r) { Lampa.Favorite.remove(where, r); });
+        same.slice(1).forEach(function (r) { Favorite.remove(where, r); });
         return added;
       }
-      var marked = null;
       if (MARKS.indexOf(where) !== -1) {
-        MARKS.some(function (m) {
-          marked = m !== where && sameTitle(m, imdb)[0] || null;
-          return marked;
-        });
+        for (var i = 0; i < MARKS.length; i++) {
+          var marked = MARKS[i] !== where && sameTitle(MARKS[i], imdb)[0];
+          if (marked) return orgToggle.call(this, where, marked);
+        }
       }
-      return orgToggle.call(this, where, marked || card);
+      return orgToggle.apply(this, arguments);
     };
 
     Favorite.__kp_merged = true;

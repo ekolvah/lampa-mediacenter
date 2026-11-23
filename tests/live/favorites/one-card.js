@@ -2,12 +2,12 @@
   // Спек favorites-across-sources: «Один сериал из TMDB и из KP» и «KP-карточка тайтла, сохранённого
   // из TMDB». Только чтение: toggle не зовётся — это правка аккаунта пользователя.
   // Одно ожидание меньше 20 с — предела ответа tools/cdp.py.
+  function merged() { return !!(window.Lampa && Lampa.Favorite && Lampa.Favorite.__kp_merged); }
   var ready = await Live.waitFor(function () {
-    return window.Lampa && Lampa.Favorite && Lampa.Favorite.__kp_merged && Lampa.Account.Permit.sync &&
-      Lampa.Favorite.get({ type: 'book' }).length;
+    return merged() && Lampa.Account.Permit.sync && Lampa.Favorite.get({ type: 'book' }).length;
   }, 15000);
-  Live.check(ready, 'за 15 с нет обёрток плагина (Lampa.Favorite.__kp_merged: ' +
-    !!(window.Lampa && Lampa.Favorite && Lampa.Favorite.__kp_merged) + '), CUB-синхронизации или закладок «book»');
+  Live.check(ready, 'за 15 с нет обёрток плагина (Lampa.Favorite.__kp_merged: ' + merged() +
+    '), CUB-синхронизации или закладок «book»');
 
   function dups(list) {
     var seen = {};

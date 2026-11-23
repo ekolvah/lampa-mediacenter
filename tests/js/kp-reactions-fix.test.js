@@ -1733,7 +1733,6 @@ const FIGHT_TMDB = { id: 550, source: 'tmdb', title: 'Бойцовский кл�
 const FAVORITE_FNS = ['Favorite.check', 'Favorite.toggle', 'Favorite.remove', 'Account.Bookmarks.get'];
 const FAVORITES_WARN = 'kp-reactions-fix: favorites:';
 const mark = (type, data) => ({ type, data });
-const favIds = (list) => plain(list).map((e) => e.id);
 const fnAt = (lampa, path) => path.split('.').reduce((obj, key) => obj && obj[key], lampa);
 
 function favs(bookmarks, over) {
@@ -1743,22 +1742,22 @@ function favs(bookmarks, over) {
 test('book list shows one card per imdb', () => {
   const c = favs([mark('book', LIST_KP), mark('book', THRONES_TMDB), mark('book', LIST_TMDB)]);
   const L = c.ctx.Lampa;
-  assert.deepStrictEqual(favIds(L.Favorite.get({ type: 'book' })), [120911, 1399]);
-  assert.deepStrictEqual(favIds(L.Account.Bookmarks.get({ type: 'book' })), [120911, 1399]);
+  assert.deepStrictEqual(recIdsOf(L.Favorite.get({ type: 'book' })), [120911, 1399]);
+  assert.deepStrictEqual(recIdsOf(L.Account.Bookmarks.get({ type: 'book' })), [120911, 1399]);
   assert.deepStrictEqual(c.warn, []);
   assert.deepStrictEqual(c.error, []);
 });
 
 test('card without imdb kept', () => {
   const c = favs([mark('book', LIFE_KP), mark('book', LIFE_KP2), mark('book', LIFE_TMDB)]);
-  assert.deepStrictEqual(favIds(c.ctx.Lampa.Favorite.get({ type: 'book' })), ['KP_5', 'KP_6', 318582]);
+  assert.deepStrictEqual(recIdsOf(c.ctx.Lampa.Favorite.get({ type: 'book' })), ['KP_5', 'KP_6', 318582]);
 });
 
 test('dup in other type kept', () => {
   const c = favs([mark('book', LIST_TMDB), mark('like', LIST_KP)]);
   const F = c.ctx.Lampa.Favorite;
-  assert.deepStrictEqual(favIds(F.get({ type: 'book' })), [120911]);
-  assert.deepStrictEqual(favIds(F.get({ type: 'like' })), ['KP_4396199']);
+  assert.deepStrictEqual(recIdsOf(F.get({ type: 'book' })), [120911]);
+  assert.deepStrictEqual(recIdsOf(F.get({ type: 'like' })), ['KP_4396199']);
 });
 
 test('check finds same imdb other source', () => {
@@ -1807,7 +1806,7 @@ test('exclusive mark moves on paired record', () => {
 
 test('recs with tmdb and kp pair in history', () => {
   const c = recs({ history: [KP_FIGHT, FIGHT_TMDB], recsMovie: [recMovie(550), recMovie(551)] });
-  assert.deepStrictEqual(favIds(c.ctx.Lampa.Favorite.get({ type: 'history' })), [550]);
+  assert.deepStrictEqual(recIdsOf(c.ctx.Lampa.Favorite.get({ type: 'history' })), [550]);
   assert.deepStrictEqual(recIdsOf(c.ctx.Lampa.Recomends.get('movie')), [551]);
   assert.deepStrictEqual(c.get, []);
 });
@@ -1817,15 +1816,15 @@ test('no sync passes to core', () => {
   const L = c.ctx.Lampa;
   const F = L.Favorite;
   const raw = () => {
-    assert.deepStrictEqual(favIds(F.get({ type: 'book' })), ['KP_4396199', 120911]);
-    assert.deepStrictEqual(favIds(L.Account.Bookmarks.get({ type: 'book' })), ['KP_4396199', 120911]);
+    assert.deepStrictEqual(recIdsOf(F.get({ type: 'book' })), ['KP_4396199', 120911]);
+    assert.deepStrictEqual(recIdsOf(L.Account.Bookmarks.get({ type: 'book' })), ['KP_4396199', 120911]);
     assert.strictEqual(F.check(LIST_KP).like, false);
   };
   raw();
   assert.strictEqual(F.toggle('like', LIST_KP), true);
   assert.deepStrictEqual(c.toggles, [['like', 'KP_4396199']]);
   c.sync = true;
-  assert.deepStrictEqual(favIds(F.get({ type: 'book' })), [120911]);
+  assert.deepStrictEqual(recIdsOf(F.get({ type: 'book' })), [120911]);
   assert.strictEqual(F.check(LIST_KP).like, true);
   c.sync = false;
   raw();
