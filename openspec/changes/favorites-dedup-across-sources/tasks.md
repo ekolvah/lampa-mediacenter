@@ -26,7 +26,7 @@
 
 ## 2. Плагин
 
-- [ ] 2.1 Раздел «Закладки» в `plugins/kp-reactions-fix.js`: обёртка `Lampa.Account.Bookmarks.get`
+- [x] 2.1 Раздел «Закладки» в `plugins/kp-reactions-fix.js`: обёртка `Lampa.Account.Bookmarks.get`
   (решение 2), обёртки `Lampa.Favorite.check`/`toggle` (решения 1, 3), проверки и сообщения
   (решение 5), вызов из `startPlugin()`, абзац в шапке. Проверка:
   `node --test tests/js/kp-reactions-fix.test.js` зелёный, включая прежние тесты `recs`/`history`

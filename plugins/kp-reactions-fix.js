@@ -38,6 +38,13 @@
   // плагина не появляются. Плагин до старта приложения включает выключатель ядра
   // lampa_settings.disable_features.kinopoisk (spec tmdb-access). Не удалось или приложение уже
   // стартовало — Noty и console.error.
+  //
+  // Закладки. Ядро сравнивает закладки по id, поэтому тайтл, добавленный из KP и из TMDB, лежит в
+  // списке двумя карточками. Плагин сводит записи по imdb_id (spec favorites-across-sources): при
+  // чтении (обёртка Account.Bookmarks.get) — одна карточка на тайтл, tmdb/cub в приоритете; метка и
+  // кнопка закладки (обёртки Favorite.check/toggle) видят запись тайтла другого источника, нажатие
+  // снимает все записи тайтла в списке. Аккаунт CUB не правится. Нет функции ядра — Noty и
+  // console.error; без синхронизации — ядро как есть и console.warn.
 
   // ---- Общее: константы, сравнение названий, источники движка, помощники TMDB ----
 
@@ -173,6 +180,15 @@
 
   function isObject(x) {
     return !!x && typeof x === 'object' && !Array.isArray(x);
+  }
+
+  // Пути от Lampa ('Account.Bookmarks.get'), где нет функции.
+  function missingFns(paths) {
+    return paths.filter(function (path) {
+      var obj = Lampa;
+      path.split('.').forEach(function (key) { obj = obj ? obj[key] : obj; });
+      return typeof obj !== 'function';
+    });
   }
 
   // Ключ TMDB-тайтла в памяти рядов: id фильма и сериала в TMDB из разных пространств.
@@ -873,10 +889,7 @@
     if (typeof orgMain === 'function') {
       var active = Lampa.Activity.active();
       if (active && active.component === 'main' && active.source === 'KP') rowsFailed('main screen built before patch');
-      var recsMissing = ['Recomends.get', 'Recomends.page', 'Router.call', 'Arrays.shuffle'].filter(function (path) {
-        var p = path.split('.');
-        return !(Lampa[p[0]] && typeof Lampa[p[0]][p[1]] === 'function');
-      });
+      var recsMissing = missingFns(['Recomends.get', 'Recomends.page', 'Router.call', 'Arrays.shuffle']);
       var recsReady = !recsMissing.length;
       if (!recsReady) recsFailed('no ' + recsMissing.map(function (path) { return 'Lampa.' + path; }).join(', '));
       else {
@@ -1004,6 +1017,108 @@
     KP.__reactions_patched = true;
   }
 
+  // ---- Закладки: одна карточка тайтла из разных источников (spec favorites-across-sources) ----
+
+  // Ядро сравнивает закладки по id карточки, а у KP он «KP_<n>», у tmdb/cub — число TMDB: ключ тайтла
+  // — непустой imdb_id. Копия marks ядра: взаимоисключающие метки.
+  var MARKS = ['look', 'viewed', 'scheduled', 'continued', 'thrown'];
+  var FAVORITE_FNS = ['Favorite.check', 'Favorite.toggle', 'Favorite.remove', 'Account.Bookmarks.get'];
+
+  function isCoreSource(card) {
+    return card.source === 'tmdb' || card.source === 'cub';
+  }
+
+  // Записи одного imdb_id — одна, на месте первой: tmdb/cub, если есть в группе, иначе первая (design.md
+  // favorites-dedup-across-sources, решение 2: часть читателей ядра берёт только tmdb/cub).
+  function oneCardPerImdb(list) {
+    var slot = {};
+    var out = [];
+    list.forEach(function (card) {
+      var imdb = card && card.imdb_id;
+      if (!imdb) return out.push(card);
+      if (!(imdb in slot)) {
+        slot[imdb] = out.length;
+        out.push(card);
+      } else if (!isCoreSource(out[slot[imdb]]) && isCoreSource(card)) out[slot[imdb]] = card;
+    });
+    return out;
+  }
+
+  function favoritesFailed(reason) {
+    console.error('kp-reactions-fix: favorites not merged across sources', reason);
+    Lampa.Noty.show('Закладки из разных источников не сведены: ' + reason);
+  }
+
+  // Схлопывание только при чтении: записи аккаунта CUB не меняются. Без синхронизации ядро читает
+  // локальное хранилище, а не CUB — обёртки отдают вызов ядру как есть (решение 6).
+  function patchFavorites() {
+    var missing = missingFns(FAVORITE_FNS);
+    if (missing.length) return favoritesFailed('no ' + missing.map(function (path) { return 'Lampa.' + path; }).join(', '));
+    var Favorite = Lampa.Favorite;
+    var Bookmarks = Lampa.Account.Bookmarks;
+    if (Favorite.__kp_merged) return;
+    var orgGet = Bookmarks.get;
+    var orgCheck = Favorite.check;
+    var orgToggle = Favorite.toggle;
+    var warned = false;
+
+    // Permit.sync — живой геттер: решение при каждом вызове.
+    function synced() {
+      if (Lampa.Account.Permit && Lampa.Account.Permit.sync) return true;
+      if (!warned) {
+        warned = true;
+        console.warn('kp-reactions-fix: favorites: no CUB sync, titles from different sources not merged');
+      }
+      return false;
+    }
+
+    function sameTitle(type, imdb) {
+      return orgGet.call(Bookmarks, { type: type }).filter(function (r) { return r.imdb_id === imdb; });
+    }
+
+    Bookmarks.get = function () {
+      var list = orgGet.apply(this, arguments);
+      return synced() ? oneCardPerImdb(list) : list;
+    };
+
+    // Тип, где своей записи нет, но есть запись того же imdb_id, получает метку (решение 3): ядро кладёт
+    // проигранную карточку в history, так что «своя запись где-то есть» пару не исключает.
+    Favorite.check = function (card) {
+      var result = orgCheck.apply(this, arguments);
+      var imdb = card && card.imdb_id;
+      if (!imdb || !synced()) return result;
+      Object.keys(result).forEach(function (type) {
+        if (type === 'any' || result[type]) return;
+        if (sameTitle(type, imdb).length) result[type] = result.any = true;
+      });
+      return result;
+    };
+
+    // Есть записи тайтла в where — ядро снимает первую, остальные снимает плагин (снятие асинхронно,
+    // и исходный get ещё отдаёт снятую). Нет — метку ставят записи, которая держит другую метку тайтла:
+    // ядро снимет прежнюю метку только с переданной карточки.
+    Favorite.toggle = function (where, card) {
+      var imdb = card && card.imdb_id;
+      if (!imdb || !synced()) return orgToggle.apply(this, arguments);
+      var same = sameTitle(where, imdb);
+      if (same.length) {
+        var added = orgToggle.call(this, where, same[0]);
+        same.slice(1).forEach(function (r) { Lampa.Favorite.remove(where, r); });
+        return added;
+      }
+      var marked = null;
+      if (MARKS.indexOf(where) !== -1) {
+        MARKS.some(function (m) {
+          marked = m !== where && sameTitle(m, imdb)[0] || null;
+          return marked;
+        });
+      }
+      return orgToggle.call(this, where, marked || card);
+    };
+
+    Favorite.__kp_merged = true;
+  }
+
   // lampa_settings.dcma всегда false: ядро пишет список после сетевого ответа, до или после
   // старта плагина, поэтому сеттер, а не разовая запись. Переопределить нельзя — defineProperty
   // бросает TypeError.
@@ -1042,6 +1157,7 @@
   function startPlugin() {
     disableDmca();
     disableKinopoisk();
+    patchFavorites();
     cub = Lampa.Api.sources.cub;
     tmdb = Lampa.Api.sources.tmdb;
     Lampa.Listener.follow('full', onFull);
