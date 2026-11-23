@@ -26,7 +26,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 Строка `kp-reactions-fix.js` в `docs/lampa-config-review.md`: плагин отключает список CUB
+- [x] 4.1 Строка `kp-reactions-fix.js` в `docs/lampa-config-review.md`: плагин отключает список CUB
   «смотреть на Кинопоиске», сбой виден. Проверка: `python scripts/ci_check.py --only links`. Коммит.
 
 ## 5. Verify
