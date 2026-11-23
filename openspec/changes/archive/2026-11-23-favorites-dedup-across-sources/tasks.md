@@ -52,7 +52,7 @@
 ## 5. Verify
 
 - [x] 5.1 `/simplify`, коммит его правок.
-- [ ] 5.2 `openspec validate --strict --all` и
+- [x] 5.2 `openspec validate --strict --all` и
   `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`, до выкатки.
 - [ ] 5.3 Выкатка по design.md, Migration Plan: `bash tests/live/favorites.sh`.
 - [ ] 5.4 Сразу после 5.3: экран «Избранное» → «Закладки» показывает «Список смертников» одной
@@ -60,7 +60,7 @@
 
 ## 6. Deliver
 
-- [ ] 6.1 `agent-process archive_change favorites-dedup-across-sources`, `gh pr create --title "fix:
+- [x] 6.1 `agent-process archive_change favorites-dedup-across-sources`, `gh pr create --title "fix:
   favorites-dedup-across-sources" --body-file <report>`, `gh pr merge <PR> --auto --squash`,
   `agent-process wait_for_pr <PR>`.
 
