@@ -13,3 +13,19 @@ var Live = {
     return !!fn();
   }
 };
+
+// Ряды активной Главной (компонент main), пусто — Главная не активна.
+function lines() {
+  var a = Lampa.Activity.active();
+  return a.component === 'main' && a.activity.component && a.activity.component.items || [];
+}
+
+// Ждёт Главную KP (опрос раз в 250 мс, до 20 с). Возвращает момент сборки от старта страницы, мс.
+async function waitHome() {
+  var built = await Live.waitFor(function () { return lines().length >= 3; }, 20000);
+  var builtAt = Math.round(performance.now());
+  var a = Lampa.Activity.active();
+  Live.check(built, 'Главная не собралась: активна ' + a.component + ', источник ' + a.source);
+  Live.check(a.source === 'KP', 'источник Главной ' + a.source + ', нужен KP');
+  return builtAt;
+}

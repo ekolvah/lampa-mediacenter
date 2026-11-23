@@ -68,16 +68,16 @@
 
 ## 5. Живая проверка
 
-- [ ] 5.1 `lines` и `waitHome` из `tests/live/now-watching/lib.js` перенести в `tests/live/lib.js`
+- [x] 5.1 `lines` и `waitHome` из `tests/live/now-watching/lib.js` перенести в `tests/live/lib.js`
   (его подключает каждый `step`), `bash tests/live/now-watching.sh` → OK.
-- [ ] 5.2 `tests/live/main-rows.sh` (`DIR=tests/live/main-rows`, `restart_lampa`, затем шаг
+- [x] 5.2 `tests/live/main-rows.sh` (`DIR=tests/live/main-rows`, `restart_lampa`, затем шаг
   `rows`). Шаг `tests/live/main-rows/rows.js` ждёт Главную через `waitHome`, зовёт
   `Lampa.Api.sources.KP.main` и его подгрузку до `reject` и проверяет сценарий «Главная на
   приставке»: рядов «Топ фильмы»/«Популярные …» нет; ряды новинок — подпоследовательность таблицы в
   её порядке; у всех карточек рядов новинок год не раньше `Y−1`; повторов `id` между рядами
   Кинопоиска («Сейчас смотрят» и ряды новинок, без рядов рекомендаций) нет;
   `KP.list({url: <Топ новинок: фильмы>, page: 2})` непустой.
-- [ ] 5.3 Снапшот пина по `docs/snapshots-convention.md`, пин `kp-reactions-fix.js` на sha ветки,
+- [x] 5.3 Снапшот пина по `docs/snapshots-convention.md`, пин `kp-reactions-fix.js` на sha ветки,
   `bash tests/live/main-rows.sh` → OK, `bash tests/live/main-recs.sh` → OK (`now-watching.sh` уже
   прошёл в 5.1). Затем `screencap` Главной после прокрутки до рядов новинок (процесс уже перезапущен
   скриптом). Коммит.
