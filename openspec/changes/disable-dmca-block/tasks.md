@@ -33,7 +33,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 Строка `kp-reactions-fix.js` в `docs/lampa-config-review.md`: плагин отключает
+- [x] 4.1 Строка `kp-reactions-fix.js` в `docs/lampa-config-review.md`: плагин отключает
   DMCA-список CUB (`lampa_settings.dcma` всегда `false`), сбой даёт `Lampa.Noty` и `console.error`,
   живая проверка — `bash tests/live/tmdb-access.sh`. Проверка: `python scripts/ci_check.py --only links`.
   Коммит.
