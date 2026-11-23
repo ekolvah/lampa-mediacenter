@@ -26,3 +26,4 @@ pr,change,task_id,start,merged_at,hours,agent_hours,lines,plan_rounds,code_round
 107,disable-dmca-block,issue-106,2026-11-23T05:53:26Z,2026-11-23T07:28:31Z,1.58,0.99,481,2,1,12.8655,247,7,0,2,
 111,disable-kinopoisk-redirect,issue-110,2026-11-23T09:28:36Z,2026-11-23T10:20:46Z,0.87,0.38,345,2,1,8.1080,183,3,6,0,
 113,favorites-dedup-across-sources,issue-112,2026-11-23T16:04:39Z,2026-11-23T17:07:51Z,1.05,0.50,749,3,1,12.4643,248,8,4,1,
+115,kp-main-new-release-rows,issue-114,2026-11-23T17:18:35Z,2026-11-23T18:58:35Z,1.67,1.16,1443,6,1,20.3164,342,5,6,3,
