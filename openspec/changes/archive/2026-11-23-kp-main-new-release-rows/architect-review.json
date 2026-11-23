@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 6,
+  "reviewer": "architect-reviewer",
+  "reasoning": "The round-5 contradiction is resolved by option (a): both 'only these rows' sentences now except «Короткая первая порция», the scenario «Рядов «Сейчас смотрят» нет» expects the padded portion, and the old tests stay valid because unset new-release pages answer empty; all classes hold.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md decision 1 'Отвергнуто': keeping orgMain and discarding its extra rows costs 3 extra requests, menu() before the first portion and a kp_source-layout premise; fork and filter-over-loader rejected. Two orgList page-1 calls plus KP.menu under one waiter, padded by core's own partNext rule (<3 rows), is the smaller design for 'Ряды kp_source заменены'.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md map: 30 rows for 16 + 9 + 5 delta scenarios. 'Рядов «Сейчас смотрят» нет' → «recs rows first without now watching» with 'error' page 1 and loader rows after recs, matching the new THEN; 'Первая порция дополнена' → «short first portion padded», 'Рядов нет совсем' → «empty main calls onerror», 'Обоих штатных рядов нет' → «both now watching failed, noty». Task 1.1 states the double answers unset new-release urls with an empty page 1, so with default recs: [] padding drains to reject and leaves other old first-portion expectations unchanged. specs/kp-main-new-release-rows line 5 and specs/kp-main-recommendations line 9 now both except «Короткая первая порция»; 'Два ряда за «Сейчас смотрят»' (4 rows) and 'Ряд «Сейчас смотрят» без новинок' (3 rows) are below no threshold.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "tasks.md 1.1 lists double changes and the adjusted/renamed old tests; 1.2 runs agent-process check_red tests/test_plugin_js.py::test_plugin_js before implementation.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Verified in the copies: core onLoadNext requires this.items.length (scratchpad dl/core/app.min.js:44437-44440); partNext 'data.length < 3' at :44037, now cited correctly in design.md decision 1; kp_source full() refetches the card (kp_source.js:632-633); getList caches raw json (:385-390); convertElem genre id from genres_map (:218), residual id 0 declared and accepted.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Beside decision 1: menu() before rows (KP.menu moved into the first-portion waiter, id 0 accepted), partNext padding and empty → onerror (requirement «Короткая первая порция», task 3.3), removed rowsFailed('no row …') replaced by rowsFailed when both page-1 requests fail.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Both page-1 failures → rowsFailed, reached by «both now watching failed, noty» (task 2.2); single-row loss → console.warn, Risks states it is seen only in the console and by now-watching.sh at the next pin; KP.menu cases → rowsFailed via «no kp menu keeps top rows», «empty kp menu noty», «late kp menu noty»; empty Главная → onerror via «empty main calls onerror».",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "Edited: kp-main-new-release-rows 'а если их меньше 3 — ещё из рядов по требованию «Короткая первая порция»' (13 words) and kp-main-recommendations 'кроме рядов, которыми её дополняет требование «Короткая первая порция»' (9) asserted by «recs rows first without now watching» and «short first portion padded»; «Короткая первая порция» (~40) by «short first portion padded» and «empty main calls onerror»; «Сбой перехвата виден» page-1 sentence (38) by «now watching page 1 failed warns» ('error' and 'never'+fireMs(5000)), both-rows sentence (20) by «both now watching failed, noty»; KP.menu timing (11) by «late kp menu noty».",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "design.md '## Standard approach' names kp_source main$1/category 'За год' as the standard with observed source and API answers and a gh code search finding only forks; decisions 1 and 4 depart with observed reasons and decision 1 reuses partNext's <3 rule. The only added script, tests/live/main-rows.sh, follows the existing tests/live/*.sh pattern.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
