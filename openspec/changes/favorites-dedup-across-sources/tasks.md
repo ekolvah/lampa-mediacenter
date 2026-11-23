@@ -44,7 +44,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 Строка `kp-reactions-fix.js` в `docs/lampa-config-review.md`: закладки одного `imdb_id`
+- [x] 4.1 Строка `kp-reactions-fix.js` в `docs/lampa-config-review.md`: закладки одного `imdb_id`
   схлопываются при чтении, кнопка закладок снимает все записи тайтла, сбой — `Lampa.Noty`/`console.error`,
   без синхронизации — `console.warn`; живая проверка — `bash tests/live/favorites.sh`. Проверка:
   `python scripts/ci_check.py --only links`. Коммит.
