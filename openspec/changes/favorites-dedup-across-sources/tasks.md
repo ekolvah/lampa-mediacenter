@@ -34,7 +34,7 @@
 
 ## 3. Живая проверка
 
-- [ ] 3.1 `tests/live/favorites/one-card.js` и `tests/live/favorites.sh` по образцу
+- [x] 3.1 `tests/live/favorites/one-card.js` и `tests/live/favorites.sh` по образцу
   `tests/live/tmdb-access.sh` (`restart_lampa` и `step one-card` из `tests/live/lib.sh`; в шаге
   `Live.waitFor` загрузки закладок и `Live.check` из `tests/live/lib.js`; в шапке — когда гонять:
   перед сменой sha `plugins/kp-reactions-fix.js` и после): только чтение — в каждом типе
