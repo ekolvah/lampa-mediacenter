@@ -42,7 +42,9 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // Карточки tmdb и cub (design.md card-trailers-any-source, решение 4): их full отвечает
 // { movie, videos, reactions } из opts, открывает их openSource.
 // settings — window.lampa_settings (design.md disable-dmca-block): по умолчанию DMCA-список ядра с
-// «Слово пацана», null — свойства нет.
+// «Слово пацана» и флаг Кинопоиска ядра (false), null — свойства нет.
+// launched — window.app_time_launch (design.md disable-kinopoisk-redirect): по умолчанию не задан,
+// приложение ещё не стартовало.
 function load(over) {
   const opts = Object.assign({ movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [] }, over);
   const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [] };
@@ -155,8 +157,9 @@ function load(over) {
     const last = keys.pop();
     delete keys.reduce((obj, key) => obj[key], ctx.Lampa)[last];
   }
-  const settings = opts.settings === undefined ? { dcma: [DMCA_ENTRY] } : opts.settings;
+  const settings = opts.settings === undefined ? { dcma: [DMCA_ENTRY], disable_features: { kinopoisk: false } } : opts.settings;
   if (settings !== null) ctx.lampa_settings = settings;
+  if (opts.launched !== undefined) ctx.app_time_launch = opts.launched;
   ctx.window = ctx;
   calls.ctx = ctx;
   calls.originalShow = Select.show;
@@ -1665,6 +1668,26 @@ test('dmca not disabled: noty and error', () => {
     const noty = c.noty.filter((t) => t.startsWith('DMCA-блокировка не отключена'));
     assert.strictEqual(noty.length, 1, JSON.stringify(c.noty));
     const errors = c.error.filter((args) => args[0] === 'kp-reactions-fix: DMCA block not disabled');
+    assert.strictEqual(errors.length, 1, JSON.stringify(c.error));
+    assert.strictEqual(c.ctx.Lampa.Api.sources.KP.__reactions_patched, true);
+  }
+});
+
+// --- Список CUB «смотреть на Кинопоиске» отключён (spec tmdb-access, design.md disable-kinopoisk-redirect) ---
+
+test('kinopoisk list disabled before app start', () => {
+  const c = load();
+  assert.strictEqual(c.ctx.lampa_settings.disable_features.kinopoisk, true);
+  assert.deepStrictEqual(c.noty, []);
+  assert.deepStrictEqual(c.error, []);
+});
+
+test('kinopoisk list not disabled: noty and error', () => {
+  for (const over of [{ launched: 1 }, { settings: null }]) {
+    const c = load(over);
+    const noty = c.noty.filter((t) => t.startsWith('Кнопка «Смотреть на Кинопоиске» не отключена: '));
+    assert.strictEqual(noty.length, 1, JSON.stringify(c.noty));
+    const errors = c.error.filter((args) => args[0] === 'kp-reactions-fix: Kinopoisk list not disabled');
     assert.strictEqual(errors.length, 1, JSON.stringify(c.error));
     assert.strictEqual(c.ctx.Lampa.Api.sources.KP.__reactions_patched, true);
   }
