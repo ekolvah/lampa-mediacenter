@@ -29,18 +29,18 @@
 
 ## 2. Ряды и запросы (решения 1–3)
 
-- [ ] 2.1 Таблица рядов (заголовок, `type`, название жанра) и сборка `url` с окном `Y−1…Y` из
+- [x] 2.1 Таблица рядов (заголовок, `type`, название жанра) и сборка `url` с окном `Y−1…Y` из
   `noveltyRule(new Date()).minYear`; тот же тест проверяет, что `KP.list` с этим `url` и `page: 2`
   уходит в `kp_source` без изменений. Проверка: `node --test tests/js/kp-reactions-fix.test.js`,
   тест «new release row url».
-- [ ] 2.2 Первая порция (решение 1): обёртка `KP.main` не зовёт `orgMain`; ряды `NOW_WATCHING` —
+- [x] 2.2 Первая порция (решение 1): обёртка `KP.main` не зовёт `orgMain`; ряды `NOW_WATCHING` —
   `orgList` 1-й страницы под `waiter` от вызова, дальше `collectPages` с ней как `known`,
   `filterRows`, `addRecs` в конец; `KP.menu` зовётся параллельно под тем же `waiter`; `recsIndex` и
   путь `rowsFailed('no row …')` удалены; 1-я страница не пришла — ряда нет, `console.warn`; не пришли
   обе — `rowsFailed` с причиной. Обёртка отдаёт свою подгрузку. Проверка: та же, тесты «kp rows
   replaced», «now watching page 1 failed warns», «both now watching failed, noty» и тесты
   рекомендаций.
-- [ ] 2.3 id жанра из ответа `KP.menu` первой порции (2.2) по названию, один раз на подгрузку; нет названия — ряд снят с
+- [x] 2.3 id жанра из ответа `KP.menu` первой порции (2.2) по названию, один раз на подгрузку; нет названия — ряд снят с
   `console.warn`; нет `KP.menu` — жанровые ряды сняты, `rowsFailed(missingFns(['Api.sources.KP.menu']))`;
   нет ни одного жанра таблицы (пустой список, ответ `KP.menu` не пришёл за `ROWS_TIMEOUT_MS` того же
   `waiter` первой порции) — так же, `rowsFailed` с причиной. Проверка: та же, тесты «missing genre warns», «no kp
@@ -48,14 +48,14 @@
 
 ## 3. Подгрузка и повторы (решения 4–5)
 
-- [ ] 3.1 Подгрузка порциями по 5 на `waiter` с `ROWS_TIMEOUT_MS`, ряды по порядку таблицы,
+- [x] 3.1 Подгрузка порциями по 5 на `waiter` с `ROWS_TIMEOUT_MS`, ряды по порядку таблицы,
   пустая порция — следующая, конец — `reject`; ошибка и таймаут ряда — `console.warn` с заголовком
   и причиной; подгрузка держит только набор `id`, номер ряда и id жанров (решение 4). Проверка: та
   же, тесты «rows in portions of five», «empty portion loads next», «failed and late rows warn».
-- [ ] 3.2 Набор `id` на вызов `KP.main`: показанные «Сейчас смотрят», затем ряды новинок по мере
+- [x] 3.2 Набор `id` на вызов `KP.main`: показанные «Сейчас смотрят», затем ряды новинок по мере
   выдачи; пустой после чистки ряд снят. Проверка: та же, тесты «now watching card not repeated»,
   «repeat across portions removed», «row of repeats dropped».
-- [ ] 3.3 Первая порция меньше 3 рядов дописывается порциями подгрузки до 3 или `reject`; пустая и
+- [x] 3.3 Первая порция меньше 3 рядов дописывается порциями подгрузки до 3 или `reject`; пустая и
   после этого — `onerror` `KP.main` (design.md, решение 1). Проверка: та же, тесты «short first
   portion padded», «empty main calls onerror». Коммит группы.
 

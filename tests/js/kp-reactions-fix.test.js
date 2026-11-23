@@ -1922,7 +1922,7 @@ test('rows in portions of five', () => {
   const c = newHome();
   assert.deepStrictEqual(newRowCalls(c), []);
   const first = [];
-  c.next((rows) => first.push(titlesOf(rows)), () => {});
+  c.next((rows) => first.push(titlesOf(plain(rows))), () => {});
   assert.deepStrictEqual(first, [rowTitles(0, 5)]);
   assert.deepStrictEqual(newRowCalls(c).map((l) => [l.url, l.page]), NEW_ROWS.slice(0, 5).map((r) => [r.url, 1]));
   assert.deepStrictEqual(portionTitles(drain(c)), [rowTitles(5, 10), rowTitles(10, 13), 'end']);
@@ -1950,7 +1950,7 @@ test('empty main calls onerror', () => {
 test('failed and late rows warn', () => {
   const c = newHome({ [NEW_ROWS[1].title]: 'error', 'Новые ужасы': 'never' });
   const got = [];
-  c.next((rows) => got.push(titlesOf(rows)), () => got.push('end'));
+  c.next((rows) => got.push(titlesOf(plain(rows))), () => got.push('end'));
   assert.deepStrictEqual(got, []);
   assert.deepStrictEqual(c.timers.map((t) => t.ms), [5000]);
   c.fireMs(5000);

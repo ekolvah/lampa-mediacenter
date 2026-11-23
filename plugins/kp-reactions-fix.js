@@ -16,17 +16,18 @@
   // tmdb и cub: обёртка их full, тайтл — id карточки, видео и реакции даёт сам источник. Кнопка
   // «Трейлер» в строке кнопок карточки запускает первый ролик этого списка.
   //
-  // Источник KP. Плагин держит и Главную KP: штатные ряды «Сейчас смотрят фильмы/сериалы» и их
-  // полный список по «Ещё» показывают только новинки (обёртки KP.main и KP.list, тот же поиск
-  // TMDB-тайтла, что для трейлеров). Карточка, которой раньше в ряду не было, или сериал с новым сезоном
-  // 5 дней стоят в начале ряда, пока их не открыли — карточкой KP или карточкой tmdb/cub того же
-  // TMDB-тайтла (его новая карточка ищет после сборки); память рядов — ключ kp_now_watching_seen.
+  // Источник KP. Главную KP строит плагин (KP.main kp_source не зовётся): ряды «Сейчас смотрят
+  // фильмы/сериалы», за ними рекомендации, при прокрутке — ряды новинок порциями по 5 («Топ
+  // новинок», жанровые по id жанра из KP.menu), карточка на Главной не повторяется (spec
+  // kp-main-new-release-rows). Ряды «Сейчас смотрят» и их полный список по «Ещё» показывают только
+  // новинки (обёртки KP.main и KP.list, тот же поиск TMDB-тайтла, что для трейлеров). Карточка,
+  // которой раньше в ряду не было, или сериал с новым сезоном 5 дней стоят в начале ряда, пока их не
+  // открыли — карточкой KP или карточкой tmdb/cub того же TMDB-тайтла (его новая карточка ищет после
+  // сборки); память рядов — ключ kp_now_watching_seen.
   // Тем же поиском KP-история попадает в ряд ядра «Рекомендуем посмотреть»:
   // её TMDB-тайтлы встают в очередь recomends_scan, а из recomends_list убираются (spec
-  // kp-history-recommendations). За рядами «Сейчас смотрят» обёртка KP.main ставит ряды
-  // рекомендаций фильмов и сериалов: kp_source их на Главную не ставит. Рекомендации ядра плагин
-  // копит в отдельных списках типа kp_recs_movie/kp_recs_tv, и Lampa.Recomends.get/page отдают их
-  // (spec kp-main-recommendations).
+  // kp-history-recommendations). Рекомендации ядра плагин копит в отдельных списках типа
+  // kp_recs_movie/kp_recs_tv, и Lampa.Recomends.get/page отдают их (spec kp-main-recommendations).
   //
   // DMCA. Ядро кладёт список CUB tmdb.<cub_domain>/blocked в lampa_settings.dcma, и по нему
   // карточки tmdb/cub таких тайтлов не открываются, а поиск их убирает. Плагин делает поле всегда
@@ -72,6 +73,27 @@
     { url: 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', name: 'Сейчас смотрят фильмы' },
     { url: 'api/v2.2/films/collections?type=POPULAR_SERIES', name: 'Сейчас смотрят сериалы' },
   ];
+  // Ряды подгрузки Главной KP (spec kp-main-new-release-rows): заголовок, type и жанр Кинопоиска —
+  // название из списка KP.menu.
+  var NEW_ROWS = [
+    { title: 'Топ новинок: фильмы', type: 'FILM' },
+    { title: 'Топ новинок: сериалы', type: 'TV_SERIES' },
+    { title: 'Топ новинок: мини-сериалы', type: 'MINI_SERIES' },
+    { title: 'Новые комедии', type: 'FILM', genre: 'комедия' },
+    { title: 'Новые ужасы', type: 'FILM', genre: 'ужасы' },
+    { title: 'Новая фантастика', type: 'FILM', genre: 'фантастика' },
+    { title: 'Новые боевики', type: 'FILM', genre: 'боевик' },
+    { title: 'Новые триллеры', type: 'FILM', genre: 'триллер' },
+    { title: 'Новые мультфильмы', type: 'FILM', genre: 'мультфильм' },
+    { title: 'Новые семейные фильмы', type: 'FILM', genre: 'семейный' },
+    { title: 'Новые детективные сериалы', type: 'TV_SERIES', genre: 'детектив' },
+    { title: 'Новые комедийные сериалы', type: 'TV_SERIES', genre: 'комедия' },
+    { title: 'Новые драматические сериалы', type: 'TV_SERIES', genre: 'драма' },
+  ];
+  // Рядов в порции подгрузки — как parts_limit у kp_source; меньше MIN_FIRST рядов в первой порции —
+  // она дописывается подгрузкой, как partNext ядра.
+  var PORTION = 5;
+  var MIN_FIRST = 3;
   // Память рядов NOW_WATCHING в Lampa.Storage: { <url ряда>: { <id карточки>: { f, s, l, t } } };
   // f — мс появления (0 — не новая), s — сезон сериала или null, l — день последней сборки с ней,
   // t — TMDB-тайтл новой карточки titleKey(), если найден: по нему её снимает открытие карточки tmdb/cub.
@@ -702,29 +724,28 @@
       return { results: order.map(function (o) { return o.card; }), memory: memory, fresh: fresh };
     }
 
-    // Первая порция Главной: штатные ряды NOW_WATCHING заменены отфильтрованными, новые карточки
-    // первыми. Ответы ждёт pending того waiter, что отдаёт порцию. Возвращает build() — ряды порции
-    // и save() — запись памяти рядов, если сборка её изменила, и поиск TMDB-тайтлов новых карточек
-    // без t: каждый ответ пишется в память сам, Главную он не держит.
-    function filterRows(parts, pending) {
-      var originals = NOW_WATCHING.map(function (spec) {
-        return parts.filter(function (p) { return p && p.url === spec.url; })[0];
-      });
-      var missing = NOW_WATCHING.filter(function (spec, i) { return !originals[i]; });
-      if (missing.length) {
-        rowsFailed('no row ' + missing.map(function (spec) { return spec.name; }).join(', '));
-        return { build: function () { return parts.slice(); }, save: function () {} };
-      }
-
+    // Ряды NOW_WATCHING первой порции Главной: 1-я страница коллекции, как ряд kp_source, затем только
+    // новинки, новые карточки первыми. Ответы ждёт pending того waiter, что отдаёт порцию. Возвращает
+    // build() — ряды и save() — запись памяти рядов, если сборка её изменила, и поиск TMDB-тайтлов новых
+    // карточек без t: каждый ответ пишется в память сам, Главную он не держит.
+    function filterRows(pending) {
       var now = new Date();
       var rule = noveltyRule(now);
       var seen = readSeen();
       var changed = false;
       var fresh = [];
-      var rows = NOW_WATCHING.map(function (spec, i) {
-        var original = originals[i];
+      var rows = NOW_WATCHING.map(function (spec) {
+        var slot = { reason: 'timeout' };
         var remembered = function (card) { return !!(seen[spec.url] && seen[spec.url][card.id]); };
-        return collectPages(spec, 1, Math.min(BATCH, original.total_pages || 1), original, rule, pending, remembered);
+        var settle = pending();
+        orgList.call(KP, { url: spec.url, page: 1 }, settle(function (json) {
+          json.title = spec.name;
+          slot.original = json;
+          slot.batch = collectPages(spec, 1, Math.min(BATCH, json.total_pages || 1), json, rule, pending, remembered);
+        }), settle(function () {
+          slot.reason = 'failed';
+        }));
+        return slot;
       });
       function ordered(spec, original, batch) {
         var next = orderByNovelty(batch, seen[spec.url], now);
@@ -738,11 +759,15 @@
       return {
         build: function () {
           var out = [];
-          parts.forEach(function (p) {
-            var i = originals.indexOf(p);
-            var row = i === -1 ? p : ordered(NOW_WATCHING[i], p, rows[i]());
+          rows.forEach(function (slot, i) {
+            var spec = NOW_WATCHING[i];
+            if (!slot.original) return console.warn('kp-reactions-fix: now watching row not loaded', spec.name, 'page 1 ' + slot.reason);
+            var row = ordered(spec, slot.original, slot.batch());
             if (row) out.push(row);
           });
+          if (rows.every(function (slot) { return !slot.original; })) {
+            rowsFailed('page 1 not loaded: ' + NOW_WATCHING.map(function (spec, i) { return spec.name + ' ' + rows[i].reason; }).join(', '));
+          }
           return out;
         },
         save: function () {
@@ -785,38 +810,96 @@
       };
     }
 
-    // Ряды рекомендаций встают перед первым рядом исходной порции за последним рядом NOW_WATCHING
-    // (без них — перед первым рядом): он не из NOW_WATCHING и есть в out тем же объектом.
-    function recsIndex(parts, out) {
-      var last = -1;
-      parts.forEach(function (p, i) {
-        if (NOW_WATCHING.some(function (spec) { return p && p.url === spec.url; })) last = i;
-      });
-      for (var i = last + 1; i < parts.length; i++) if (parts[i]) return out.indexOf(parts[i]);
-      return out.length;
-    }
-
-    function addRecs(parts, out) {
+    function addRecs(out) {
       var rows = [recsRow('movie', 'Рекомендуем посмотреть фильмы'), recsRow('tv', 'Рекомендуем посмотреть сериалы')].filter(Boolean);
       if (historyWaiting) {
         console.warn('kp-reactions-fix: recommendations: KP history not resolved before main');
         rows.forEach(function (row) { row.title += INCOMPLETE; });
       }
-      out.splice.apply(out, [recsIndex(parts, out), 0].concat(rows));
+      out.push.apply(out, rows);
     }
 
-    // Первая порция Главной уходит, когда собраны ряды новинок и закончен проход по KP-истории
-    // (рекомендации без её тайтлов), но не позже ROWS_TIMEOUT_MS.
-    // Память рядов пишется после oncomplite: её сбой не задерживает Главную.
-    function mainPortion(parts, oncomplite) {
+    // Ряды подгрузки с url (spec kp-main-new-release-rows, «Запрос ряда»): окно — годы новинки, id
+    // жанра — по названию из списка KP.menu (design.md, решение 3). genres — этот список, null — его
+    // нет; failed — причина, по которой его нет.
+    function newRows(genres, failed) {
+      var ids = {};
+      (genres || []).forEach(function (g) { if (g && g.title) ids[g.title] = g.id; });
+      var found = NEW_ROWS.some(function (spec) { return spec.genre && ids[spec.genre] !== undefined; });
+      if (!failed && !found) failed = 'KP.menu: no genres of new release rows';
+      if (failed) rowsFailed(failed);
+      var year = noveltyRule(new Date()).minYear;
+      return NEW_ROWS.filter(function (spec) {
+        if (!spec.genre) return true;
+        if (failed) return false;
+        if (ids[spec.genre] !== undefined) return true;
+        console.warn('kp-reactions-fix: new release row dropped, no genre', spec.title, spec.genre);
+        return false;
+      }).map(function (spec) {
+        var url = 'api/v2.2/films?order=NUM_VOTE&type=' + spec.type + '&yearFrom=' + year + '&yearTo=' + (year + 1);
+        return { title: spec.title, url: spec.genre ? url + '&genres=' + ids[spec.genre] : url };
+      });
+    }
+
+    // Порция подгрузки Главной (design.md, решение 4): следующие PORTION рядов queue разом; отдаёт их,
+    // когда пришли все ответы, но не позже ROWS_TIMEOUT_MS, в порядке очереди, без карточек shown
+    // (решение 5). Пустая порция — сразу следующая; очередь кончилась — reject.
+    function loadRows(queue, shown, resolve, reject) {
+      if (!queue.length) return reject();
+      var specs = queue.splice(0, PORTION);
+      var answers = specs.map(function () { return 'timeout'; });
+      var wait = waiter(function () {
+        var out = [];
+        specs.forEach(function (spec, i) {
+          var json = answers[i];
+          if (typeof json === 'string') return console.warn('kp-reactions-fix: new release row not loaded', spec.title, json);
+          json.title = spec.title;
+          json.results = (json.results || []).filter(function (card) {
+            if (shown[card.id]) return false;
+            shown[card.id] = true;
+            return true;
+          });
+          if (json.results.length) out.push(json);
+        });
+        if (out.length) resolve(out);
+        else loadRows(queue, shown, resolve, reject);
+      }, ROWS_TIMEOUT_MS);
+      specs.forEach(function (spec, i) {
+        var settle = wait.pending();
+        orgList.call(KP, { url: spec.url, page: 1 }, settle(function (json) {
+          answers[i] = json;
+        }), settle(function () {
+          answers[i] = 'failed';
+        }));
+      });
+      wait.start();
+    }
+
+    // Короткая первая порция (spec kp-main-new-release-rows): дописывается порциями подгрузки.
+    function fill(out, next, done) {
+      if (out.length >= MIN_FIRST) return done(out);
+      next(function (more) { fill(out.concat(more), next, done); }, function () { done(out); });
+    }
+
+    // Первая порция Главной (design.md, решение 1): ряды NOW_WATCHING и рекомендации. Уходит, когда
+    // собраны ряды, пришёл список жанров KP.menu и закончен проход по KP-истории (рекомендации без её
+    // тайтлов), но не позже ROWS_TIMEOUT_MS. done(out, queue) — ряды и очередь рядов подгрузки; карточки
+    // рядов NOW_WATCHING — в shown. Память рядов пишется после done: её сбой не задерживает Главную.
+    function mainPortion(shown, done) {
       var rows;
+      var genres = null;
+      var menuMissing = missingFns(['Api.sources.KP.menu']);
       var wait = waiter(function () {
         var out = rows.build();
-        if (recsReady) addRecs(parts, out);
-        oncomplite(out);
+        out.forEach(function (row) { row.results.forEach(function (card) { shown[card.id] = true; }); });
+        if (recsReady) addRecs(out);
+        done(out, newRows(genres, menuMissing || (genres ? '' : 'KP.menu: no answer')));
         rows.save();
       }, ROWS_TIMEOUT_MS);
-      rows = filterRows(parts, wait.pending);
+      rows = filterRows(wait.pending);
+      if (!menuMissing) {
+        KP.menu({}, wait.pending()(function (list) { genres = Array.isArray(list) ? list : []; }));
+      }
       if (recsReady && historyWaiting) historyWaiting.push(wait.pending()(function () {}));
       wait.start();
     }
@@ -831,8 +914,6 @@
       listBatch(spec, params, oncomplite, onerror);
     };
 
-    // Главная зовёт KP.main один раз и через его oncomplite получает первую порцию рядов;
-    // подгрузку при прокрутке (возвращённую функцию) обёртка не трогает.
     // Отдельные списки фильмов и сериалов (design.md kp-split-recommendations, решение 1): ядро
     // держит общий recomends_list на 100, и сериалы вытесняют из него фильмы.
     var REC_KEYS = { movie: 'kp_recs_movie', tv: 'kp_recs_tv' };
@@ -901,10 +982,20 @@
         Lampa.Recomends.get = recsGet;
         Lampa.Recomends.page = recsPage;
       }
+      // Главную строит плагин, KP.main kp_source не зовётся (spec kp-main-new-release-rows). Набор id
+      // показанных карточек — на одно открытие Главной.
       KP.main = function (params, oncomplite, onerror) {
-        return orgMain.call(KP, params, function (parts) {
-          mainPortion(parts, oncomplite);
-        }, onerror);
+        var shown = {};
+        var queue = [];
+        var next = function (resolve, reject) { loadRows(queue, shown, resolve, reject); };
+        mainPortion(shown, function (out, rows) {
+          queue = rows;
+          fill(out, next, function (all) {
+            if (all.length) oncomplite(all);
+            else onerror();
+          });
+        });
+        return next;
       };
     }
 
