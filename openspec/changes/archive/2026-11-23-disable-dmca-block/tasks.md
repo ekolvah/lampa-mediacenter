@@ -41,17 +41,17 @@
 ## 5. Verify
 
 - [x] 5.1 `/simplify`, коммит его правок.
-- [ ] 5.2 `openspec validate --strict --all` и
+- [x] 5.2 `openspec validate --strict --all` и
   `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`, до выкатки.
-- [ ] 5.3 Выкатка по design.md, Migration Plan: `bash tests/live/tmdb-access.sh`, он сам
+- [x] 5.3 Выкатка по design.md, Migration Plan: `bash tests/live/tmdb-access.sh`, он сам
   перезапускает Lampa.
-- [ ] 5.4 Сразу после 5.3, без нового рестарта: с Главной KP открыть «Слово пацана» из ряда
+- [x] 5.4 Сразу после 5.3, без нового рестарта: с Главной KP открыть «Слово пацана» из ряда
   «Рекомендуем посмотреть сериалы», `screencap` карточки с кнопкой «Торренты»; TMDB-поиск
   «Слово пацана» находит тайтл (`tools/screen.py lampa`).
 
 ## 6. Deliver
 
-- [ ] 6.1 `agent-process archive_change disable-dmca-block`, `gh pr create --title "fix:
+- [x] 6.1 `agent-process archive_change disable-dmca-block`, `gh pr create --title "fix:
   disable-dmca-block" --body-file <report>`, `gh pr merge <PR> --auto --squash`,
   `agent-process wait_for_pr <PR>`.
 
