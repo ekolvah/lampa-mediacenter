@@ -14,6 +14,9 @@ var Live = {
   }
 };
 
+// Штатные ряды Главной KP по url коллекции, как NOW_WATCHING в plugins/kp-reactions-fix.js.
+var URLS = ['api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', 'api/v2.2/films/collections?type=POPULAR_SERIES'];
+
 // Ряды активной Главной (компонент main), пусто — Главная не активна.
 function lines() {
   var a = Lampa.Activity.active();

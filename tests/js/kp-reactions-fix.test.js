@@ -74,7 +74,7 @@ function load(over) {
   const reply = (a, ok, err) => { if (a === 'error') err(); else if (a !== 'never') ok(a); };
   const KP = {
     full(params, ok) { ok({ movie: opts.movie }); },
-    main(params, ok) { calls.mains++; ok(plain(opts.parts)); return NEXT; },
+    main() { calls.mains++; },
     list(params, ok, err) {
       calls.list.push(plain(params));
       const own = params.page === 1 && opts.parts.find((p) => p && p.url === params.url);
@@ -363,7 +363,6 @@ const MOVIES_URL = 'api/v2.2/films/collections?type=TOP_POPULAR_MOVIES';
 const SERIES_URL = 'api/v2.2/films/collections?type=POPULAR_SERIES';
 const MOVIES_ROW = 'Сейчас смотрят фильмы';
 const SERIES_ROW = 'Сейчас смотрят сериалы';
-const NEXT = function next() {};
 const film = (title, year) => ({ id: 'KP_' + title, type: 'movie', title, original_title: title, imdb_id: '', release_date: year });
 const show = (title, year, imdb) => ({ id: 'KP_' + title, type: 'tv', title, name: title, original_title: title, imdb_id: imdb || '', first_air_date: year });
 // «Буду рядом» (KP 14897335): TMDB-тайтла нет (design.md kp-trailer-without-title, наблюдение 1).

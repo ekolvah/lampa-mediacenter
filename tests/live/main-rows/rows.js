@@ -6,7 +6,6 @@
     'Новые комедии', 'Новые ужасы', 'Новая фантастика', 'Новые боевики', 'Новые триллеры',
     'Новые мультфильмы', 'Новые семейные фильмы', 'Новые детективные сериалы',
     'Новые комедийные сериалы', 'Новые драматические сериалы'];
-  var NOW_WATCHING = ['api/v2.2/films/collections?type=TOP_POPULAR_MOVIES', 'api/v2.2/films/collections?type=POPULAR_SERIES'];
   var minYear = new Date().getFullYear() - 1;
   var KP = Lampa.Api.sources.KP;
 
@@ -39,7 +38,7 @@
 
   var seen = {};
   var repeats = [];
-  first.filter(function (r) { return NOW_WATCHING.indexOf(r.url) !== -1; }).concat(rows).forEach(function (r) {
+  first.filter(function (r) { return URLS.indexOf(r.url) !== -1; }).concat(rows).forEach(function (r) {
     r.results.forEach(function (c) {
       if (seen[c.id]) repeats.push(r.title + ': ' + (c.title || c.name) + ' (уже в ' + seen[c.id] + ')');
       else seen[c.id] = r.title;

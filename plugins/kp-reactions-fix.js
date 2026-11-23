@@ -595,6 +595,12 @@
       };
     }
 
+    // Страница page списка url у исходного KP.list; ответ ждёт pending того waiter, что его собирает.
+    function fetchPage(url, page, pending, ok, fail) {
+      var settle = pending();
+      orgList.call(KP, { url: url, page: page }, settle(ok), settle(fail));
+    }
+
     // Новинки страниц коллекции first..last: страница first — known (ответ, уже полученный
     // Главной) или запрос, остальные — запросы к исходному KP.list. needSeason(card) — нужен ли
     // сезон сериала-новинки (у сериала со старым стартом он приходит с датой эпизода); без него сезон
@@ -622,12 +628,11 @@
 
       if (known) addPage(first, known);
       for (var page = known ? first + 1 : first; page <= last; page++) (function (page) {
-        var settle = pending();
-        orgList.call(KP, { url: spec.url, page: page }, settle(function (json) {
+        fetchPage(spec.url, page, pending, function (json) {
           addPage(page, json);
-        }), settle(function () {
+        }, function () {
           pages[page - first] = null;
-        }));
+        });
       })(page);
 
       return function () {
@@ -737,14 +742,13 @@
       var rows = NOW_WATCHING.map(function (spec) {
         var slot = { reason: 'timeout' };
         var remembered = function (card) { return !!(seen[spec.url] && seen[spec.url][card.id]); };
-        var settle = pending();
-        orgList.call(KP, { url: spec.url, page: 1 }, settle(function (json) {
+        fetchPage(spec.url, 1, pending, function (json) {
           json.title = spec.name;
           slot.original = json;
           slot.batch = collectPages(spec, 1, Math.min(BATCH, json.total_pages || 1), json, rule, pending, remembered);
-        }), settle(function () {
+        }, function () {
           slot.reason = 'failed';
-        }));
+        });
         return slot;
       });
       function ordered(spec, original, batch) {
@@ -865,12 +869,11 @@
         else loadRows(queue, shown, resolve, reject);
       }, ROWS_TIMEOUT_MS);
       specs.forEach(function (spec, i) {
-        var settle = wait.pending();
-        orgList.call(KP, { url: spec.url, page: 1 }, settle(function (json) {
+        fetchPage(spec.url, 1, wait.pending, function (json) {
           answers[i] = json;
-        }), settle(function () {
+        }, function () {
           answers[i] = 'failed';
-        }));
+        });
       });
       wait.start();
     }
@@ -971,8 +974,7 @@
       call({ results: result, title: Lampa.Lang.translate('title_recomend_watch'), total_pages: Math.ceil(all.length / REC_PAGE), page: page });
     }
 
-    var orgMain = KP.main;
-    if (typeof orgMain === 'function') {
+    if (typeof KP.main === 'function') {
       var active = Lampa.Activity.active();
       if (active && active.component === 'main' && active.source === 'KP') rowsFailed('main screen built before patch');
       var recsMissing = missingFns(['Recomends.get', 'Recomends.page', 'Router.call', 'Arrays.shuffle']);
