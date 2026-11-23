@@ -119,7 +119,7 @@ alcopac/tmdbproxy относится только к `tmdb-unfiltered` и ост
 
 ## Migration Plan
 
-После мержа: снапшот по [docs/snapshots-convention.md](../../../docs/snapshots-convention.md),
+После мержа: снапшот по [docs/snapshots-convention.md](../../../../docs/snapshots-convention.md),
 подключение плагина переводится на sha мержа, затем `bash tests/live/tmdb-access.sh` (Lampa он
 перезапускает сам).
 Откат — вернуть прежний sha в списке плагинов.
