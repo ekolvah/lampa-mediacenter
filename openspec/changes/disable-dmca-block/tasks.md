@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/js/kp-reactions-fix.test.js`: в `load()` опция `settings`, то есть
+- [x] 1.1 `tests/js/kp-reactions-fix.test.js`: в `load()` опция `settings`, то есть
   `window.lampa_settings` контекста. По умолчанию
   `{ dcma: [{ id: 234763, cat: 'tv', kpid: 5304403 }], disable_features: { dmca: false } }`,
   `null` — свойства нет. Новые тесты: `dmca list before and after start reads false` (список
@@ -14,7 +14,7 @@
   `calls.noty` с текстом `DMCA-блокировка не отключена` и `calls.error` с
   `kp-reactions-fix: DMCA block not disabled` — по тексту, потому что другие пути плагина тоже пишут
   туда; обёртка `KP.full` при этом стоит).
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Плагин
 
