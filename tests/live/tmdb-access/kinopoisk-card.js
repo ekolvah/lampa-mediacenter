@@ -7,12 +7,13 @@
   Live.check(Lampa.Manifest && Lampa.Manifest.cub_domain, 'нет Lampa.Manifest.cub_domain');
   // Фикстура ещё в списке: иначе шаг прошёл бы и без плагина.
   var url = Lampa.Utils.protocol() + Lampa.Manifest.cub_domain + '/api/kinopoisk/list';
-  var list = await call(url, function (ok, err) {
+  var answer = await call(url, function (ok, err) {
     var request = new Lampa.Reguest();
     request.timeout(10000);
     request.silent(url, ok, err);
   });
-  Live.check(Array.isArray(list), url + ': не массив, ' + JSON.stringify(list).slice(0, 200));
+  var list = answer && answer.results;
+  Live.check(Array.isArray(list), url + ': нет массива results, ' + JSON.stringify(answer).slice(0, 200));
   Live.check(list.some(function (e) { return e.id == ID && e.cat === METHOD; }),
     'фикстура устарела: ' + METHOD + '/' + ID + ' нет в ' + url);
   // Сценарий «Карточка из списка Кинопоиска с кнопками плагина»: кнопки плагина ставятся по событию
