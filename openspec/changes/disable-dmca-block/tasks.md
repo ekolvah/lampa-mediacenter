@@ -18,7 +18,7 @@
 
 ## 2. Плагин
 
-- [ ] 2.1 `disableDmca()` первым шагом `startPlugin()` (решения 1–3), абзац «DMCA» в шапке
+- [x] 2.1 `disableDmca()` первым шагом `startPlugin()` (решения 1–3), абзац «DMCA» в шапке
   плагина. Проверка: `node --test tests/js/kp-reactions-fix.test.js` зелёный. Коммит.
 
 ## 3. Живая проверка
