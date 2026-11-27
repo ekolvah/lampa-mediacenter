@@ -33,14 +33,14 @@
 ## 4. Verify
 
 - [x] 4.1 `/simplify`, коммит его правок.
-- [ ] 4.2 `openspec validate --strict --all` и
+- [x] 4.2 `openspec validate --strict --all` и
   `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 - [ ] 4.3 После мержа: выкатка, `bash tests/live/season-badge.sh` и `screencap` — по design.md,
   Migration Plan (правка устройства — с подтверждения пользователя).
 
 ## 5. Deliver
 
-- [ ] 5.1 `agent-process archive_change kp-bookmark-series-badge`, `gh pr create --title "fix:
+- [x] 5.1 `agent-process archive_change kp-bookmark-series-badge`, `gh pr create --title "fix:
   kp-bookmark-series-badge" --body-file <report>`, `gh pr merge <PR> --auto --squash`,
   `agent-process wait_for_pr <PR>`.
 
