@@ -207,7 +207,7 @@ sha и покрыт тестами. Отдельный плагин требов
 
 ## Migration Plan
 
-После мержа: снапшот `plugins` по [docs/snapshots-convention.md](../../../docs/snapshots-convention.md),
+После мержа: снапшот `plugins` по [docs/snapshots-convention.md](../../../../docs/snapshots-convention.md),
 sha `kp-reactions-fix.js` → sha мержа в `main`, рестарт Lampa, `bash tests/live/season-badge.sh`,
 затем `screencap` «Избранного» — вопрос визуальный: расположение метки относительно `TV`, оценки и
 маркера закладок; на KP-карточке сериала метка есть. Откат — `plugins` из `before/state.json` снапшота через `Lampa.Storage.set`
