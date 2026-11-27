@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/js/kp-reactions-fix.test.js`: расширить существующие тесты.
+- [x] 1.1 `tests/js/kp-reactions-fix.test.js`: расширить существующие тесты.
   - `kp card badge via resolveTitle`: цикл по `kpShow()` и `kpShow({ type: undefined, original_name:
     GENTLEMEN.original_title })` — в обоих `find` с фильмом и сериалом даёт `tv/236235` и `S4 6/10`;
     плюс карточка без `type` и `imdb_id`, с `original_name` и `first_air_date` из `LIFE_TV`:
@@ -13,7 +13,7 @@
     своём `load()`: при общем memo `KP:KP_1` вторая взяла бы метку первой без поиска.
   - `movie card no badge no request`: элемент `{ id: 'KP_3', source: 'KP', title, original_title }`
     без `type` и `original_name` — метки нет, `c.get` и `c.tv` пусты.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Плагин
 

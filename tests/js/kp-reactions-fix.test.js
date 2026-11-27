@@ -2130,8 +2130,9 @@ test('movie card no badge no request', () => {
   const movies = [
     { id: 'KP_2', source: 'KP', type: 'movie', title: 'Зверь', original_title: 'The Beast', imdb_id: 'tt1' },
     { id: 77338, source: 'tmdb', title: '1+1', original_title: 'Intouchables' },
+    { id: 'KP_3', source: 'KP', title: 'Зверь', original_title: 'The Beast' },
   ].map((data) => visible(c, seasonCard(data)));
-  assert.deepStrictEqual(movies.map(badgeTexts), [[], []]);
+  assert.deepStrictEqual(movies.map(badgeTexts), [[], [], []]);
   assert.deepStrictEqual([c.tv, c.get], [[], []]);
 });
 
@@ -2142,10 +2143,19 @@ test('series without aired episode no badge', () => {
 });
 
 test('kp card badge via resolveTitle', () => {
-  const c = load({ open: false, find: FIND_BOTH, tv: (id) => (id === 236235 ? TULSA : 'error') });
-  const card = visible(c, seasonCard(kpShow()));
-  assert.deepStrictEqual(c.get.map((g) => g.url), ['find/tt13210838?external_source=imdb_id']);
-  assert.deepStrictEqual(c.tv.map((t) => t.url), ['tv/236235']);
+  // Карточка «Избранного» без type — сериал по original_name. Каждая в своём load(): memo KP:KP_1.
+  for (const data of [kpShow(), kpShow({ type: undefined, original_name: GENTLEMEN.original_title })]) {
+    const c = load({ open: false, find: FIND_BOTH, tv: (id) => (id === 236235 ? TULSA : 'error') });
+    const card = visible(c, seasonCard(data));
+    assert.deepStrictEqual(c.get.map((g) => g.url), ['find/tt13210838?external_source=imdb_id'], data.type);
+    assert.deepStrictEqual(c.tv.map((t) => t.url), ['tv/236235'], data.type);
+    assert.deepStrictEqual(badgeTexts(card), ['S4 6/10'], data.type);
+  }
+  const c = load({ open: false, search: { results: [LIFE_TV] }, tv: (id) => (id === 318582 ? TULSA : 'error') });
+  const life = { id: 'KP_4', source: 'KP', title: LIFE_TV.name, original_title: LIFE_TV.name, original_name: LIFE_TV.original_name, first_air_date: LIFE_TV.first_air_date };
+  const card = visible(c, seasonCard(life));
+  assert.deepStrictEqual(c.get.map((g) => g.url), ['search/tv?query=' + q('Жизнь заново') + '&first_air_date_year=2026']);
+  assert.deepStrictEqual(c.tv.map((t) => t.url), ['tv/318582']);
   assert.deepStrictEqual(badgeTexts(card), ['S4 6/10']);
 });
 
