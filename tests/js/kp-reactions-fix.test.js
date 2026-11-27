@@ -54,9 +54,12 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 // до обновления через 500 мс; toggle отвечает, как ядро: false, если запись была. sync — геттер
 // Account.Permit.sync, читает calls.sync (тест меняет его между вызовами). calls.originals — функции
 // двойника до плагина.
+// Метка сезона (design.md season-complete-badge, решение 8): Maker.map('Card').Card — модуль карточки
+// ядра, его onVisible пишет карточку в calls.visible; убрать хук — drop: ['Maker.map'] или
+// ['Maker.Card.Card.onVisible']. document — createElement и head.appendChild (стили в calls.styles).
 function load(over) {
   const opts = Object.assign({ genres: GENRES, movie: MOVIE, find: FOUND_MOVIE, search: NO_RESULTS, videos: VIDEOS, reactions: REACTIONS, tv: ONE_SEASON, season: NO_RESULTS, parts: HOME, pages: () => NO_RESULTS, active: null, today: TODAY, open: true, history: [], appready: false, scan: [], recs: [], defer: false, drop: [], bookmarks: [], sync: true }, over);
-  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [], toggles: [], removes: [], sync: opts.sync, mains: 0 };
+  const calls = { get: [], tv: [], videos: [], reactions: [], service: [], warn: [], error: [], noty: [], list: [], done: [], listeners: {}, shown: [], timers: [], late: [], sets: [], routes: [], toggles: [], removes: [], visible: [], styles: [], sync: opts.sync, mains: 0 };
   calls.fire = () => calls.timers.splice(0).forEach((t) => t.fn());
   calls.fireMs = (ms) => calls.timers.filter((t) => t.ms === ms).forEach((t) => {
     calls.timers.splice(calls.timers.indexOf(t), 1);
@@ -174,8 +177,15 @@ function load(over) {
   class FakeDate extends Date {
     constructor(...args) { if (args.length) super(...args); else super(now); }
   }
+  const Maker = { Card: { Card: { onVisible() { calls.visible.push(this); } } }, map(name) { return Maker[name]; } };
+  const document = {
+    createElement: (tag) => ({ tag, id: '', className: '', textContent: '' }),
+    getElementById: (id) => calls.styles.find((el) => el.id === id) || null,
+    head: { appendChild(el) { calls.styles.push(el); } },
+  };
   const ctx = {
-    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Favorite, Account, Noty, Activity, Recomends, Router, Arrays, Lang },
+    Lampa: { Api: { sources: { KP, tmdb, cub } }, Reguest, Select, Listener, Storage, Favorite, Account, Noty, Activity, Recomends, Router, Arrays, Lang, Maker },
+    document,
     appready: opts.appready,
     $: element,
     Date: FakeDate,
@@ -524,14 +534,46 @@ test('no year ambiguous title warns, no videos', () => {
   assertNoTmdbTitle(c, 'Зверь');
 });
 
+const FOREST_URL = 'search/movie?query=' + q('Лес');
+
 test('no title match warns with title and year', () => {
   const c = load({ movie: FOREST, search: { results: [WITCH_FOREST] } });
+  assert.deepStrictEqual(c.get.map((g) => g.url), [FOREST_URL + '&primary_release_year=2026', FOREST_URL]);
   assertNoTmdbTitle(c, 'Лес', '2026');
 });
 
 test('search error warns with title and year, card opens', () => {
   const c = load({ movie: FOREST, search: 'error' });
+  assert.deepStrictEqual(c.get.map((g) => g.url), [FOREST_URL + '&primary_release_year=2026']);
   assertNoTmdbTitle(c, 'Лес', '2026');
+});
+
+// Сериалы KP, у которых год TMDB другой (замер 2026-11-27, design.md season-complete-badge, решение 3).
+// Поиск с годом пуст, без года отвечает retry.
+const byYear = (retry) => (url) => (url.includes('_year=') ? NO_RESULTS : { results: retry });
+const tvHit = (id, name, date) => ({ id, name, original_name: name, first_air_date: date });
+
+test('title search retries without year within one', () => {
+  const c = load({ movie: show('Чикатило', '2020'), search: byYear([tvHit(109356, 'Чикатило', '2021-02-25')]) });
+  const url = 'search/tv?query=' + q('Чикатило');
+  assert.deepStrictEqual(c.get, [
+    { url: url + '&first_air_date_year=2020', cache: { life: WEEK_MIN } },
+    { url, cache: { life: WEEK_MIN } },
+  ]);
+  assert.deepStrictEqual(c.videos[0], { method: 'tv', id: 109356 });
+  assert.deepStrictEqual(c.reactions, [{ method: 'tv', id: 109356 }]);
+});
+
+test('title search retry rejects year off by two', () => {
+  const bar = 'Бар «Один звонок»';
+  const c = load({ movie: show(bar, '2023'), search: byYear([tvHit(250727, bar, '2025-01-16')]) });
+  assertNoTmdbTitle(c, bar, '2023');
+});
+
+test('title search retry rejects undated result', () => {
+  const name = 'Всё в твоих руках';
+  const c = load({ movie: show(name, '2026'), search: byYear([tvHit(318352, name, '')]) });
+  assertNoTmdbTitle(c, name, '2026');
 });
 
 test('empty videos, service gave nothing: no trailers, warning', () => {
@@ -2020,4 +2062,169 @@ test('both now watching failed, noty', () => {
   assert.ok(c.noty[0].includes('Ряды новинок не построены'), c.noty[0]);
   assert.strictEqual(c.error.length, 1);
   assert.ok(c.error[0].join(' ').includes(MOVIES_ROW), JSON.stringify(c.error));
+});
+
+// ---- Метка сезона (spec card-season-badge) ----
+
+// Ответы tv/<id> сняты с приставки 2026-11-27 (design.md season-complete-badge, решение 4).
+const episode = (season_number, episode_number) => ({ season_number, episode_number, air_date: '2026-11-20' });
+const tvInfo = (last, next, counts) => ({
+  last_episode_to_air: last,
+  next_episode_to_air: next,
+  seasons: Object.entries(counts).map(([n, episode_count]) => ({ season_number: +n, episode_count })),
+});
+const TULSA = tvInfo(episode(4, 6), episode(4, 7), { 3: 9, 4: 10 });
+const GANGSTERLAND = tvInfo(episode(2, 10), null, { 1: 8, 2: 10, 3: 0 });
+const THREE_BODY = tvInfo(episode(1, 8), episode(2, 1), { 1: 8, 2: 0 });
+const tmdbShow = (id, source) => ({ id, source: source || 'tmdb', type: 'tv', name: 'Король Талсы', original_name: 'Tulsa King' });
+const kpShow = (over) => Object.assign({ id: 'KP_1', source: 'KP', type: 'tv', imdb_id: GENTLEMEN.imdb_id, title: GENTLEMEN.title, original_title: GENTLEMEN.original_title, first_air_date: '2024' }, over);
+
+// Карточка ядра с .card__view: метки — в badges.
+function seasonCard(data) {
+  const badges = [];
+  const view = { appendChild(el) { badges.push(el); } };
+  return { data, badges, html: { querySelector: (sel) => (sel === '.card__view' ? view : null) } };
+}
+
+// Карточка стала видимой: ядро зовёт Card.onVisible с карточкой в this.
+function visible(c, card) {
+  c.ctx.Lampa.Maker.map('Card').Card.onVisible.call(card);
+  return card;
+}
+
+const badgeTexts = (card) => card.badges.map((b) => b.textContent);
+const badgeKind = (card) => card.badges[0].className;
+
+function badgeFor(tv, data) {
+  const c = load({ open: false, tv });
+  return { c, card: visible(c, seasonCard(data || tmdbShow(153312))) };
+}
+
+test('season airing badge', () => {
+  const { c, card } = badgeFor(TULSA);
+  assert.deepStrictEqual(badgeTexts(card), ['S4 6/10']);
+  assert.ok(badgeKind(card).includes('card__season--airing'), badgeKind(card));
+  assert.deepStrictEqual(c.tv, [{ url: 'tv/153312', cache: { life: DAY_MIN } }]);
+  assert.strictEqual(c.styles.length, 1);
+});
+
+test('season complete badge', () => {
+  const { card } = badgeFor(GANGSTERLAND);
+  assert.deepStrictEqual(badgeTexts(card), ['S2 ✓']);
+  assert.ok(badgeKind(card).includes('card__season--done'), badgeKind(card));
+});
+
+test('next season announced complete', () => {
+  const { card } = badgeFor(THREE_BODY);
+  assert.deepStrictEqual(badgeTexts(card), ['S1 ✓']);
+});
+
+test('season total unknown', () => {
+  const { card } = badgeFor(tvInfo(episode(3, 2), null, { 3: 0 }));
+  assert.deepStrictEqual(badgeTexts(card), ['S3 2']);
+  assert.ok(badgeKind(card).includes('card__season--airing'), badgeKind(card));
+});
+
+test('movie card no badge no request', () => {
+  const c = load({ open: false, tv: TULSA });
+  const movies = [
+    { id: 'KP_2', source: 'KP', type: 'movie', title: 'Зверь', original_title: 'The Beast', imdb_id: 'tt1' },
+    { id: 77338, source: 'tmdb', title: '1+1', original_title: 'Intouchables' },
+  ].map((data) => visible(c, seasonCard(data)));
+  assert.deepStrictEqual(movies.map(badgeTexts), [[], []]);
+  assert.deepStrictEqual([c.tv, c.get], [[], []]);
+});
+
+test('series without aired episode no badge', () => {
+  const { c, card } = badgeFor(tvInfo(null, episode(1, 1), { 1: 8 }));
+  assert.deepStrictEqual(badgeTexts(card), []);
+  assert.ok(warnedWith(c, 'no last episode', '153312'), JSON.stringify(c.warn));
+});
+
+test('kp card badge via resolveTitle', () => {
+  const c = load({ open: false, find: FIND_BOTH, tv: (id) => (id === 236235 ? TULSA : 'error') });
+  const card = visible(c, seasonCard(kpShow()));
+  assert.deepStrictEqual(c.get.map((g) => g.url), ['find/tt13210838?external_source=imdb_id']);
+  assert.deepStrictEqual(c.tv.map((t) => t.url), ['tv/236235']);
+  assert.deepStrictEqual(badgeTexts(card), ['S4 6/10']);
+});
+
+test('core source card badge without search', () => {
+  for (const source of ['tmdb', 'cub']) {
+    const { c, card } = badgeFor(GANGSTERLAND, tmdbShow(247718, source));
+    assert.deepStrictEqual(c.get, [], source);
+    assert.deepStrictEqual(c.tv.map((t) => t.url), ['tv/247718'], source);
+    assert.deepStrictEqual(badgeTexts(card), ['S2 ✓'], source);
+  }
+});
+
+test('kp title not found grey badge', () => {
+  const c = load({ open: false, tv: TULSA });
+  const card = visible(c, seasonCard(kpShow({ imdb_id: '', title: 'Невский', original_title: 'Невский', first_air_date: '2015' })));
+  assert.deepStrictEqual(badgeTexts(card), ['S ?']);
+  assert.ok(badgeKind(card).includes('card__season--unknown'), badgeKind(card));
+  assert.ok(warnedWith(c, 'Невский'), JSON.stringify(c.warn));
+  assert.deepStrictEqual(c.tv, []);
+});
+
+test('kp title search failed grey badge once', () => {
+  const failures = { find: { find: 'error' }, search: { find: NOT_FOUND, search: 'error' } };
+  for (const [name, over] of Object.entries(failures)) {
+    const c = load(Object.assign({ open: false, tv: TULSA }, over));
+    const first = visible(c, seasonCard(kpShow()));
+    const asked = c.get.length;
+    const again = visible(c, seasonCard(kpShow()));
+    assert.deepStrictEqual([badgeTexts(first), badgeTexts(again)], [['S ?'], ['S ?']], name);
+    assert.ok(c.warn.length > 0, name);
+    assert.strictEqual(c.get.length, asked, name);
+    assert.deepStrictEqual(c.tv, [], name);
+  }
+});
+
+test('repeat visible no new request', () => {
+  const c = load({ open: false, find: FIND_BOTH, tv: TULSA });
+  const cards = [tmdbShow(153312), kpShow()].map((data) => visible(c, seasonCard(data)));
+  cards.forEach((card) => visible(c, card));
+  const twins = [tmdbShow(153312), kpShow()].map((data) => visible(c, seasonCard(data)));
+  assert.deepStrictEqual(cards.concat(twins).map(badgeTexts), Array(4).fill(['S4 6/10']));
+  assert.strictEqual(c.get.length, 1);
+  assert.deepStrictEqual(c.tv.map((t) => t.url), ['tv/153312', 'tv/236235']);
+});
+
+test('same card id two cards one request', () => {
+  const c = load({ open: false, defer: true, find: FIND_BOTH, tv: TULSA });
+  const one = visible(c, seasonCard(kpShow()));
+  const two = visible(c, seasonCard(kpShow()));
+  assert.deepStrictEqual([badgeTexts(one), badgeTexts(two)], [[], []]);
+  c.late.splice(0).forEach((fn) => fn());
+  assert.strictEqual(c.get.length, 1);
+  assert.strictEqual(c.tv.length, 1);
+  assert.deepStrictEqual([badgeTexts(one), badgeTexts(two)], [['S4 6/10'], ['S4 6/10']]);
+});
+
+test('tv details failed grey badge once', () => {
+  const { c, card } = badgeFor('error');
+  const again = visible(c, seasonCard(tmdbShow(153312)));
+  assert.deepStrictEqual([badgeTexts(card), badgeTexts(again)], [['S ?'], ['S ?']]);
+  assert.ok(badgeKind(card).includes('card__season--unknown'), badgeKind(card));
+  assert.ok(warnedWith(c, 'tv details failed', '153312'), JSON.stringify(c.warn));
+  assert.strictEqual(c.tv.length, 1);
+});
+
+test('missing card hook fails visibly', () => {
+  for (const [drop, fn] of [['Maker.map', 'Lampa.Maker.map'], ['Maker.Card.Card.onVisible', 'Card.onVisible']]) {
+    const c = load({ open: false, drop: [drop] });
+    assert.strictEqual(c.noty.length, 1, drop);
+    assert.ok(c.noty[0].includes(fn), c.noty[0]);
+    assert.strictEqual(c.error.length, 1, drop);
+    assert.ok(c.error[0].join(' ').includes(fn), JSON.stringify(c.error));
+    assert.strictEqual(c.ctx.Lampa.Favorite.__kp_merged, true, drop);
+  }
+});
+
+test('core onVisible still runs', () => {
+  const c = load({ open: false, tv: TULSA });
+  const series = visible(c, seasonCard(tmdbShow(153312)));
+  const movie = visible(c, seasonCard({ id: 77338, source: 'tmdb', title: '1+1' }));
+  assert.deepStrictEqual(c.visible, [series, movie]);
 });

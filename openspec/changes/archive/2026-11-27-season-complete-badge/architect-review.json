@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 4,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Both round-3 findings are resolved. The retry trigger now reads 'поиск по году не дал совпадения названия' in the spec, proposal and design, and a failed year search gets no second search. Two updated tests now assert `c.get` for each case.",
+  "classes": {
+    "simpler": {
+      "evidence": "The round-3 assessment stands, and the revision adds no mechanism. Design.md decision 3 still weighs ±1 against ±2 using the 7-row table and rejects undated results. Non-Goals rejects KP episode data, and the retry stays in the shared `searchByTitle`. Decision 7 justifies the grey `S ?` for not-found.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md '## Scenario → test map' has 25 rows for the 25 scenarios: 14 in card-season-badge and 11 in kp-card-trailers. The 'Нет совпадения названия' row now names `no title match warns with title and year` as updated ('(обновить)'). Task 1.1 sets its year-search answer to results with no title match and asserts `c.get` equals the year URL, then the no-year URL. This rules out the 'empty answer only' reading. The double's URL-function `search` option (tests/js/kp-reactions-fix.test.js:24, 96) supports that answer. The three new retry scenarios keep their dedicated tests.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "Task 1.1 writes the new tests and the two updated ones. Task 1.2 runs `agent-process check_red tests/test_plugin_js.py::test_plugin_js` and commits RED. The updated no-match test fails against the current single-request `searchByTitle` (plugins/kp-reactions-fix.js:141-167), so RED is real. The updated error test already passes today. That is acceptable: it guards that no second request is added, not new behaviour.",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Unchanged from round 3. Decision 3 records the 2026-11-27 POPULAR_SERIES measurement (75 series, 7 rows with KP year, TMDB id and year). Decisions 2 and 4 record the box observations of the Card module, `onVisible` and the `tv/<id>` responses. Non-Goals records the empty KP episode dates.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "The strict-year guard is narrowed rather than dropped: the second search runs only after the year search found no title match, never after a failed year search, accepts only ±1 and rejects undated results. Decision 3, proposal What Changes and Impact, and task 4.1 list the shared callers (plugins/kp-reactions-fix.js:517, 551, 780, 1104). Existing `c.get` count assertions (tests lines 470, 481, 510, 517, 523) involve a year match or no year, so the retry does not break them.",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Not-found leads to the grey `S ?` and the existing `console.warn` (decision 7). A failed find or search also leads to the grey `S ?` and is not repeated in the session (decision 3, scenario 'Сбой поиска тайтла'). The extra request is counted by the 10 s idle step of tests/live/season-badge.sh (decision 8). A wrong title from the retry is an accepted risk: design Risks names its mitigation, a strict search first and a required title match. The round-2 catchers are unchanged and each is reached.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "kp-card-trailers 'Поиск тайтла по названию': 153 words (142 in round 3), with 11 scenarios. The added sentence 'Если поиск по году не удался, второй поиск SHALL NOT выполняться.' is asserted by the updated `search error warns with title and year, card opens` (`c.get` holds only the year URL), and the scenario 'Поиск не удался' now states it in THEN. The 'если подходящего нет' trigger is asserted by the updated no-match test. The ±1 and undated sentences are asserted by the three new retry tests. In card-season-badge, 'Любой экран и источник' (62 words) and 'Запросы ограничены' (65 words) are unchanged since round 3 and asserted as reviewed then.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "'## Standard approach' cites side75/lampa-seasons-plugin@773aa702, the TMDB TV Series Details reference and the Lampa core source. These are the standard sources for this problem, and the design follows them or departs from them for observed reasons. The only new scripts are tests/live/season-badge.sh and badges.js, which follow the existing tests/live convention (decision 8). No new check or gate.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}

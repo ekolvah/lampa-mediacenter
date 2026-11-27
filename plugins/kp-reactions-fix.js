@@ -46,6 +46,12 @@
   // кнопка закладки (обёртки Favorite.check/toggle) видят запись тайтла другого источника, нажатие
   // снимает все записи тайтла в списке. Аккаунт CUB не правится. Нет функции ядра — Noty и
   // console.error; без синхронизации — ядро как есть и console.warn.
+  //
+  // Метка сезона. На видимой карточке сериала (tmdb, cub, KP; любой экран — обёртка Card.onVisible
+  // ядра) в правом верхнем углу: «S4 6/10» — сезон последней вышедшей серии выходит, «S2 ✓» — вышел
+  // целиком, серая «S ?» — сведений TMDB нет (spec card-season-badge). Тайтл KP — тем же поиском, что
+  // для трейлеров; поиск и tv/<id> — не больше раза на карточку (источник + id) за сессию, сбой тоже.
+  // Нет хука ядра — Noty и console.error.
 
   // ---- Общее: константы, сравнение названий, источники движка, помощники TMDB ----
 
@@ -136,34 +142,57 @@
     return (tv ? movie.first_air_date : movie.release_date) || '';
   }
 
-  // Поиск тайтла по названию: тип из карточки, год строгий; с годом — первый
-  // результат с совпадающим названием, без года — только единственный.
+  // Поиск тайтла по названию: тип из карточки; с годом — первый результат этого года с совпадающим
+  // названием, иначе второй поиск без года и первый совпавший результат с годом ±1 (год Кинопоиска
+  // бывает на год раньше TMDB, design.md season-complete-badge, решение 3); без года — только
+  // единственный. После сбоя поиска второго нет.
   function searchByTitle(movie, cb) {
     var tv = movie.type === 'tv';
     var method = tv ? 'tv' : 'movie';
     var year = releaseDate(movie, tv).slice(0, 4);
     var url = 'search/' + method + '?query=' + encodeURIComponent(cardName(movie));
-    if (year) url += (tv ? '&first_air_date_year=' : '&primary_release_year=') + year;
+    var want = titles(movie.title, movie.original_title);
 
     function fail(reason) {
       console.warn('kp-reactions-fix: no title match', reason, movie.title, year);
       cb(null);
     }
 
-    tmdb.get(url, {}, function (found) {
-      var want = titles(movie.title, movie.original_title);
-      var matches = ((found && found.results) || []).filter(function (r) {
-        return titles(r.title || r.name, originalName(r)).some(function (t) {
-          return want.indexOf(t) !== -1;
-        });
-      });
+    function found(r) {
+      cb({ method: method, id: r.id });
+    }
 
-      if (!matches.length) return fail('not found');
-      if (!year && matches.length > 1) return fail('ambiguous without year');
-      cb({ method: method, id: matches[0].id });
-    }, function () {
-      fail('search failed');
-    }, { life: WEEK });
+    function search(query, done) {
+      tmdb.get(query, {}, function (answer) {
+        done(((answer && answer.results) || []).filter(function (r) {
+          return titles(r.title || r.name, originalName(r)).some(function (t) {
+            return want.indexOf(t) !== -1;
+          });
+        }));
+      }, function () {
+        fail('search failed');
+      }, { life: WEEK });
+    }
+
+    if (!year) {
+      return search(url, function (matches) {
+        if (!matches.length) return fail('not found');
+        if (matches.length > 1) return fail('ambiguous without year');
+        found(matches[0]);
+      });
+    }
+
+    search(url + (tv ? '&first_air_date_year=' : '&primary_release_year=') + year, function (matches) {
+      if (matches.length) return found(matches[0]);
+      search(url, function (all) {
+        var near = all.filter(function (r) {
+          var y = releaseDate(r, tv).slice(0, 4);
+          return y && Math.abs(y - year) <= 1;
+        });
+        if (near.length) found(near[0]);
+        else fail('not found');
+      });
+    });
   }
 
   // TMDB-тайтл карточки: по imdb_id (find), без него или при пустом find — по
@@ -184,8 +213,10 @@
     }, { life: WEEK });
   }
 
-  // Последний вышедший сезон: { number, date } по последней вышедшей серии. cb(null) — сведений
-  // нет, предупреждение с id уже в консоли. Анонсированный сезон без серий не считается.
+  // Последний вышедший сезон по последней вышедшей серии: { number, date, episode — её номер,
+  // total — серий сезона по TMDB (0 — неизвестно), more — следующая объявленная серия из этого же
+  // сезона }. cb(null) — вышедших серий нет, cb(null, 'error') — запрос не удался; предупреждение с id
+  // уже в консоли. Анонсированный сезон без серий не считается.
   function lastSeason(title, cb) {
     tmdb.get('tv/' + title.id, {}, function (tv) {
       var episode = tv && tv.last_episode_to_air;
@@ -193,10 +224,19 @@
         console.warn('kp-reactions-fix: no last episode', title.id);
         return cb(null);
       }
-      cb({ number: episode.season_number, date: episode.air_date || '' });
+      var number = episode.season_number;
+      var season = (tv.seasons || []).filter(function (s) { return s.season_number === number; })[0];
+      var next = tv.next_episode_to_air;
+      cb({
+        number: number,
+        date: episode.air_date || '',
+        episode: episode.episode_number,
+        total: (season && season.episode_count) || 0,
+        more: !!next && next.season_number === number,
+      });
     }, function () {
       console.warn('kp-reactions-fix: tv details failed', title.id);
-      cb(null);
+      cb(null, 'error');
     }, { life: DAY });
   }
 
@@ -1115,6 +1155,106 @@
     KP.__reactions_patched = true;
   }
 
+  // ---- Метка сезона на карточках сериалов (spec card-season-badge) ----
+
+  var SEASON_UNKNOWN = { text: 'S ?', kind: 'unknown' };
+  // Итог метки за сессию по source + ':' + id карточки: { text, kind }, null — метки нет, массив —
+  // запрос идёт, в нём колбэки ждущих карточек (design.md season-complete-badge, решение 5).
+  var seasonMemo = {};
+
+  function seasonLabel(last) {
+    if (!last) return null;
+    var complete = last.total > 0 && last.episode >= last.total && !last.more;
+    if (complete) return { text: 'S' + last.number + ' ✓', kind: 'done' };
+    var count = last.total > 0 ? last.episode + '/' + last.total : last.episode;
+    return { text: 'S' + last.number + ' ' + count, kind: 'airing' };
+  }
+
+  // Итог метки карточки в cb. Тайтл KP — поиском, tmdb/cub — id карточки. Тайтл не найден, найден не
+  // сериалом или запрос не удался — серая метка (решение 7).
+  function seasonOf(data, cb) {
+    function withTitle(title) {
+      if (!title || title.method !== 'tv') return cb(SEASON_UNKNOWN);
+      lastSeason(title, function (last, error) {
+        cb(error ? SEASON_UNKNOWN : seasonLabel(last));
+      });
+    }
+    if (data.source === 'KP') resolveTitle(data, withTitle);
+    else withTitle({ method: 'tv', id: data.id });
+  }
+
+  // Сериал по правилу источника: у KP — type, у tmdb/cub — original_name, как в TimeTable.update ядра.
+  // Не isTv из patch(): тот читает записи истории (number_of_seasons/first_air_date), а не карточки.
+  function isSeries(data) {
+    if (data.source === 'KP') return data.type === 'tv';
+    return isCoreSource(data) && !!data.original_name;
+  }
+
+  function drawSeason(card, label) {
+    if (!label) return;
+    var view = card.html && card.html.querySelector('.card__view');
+    if (!view) return console.warn('kp-reactions-fix: season badge: no .card__view', card.data.id);
+    var el = document.createElement('div');
+    el.className = 'card__season card__season--' + label.kind;
+    el.textContent = label.text;
+    view.appendChild(el);
+  }
+
+  function seasonVisible(card) {
+    if (card.__kp_season) return;
+    card.__kp_season = true;
+    var data = card.data || {};
+    if (!isSeries(data)) return;
+    var key = data.source + ':' + data.id;
+    var memo = seasonMemo[key];
+    var draw = function (label) { drawSeason(card, label); };
+    if (Array.isArray(memo)) return memo.push(draw);
+    if (key in seasonMemo) return draw(memo);
+    seasonMemo[key] = [draw];
+    seasonOf(data, function (label) {
+      var waiting = seasonMemo[key];
+      seasonMemo[key] = label;
+      waiting.forEach(function (fn) { fn(label); });
+    });
+  }
+
+  // Правый верхний угол: слева вверху метка TV ядра, внизу — оценка, закладки и torrent-quality-badge.
+  function injectSeasonStyle() {
+    if (document.getElementById('kp-season-badge-style')) return;
+    var style = document.createElement('style');
+    style.id = 'kp-season-badge-style';
+    style.textContent =
+      '.card__season{position:absolute;right:.4em;top:.4em;z-index:1;padding:.2em .5em;' +
+      'border-radius:.3em;font-size:.8em;font-weight:600;line-height:1.2;color:#fff;}' +
+      '.card__season--airing{background:rgba(201,138,0,.9);}' +
+      '.card__season--done{background:rgba(46,158,68,.9);}' +
+      '.card__season--unknown{background:rgba(110,110,110,.85);}';
+    document.head.appendChild(style);
+  }
+
+  // Модуль Card ядра общий для всех карточек всех экранов, onVisible — карточка стала видимой
+  // (решение 2). Нет хука — Noty и console.error, остальное работает.
+  function seasonFailed(reason) {
+    console.error('kp-reactions-fix: season badge not installed', reason);
+    Lampa.Noty.show('Метка сезона на карточках не работает: ' + reason);
+  }
+
+  function patchSeasonBadge() {
+    var missing = missingFns(['Maker.map']);
+    if (missing) return seasonFailed(missing);
+    var Card = (Lampa.Maker.map('Card') || {}).Card;
+    if (!Card || typeof Card.onVisible !== 'function') return seasonFailed('no Card.onVisible');
+    if (Card.__kp_season) return;
+    var orgVisible = Card.onVisible;
+    Card.onVisible = function () {
+      var result = orgVisible.apply(this, arguments);
+      seasonVisible(this);
+      return result;
+    };
+    Card.__kp_season = true;
+    injectSeasonStyle();
+  }
+
   // ---- Закладки: одна карточка тайтла из разных источников (spec favorites-across-sources) ----
 
   // Ядро сравнивает закладки по id карточки, а у KP он «KP_<n>», у tmdb/cub — число TMDB: ключ тайтла
@@ -1260,6 +1400,7 @@
     tmdb = Lampa.Api.sources.tmdb;
     Lampa.Listener.follow('full', onFull);
     patchSourceCards();
+    patchSeasonBadge();
     if (Lampa.Api.sources.KP) return patch();
 
     // kp_source грузится отдельным тегом script — порядок завершения между
