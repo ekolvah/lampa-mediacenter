@@ -1,7 +1,9 @@
 # favorites-across-sources Specification
 
 ## Purpose
-TBD - created by archiving change favorites-dedup-across-sources. Update Purpose after archive.
+Плагин `kp-reactions-fix.js` показывает тайтл в закладках одной карточкой, даже если его добавили из
+разных источников (`tmdb`, `cub`, `KP`): записи склеиваются по `imdb_id`, а метка и снятие закладки
+действуют на все записи тайтла.
 
 ## Requirements
 
