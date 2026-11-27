@@ -24,7 +24,7 @@
 
 ## 3. Живая проверка
 
-- [ ] 3.1 `tests/live/season-badge/lib.js` (`SB.kpSeries` из `home.js`, `SB.series` для `KP` по
+- [x] 3.1 `tests/live/season-badge/lib.js` (`SB.kpSeries` из `home.js`, `SB.series` для `KP` по
   правилу решения 1), `home.js` (зовёт `SB.kpSeries`) и `bookmarks.js` (метка на каждом KP-сериале
   «Избранного», список — в итоге шага; инвариант `original_name` ↔ `number_of_seasons ||
   first_air_date` у KP-карточек без `type`) по design, решение 2. Проверка: `node --check` склейки

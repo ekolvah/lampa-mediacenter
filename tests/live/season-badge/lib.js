@@ -7,8 +7,13 @@ var SB = {
     var b = el.querySelector('.card__season');
     return b ? b.textContent : null;
   },
+  // Правило плагина (isTvCard, isSeries): у KP решает type, без него — original_name.
   series: function (d) {
-    return d.source === 'KP' ? d.type === 'tv' : (d.source === 'tmdb' || d.source === 'cub') && !!d.original_name;
+    if (d.source === 'KP') return d.type ? d.type === 'tv' : !!d.original_name;
+    return (d.source === 'tmdb' || d.source === 'cub') && !!d.original_name;
+  },
+  kpSeries: function () {
+    return SB.cards().filter(function (el) { return el.card_data.source === 'KP' && SB.series(el.card_data); });
   },
   // Метки на фильмах: «id метка».
   moviesWithBadge: function () {
