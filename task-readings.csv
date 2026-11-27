@@ -29,3 +29,4 @@ pr,change,task_id,start,merged_at,hours,agent_hours,lines,plan_rounds,code_round
 115,kp-main-new-release-rows,issue-114,2026-11-23T17:18:35Z,2026-11-23T18:58:35Z,1.67,1.16,1443,6,1,20.3164,342,5,6,3,
 117,season-complete-badge,issue-116,2026-11-27T15:10:32Z,2026-11-27T16:41:47Z,1.52,0.78,1174,4,1,16.5119,296,5,5,3,
 119,kp-bookmark-series-badge,issue-118,2026-11-27T17:01:50Z,2026-11-27T17:13:53Z,0.20,0.17,431,3,1,2.3472,57,3,0,0,
+121,fill-favorites-purpose,issue-120,2026-11-27T17:18:36Z,2026-11-27T17:51:03Z,0.54,,140,2,1,2.0618,75,3,0,0,agent_hours: no reset-free active time of 0e4f5e8d-dc96-4a21-a7a4-7801bc10c826
