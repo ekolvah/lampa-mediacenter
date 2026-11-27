@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 3,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Причина наблюдена, правило isTvCard одно и узкое; оба замечания раунда 1 закрыты: у риска KP-фильма без type есть независимый ловец, а RED-цикл 1.1 разведён по load() и доказывает resolveTitle.",
+  "classes": {
+    "simpler": {
+      "evidence": "design.md, решение 1, Альтернативы: «только !!original_name» отвергнута — меняет поведение карточек с type (рекомендации, где type ставит isTv), а тест kpShow() (type 'tv', без original_name) это различает; «подставить type в seasonOf» отвергнута — правило в двух вызовах плюс isSeries. Правка одного isSeries не хватает: resolveTitle при find с фильмом и сериалом (plugins/kp-reactions-fix.js:207) выбрал бы фильм — это и проверяет первый кейс 1.1. Проще решения, проходящего сценарии, нет.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "tasks.md, Scenario → test map: все 6 сценариев card-season-badge и 12 kp-card-trailers имеют запись; новые «KP-карточка сериала без type», «KP-карточка фильма без type», «Сериал без type» — расширения тестов из 1.1; остальные имена существуют в tests/js/kp-reactions-fix.test.js (497–573, 2128–2170). Дельты MODIFIED сверены с openspec/specs/*: отличия — только добавленные предложения и сценарии.",
+      "result": "ok"
+    },
+    "red": {
+      "result": "ok",
+      "evidence": "tasks.md 1.1–1.2: до правки карточка без type не проходит isSeries — оба новых кейса `kp card badge via resolveTitle` красные; каждая карточка цикла теперь в своём load(), поэтому memo `KP:KP_1` не подменяет find/tv/236235 второй карточки и правка одного isSeries без resolveTitle тест не пройдёт. `movie card no badge no request` зелёный и до правки — страж, не RED. check_red по tests/test_plugin_js.py::test_plugin_js гоняет node --test tests/js/*.test.js."
+    },
+    "platform": {
+      "evidence": "Отсутствие type у KP-закладок — наблюдение на устройстве (design.md, Наблюдение, Lampa.Favorite.get через cdp.py; DOM-подсчёт и записи KP_4855987 / 120911 — proposal Why и snapshots/2026-11-27_kp-reactions-fix-pin-main-117/NOTES.md). original_name только у сериалов KP — цитата kp_source.js строки 195 и 261–263 с URL и датой; type у карточек KP.full и рядов — строка 204 convertElem и наблюдение onVisible (archive/2026-11-27-season-complete-badge/design.md, решение 2). Задержка записи localStorage WebView — tools/README.md:101.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Проектно-объявленный вход не заменяется вызывающим; страж «KP без type — не сериал» сужается до «KP без type и без original_name». Режим отказа нового входа назван в design.md, Risks (фильм без type с original_name → S ? или чужая метка); что перестаёт доказываться и чем ловится — проверка инварианта в bookmarks.js (класс catcher).",
+      "result": "ok"
+    },
+    "catcher": {
+      "result": "ok",
+      "evidence": "design.md, Risks (первый пункт) и решение 2; tasks.md 3.1: ловец KP-фильма без type с original_name — проверка инварианта в tests/live/season-badge/bookmarks.js (`!!original_name === !!(number_of_seasons || first_air_date)` у KP-карточек без type, расхождение — Live.check с id). Она не зависит от SB.series, поэтому достаёт случай: у такого фильма нет признаков isTv, и шаг падает. Доходит в `bash tests/live/season-badge.sh` из 4.3 (Migration Plan) на мерж-коммите main после выкатки. Что moviesWithBadge этот случай не ловит, Risks теперь пишет сам."
+    },
+    "length": {
+      "evidence": "card-season-badge: добавлено «Карточка `KP` MUST считаться сериалом, если её `type` — `tv`, а без `type` — если у неё есть `original_name`» (~17 слов); тестами утверждены ветки type 'tv' (kpShow без original_name), без type с original_name, без type и без original_name; ветка «type 'movie' при original_name» не утверждена — на данных её нет, не блокирует. kp-card-trailers: «Карточка без `type` SHALL считаться сериалом, если у неё есть `original_name`» (~10 слов) — утверждено URL search/tv…&first_air_date_year=2026. Два новых сценария card-season-badge и один kp-card-trailers — по 2 строки, каждое слово покрыто кейсами 1.1.",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "proposal.md, Standard approach (design.md, Context, ссылается на него): правило ядра (original_name → сериал, archive/2026-11-27-season-complete-badge/design.md, решение 3, уже применено к tmdb/cub в isSeries) и правило источника с URL https://nb557.github.io/plugins/kp_source.js (прочитан 2026-11-27, строки 195, 261–263) — это и есть стандарт задачи, своё правило не вводится; isTvCard следует ему, а type при наличии оставлен решающим, чтобы не менять карточки с type. Новых скриптов и проверок нет: правится существующая живая проверка tests/live/season-badge (решение 2).",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
