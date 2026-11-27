@@ -5,12 +5,12 @@
 
 ## 1. RED
 
-- [ ] 1.1 no RED: docs-only, `skip_specs`. Воспроизведение — proposal.md, Why:
+- [x] 1.1 no RED: docs-only, `skip_specs`. Воспроизведение — proposal.md, Why:
   `openspec validate --strict --all` → `11 passed, 1 failed`.
 
 ## 2. Purpose
 
-- [ ] 2.1 `openspec/specs/favorites-across-sources/spec.md`: заменить строку `TBD - created by archiving
+- [x] 2.1 `openspec/specs/favorites-across-sources/spec.md`: заменить строку `TBD - created by archiving
   change …` под `## Purpose` на «Плагин `kp-reactions-fix.js` показывает тайтл в закладках одной
   карточкой, даже если его добавили из разных источников (`tmdb`, `cub`, `KP`): записи склеиваются по
   `imdb_id`, а метка и снятие закладки действуют на все записи тайтла.»
