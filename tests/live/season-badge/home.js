@@ -14,7 +14,7 @@
   }
 
   function kpSeries() {
-    return SB.cards().filter(function (el) { return el.card_data.source === 'KP' && el.card_data.type === 'tv'; });
+    return SB.cards().filter(function (el) { return el.card_data.source === 'KP' && SB.series(el.card_data); });
   }
   var ok = await Live.waitFor(function () { return kpSeries().some(SB.badge); }, 15000);
   Live.check(ok, 'за 15 с ни одной метки на ' + kpSeries().length + ' KP-сериалах Главной');

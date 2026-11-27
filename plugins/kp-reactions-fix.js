@@ -153,9 +153,9 @@
     var url = 'search/' + method + '?query=' + encodeURIComponent(cardName(movie));
     var want = titles(movie.title, movie.original_title);
 
-    function fail(reason, error) {
+    function fail(reason) {
       console.warn('kp-reactions-fix: no title match', reason, movie.title, year);
-      cb(null, error);
+      cb(null);
     }
 
     function found(r) {
@@ -170,7 +170,7 @@
           });
         }));
       }, function () {
-        fail('search failed', 'error');
+        fail('search failed');
       }, { life: WEEK });
     }
 
@@ -196,7 +196,7 @@
   }
 
   // TMDB-тайтл карточки: по imdb_id (find), без него или при пустом find — по
-  // названию. cb(null) — тайтла нет, cb(null, 'error') — запрос не удался; причина уже в console.warn.
+  // названию. cb(null) — тайтла нет, причина уже в console.warn.
   function resolveTitle(movie, cb) {
     if (!movie.imdb_id) return searchByTitle(movie, cb);
 
@@ -209,7 +209,7 @@
       else searchByTitle(movie, cb);
     }, function () {
       console.warn('kp-reactions-fix: find failed, no reactions', cardName(movie), movie.imdb_id);
-      cb(null, 'error');
+      cb(null);
     }, { life: WEEK });
   }
 
@@ -1184,6 +1184,7 @@
   }
 
   // Сериал по правилу источника: у KP — type, у tmdb/cub — original_name, как в TimeTable.update ядра.
+  // Не isTv из patch(): тот читает записи истории (number_of_seasons/first_air_date), а не карточки.
   function isSeries(data) {
     if (data.source === 'KP') return data.type === 'tv';
     return isCoreSource(data) && !!data.original_name;
@@ -1200,15 +1201,16 @@
   }
 
   function seasonVisible(card) {
-    if (card.__kpSeason) return;
-    card.__kpSeason = true;
+    if (card.__kp_season) return;
+    card.__kp_season = true;
     var data = card.data || {};
     if (!isSeries(data)) return;
     var key = data.source + ':' + data.id;
     var memo = seasonMemo[key];
-    if (Array.isArray(memo)) return memo.push(function (label) { drawSeason(card, label); });
-    if (key in seasonMemo) return drawSeason(card, memo);
-    seasonMemo[key] = [function (label) { drawSeason(card, label); }];
+    var draw = function (label) { drawSeason(card, label); };
+    if (Array.isArray(memo)) return memo.push(draw);
+    if (key in seasonMemo) return draw(memo);
+    seasonMemo[key] = [draw];
     seasonOf(data, function (label) {
       var waiting = seasonMemo[key];
       seasonMemo[key] = label;
@@ -1232,14 +1234,16 @@
 
   // Модуль Card ядра общий для всех карточек всех экранов, onVisible — карточка стала видимой
   // (решение 2). Нет хука — Noty и console.error, остальное работает.
+  function seasonFailed(reason) {
+    console.error('kp-reactions-fix: season badge not installed', reason);
+    Lampa.Noty.show('Метка сезона на карточках не работает: ' + reason);
+  }
+
   function patchSeasonBadge() {
     var missing = missingFns(['Maker.map']);
-    var Card = !missing && (Lampa.Maker.map('Card') || {}).Card;
-    if (!missing && !(Card && typeof Card.onVisible === 'function')) missing = 'no Card.onVisible';
-    if (missing) {
-      console.error('kp-reactions-fix: season badge not installed', missing);
-      return Lampa.Noty.show('Метка сезона на карточках не работает: ' + missing);
-    }
+    if (missing) return seasonFailed(missing);
+    var Card = (Lampa.Maker.map('Card') || {}).Card;
+    if (!Card || typeof Card.onVisible !== 'function') return seasonFailed('no Card.onVisible');
     if (Card.__kp_season) return;
     var orgVisible = Card.onVisible;
     Card.onVisible = function () {

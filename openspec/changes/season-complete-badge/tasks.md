@@ -38,7 +38,7 @@
 
 ## 5. Verify
 
-- [ ] 5.1 `/simplify`, коммит его правок.
+- [x] 5.1 `/simplify`, коммит его правок.
 - [ ] 5.2 `openspec validate --strict --all` и
   `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`, до выкатки.
 - [ ] 5.3 Выкатка и `screencap` — по design.md, Migration Plan.

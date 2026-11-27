@@ -4,8 +4,7 @@
   Lampa.Activity.push({ url: '', title: Lampa.Lang.translate('title_book'), component: 'bookmarks', page: 1 });
   function core() {
     return SB.cards().filter(function (el) {
-      var d = el.card_data;
-      return (d.source === 'tmdb' || d.source === 'cub') && SB.series(d) && SB.badge(el);
+      return el.card_data.source !== 'KP' && SB.series(el.card_data) && SB.badge(el);
     });
   }
   var ok = await Live.waitFor(function () {
