@@ -32,7 +32,7 @@
 
 ## 4. Verify
 
-- [ ] 4.1 `/simplify`, коммит его правок.
+- [x] 4.1 `/simplify`, коммит его правок.
 - [ ] 4.2 `openspec validate --strict --all` и
   `pre-commit run --hook-stage manual --all-files --show-diff-on-failure`.
 - [ ] 4.3 После мержа: выкатка, `bash tests/live/season-badge.sh` и `screencap` — по design.md,

@@ -13,17 +13,18 @@
   var ok = await Live.waitFor(function () {
     return Lampa.Activity.active().component === 'bookmarks' && core().length && SB.kpSeries().every(SB.badge);
   }, 15000);
-  var bare = SB.kpSeries().filter(function (el) { return !SB.badge(el); });
+  var kpCards = SB.kpSeries();
+  var bare = kpCards.filter(function (el) { return !SB.badge(el); });
   Live.check(ok, 'за 15 с в «Избранном» нет меток на сериалах tmdb/cub или на KP-сериалах ' +
     bare.map(function (el) { return el.card_data.id; }).join(', ') + ' (активна ' + Lampa.Activity.active().component + ')');
 
   SB.cards().forEach(function (el) {
     var d = el.card_data;
     if (d.source !== 'KP' || d.type) return;
-    Live.check(!!d.original_name === !!(d.number_of_seasons || d.first_air_date),
-      d.id + ' ' + d.title + ': original_name ' + !!d.original_name + ', признаки сериала ' + !!(d.number_of_seasons || d.first_air_date));
+    var tvSigns = !!(d.number_of_seasons || d.first_air_date);
+    Live.check(!!d.original_name === tvSigns, d.id + ' ' + d.title + ': original_name ' + !!d.original_name + ', признаки сериала ' + tvSigns);
   });
-  var kp = SB.kpSeries().map(function (el) { return el.card_data.title + ' ' + SB.badge(el); });
+  var kp = kpCards.map(function (el) { return el.card_data.title + ' ' + SB.badge(el); });
 
   function expected(tv) {
     var last = tv.last_episode_to_air;
