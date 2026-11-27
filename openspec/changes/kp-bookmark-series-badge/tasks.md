@@ -17,7 +17,7 @@
 
 ## 2. Плагин
 
-- [ ] 2.1 `isTvCard` в `plugins/kp-reactions-fix.js` по design, решение 1, и её вызов в
+- [x] 2.1 `isTvCard` в `plugins/kp-reactions-fix.js` по design, решение 1, и её вызов в
   `searchByTitle`, `resolveTitle` и ветке `KP` у `isSeries`, комментарий над `isSeries` — по
   правилу. Проверка:
   `node --test tests/js/kp-reactions-fix.test.js` зелёный, включая прежние тесты. Коммит.
