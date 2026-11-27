@@ -32,7 +32,7 @@
 
 ## 4. Доки
 
-- [ ] 4.1 Строка `kp-reactions-fix.js` в `docs/lampa-config-review.md`: метка сезона на карточках
+- [x] 4.1 Строка `kp-reactions-fix.js` в `docs/lampa-config-review.md`: метка сезона на карточках
   сериалов, повтор поиска по названию без года (±1, без даты не берётся), живая проверка — `bash tests/live/season-badge.sh`. Проверка:
   `python scripts/ci_check.py --only links`. Коммит.
 
