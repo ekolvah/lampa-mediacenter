@@ -27,3 +27,4 @@ pr,change,task_id,start,merged_at,hours,agent_hours,lines,plan_rounds,code_round
 111,disable-kinopoisk-redirect,issue-110,2026-11-23T09:28:36Z,2026-11-23T10:20:46Z,0.87,0.38,345,2,1,8.1080,183,3,6,0,
 113,favorites-dedup-across-sources,issue-112,2026-11-23T16:04:39Z,2026-11-23T17:07:51Z,1.05,0.50,749,3,1,12.4643,248,8,4,1,
 115,kp-main-new-release-rows,issue-114,2026-11-23T17:18:35Z,2026-11-23T18:58:35Z,1.67,1.16,1443,6,1,20.3164,342,5,6,3,
+117,season-complete-badge,issue-116,2026-11-27T15:10:32Z,2026-11-27T16:41:47Z,1.52,0.78,1174,4,1,16.5119,296,5,5,3,
