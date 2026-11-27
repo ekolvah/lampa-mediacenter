@@ -1,0 +1,41 @@
+{
+  "verdict": "approve",
+  "round": 2,
+  "reviewer": "architect-reviewer",
+  "reasoning": "Round 1 finding resolved: `## Standard approach` now opens with `none found:` naming what was examined; the one-line Purpose fix is minimal and matches the spec.",
+  "classes": {
+    "simpler": {
+      "evidence": "Alternatives: a Purpose delta (ruled out by the validator message quoted in proposal.md Why), deleting the line (strict validation still requires a Purpose). One line in one main spec (proposal.md Impact) is the minimum; the in-repo placeholder gate is deferred with a link to ekolvah/agent-process-distribution#525, consistent with §VII and the precedent fill-spec-purposes.",
+      "result": "ok"
+    },
+    "map": {
+      "evidence": "skip_specs: true, no deltas; tasks.md Scenario → test map has the single n/a row with the reason. `openspec validate fill-favorites-purpose --strict`: 'Change is valid', skip_specs INFO, zero deltas accepted.",
+      "result": "ok"
+    },
+    "red": {
+      "evidence": "tasks.md 1.1 `no RED: docs-only, skip_specs` (§I docs-only exemption) pointing at the reproduction. Re-run on origin/main cad433f with this change dir present: `Totals: 12 passed, 1 failed (13 items)`, the failing item favorites-across-sources with `TBD - created by archiving change favorites-dedup-across-sources` under `## Purpose` — matches proposal.md Why (11/1/12 without the change).",
+      "result": "ok"
+    },
+    "platform": {
+      "evidence": "Only platform behaviour relied on: OpenSpec 1.13.0 reads a delta `## Purpose` only on capability creation and flags placeholders in --strict. Observed: the WARNING text quoted in proposal.md Why. The root-cause claim (creating deltas with `## Purpose` got none) checked: of archived creating deltas only kp-history-recommendations, edit-secret-hook, kp-main-new-release-rows, card-season-badge carry `## Purpose`; archive/2026-11-23-favorites-dedup-across-sources/specs has none.",
+      "result": "ok"
+    },
+    "replaced": {
+      "evidence": "Nothing replaced beyond the placeholder line; no input or guard dropped; requirements and scenarios untouched (proposal.md What Changes, Impact).",
+      "result": "ok"
+    },
+    "catcher": {
+      "evidence": "Fix catcher: tasks.md 2.1 `openspec validate favorites-across-sources --type spec --strict` and 3.2 `--strict --all`, both reached in the worktree before the archive commit. Recurrence catcher: none in-repo; proposal.md Why and What Changes name the gap and link ekolvah/agent-process-distribution#525, so it is visible, not silent.",
+      "result": "ok"
+    },
+    "length": {
+      "evidence": "One non-normative sentence added (tasks.md 2.1), ~35 words; tests assert 0 of them (the validator checks only placeholder absence). Accurate to the spec: plugin plugins/kp-reactions-fix.js (archived #113 proposal Impact), merge by `imdb_id` (req «Одна карточка тайтла в списке»), mark and removal across records (reqs «Метка закладки…», «Снятие закладки…»).",
+      "result": "ok"
+    },
+    "bespoke": {
+      "evidence": "proposal.md `## Standard approach` opens with `none found:` and names what was examined: the OpenSpec 1.13.0 validator message (quoted in Why, reproduced on cad433f) and the sources in archive/2026-11-21-fill-spec-purposes/proposal.md (validator message, `.claude/skills/openspec-sync-specs/SKILL.md:147`). Convincing: the placeholder is an artifact of OpenSpec's own archive step, so its own tooling is the authoritative standard; the plan follows it. Section matches finish_propose.py:51 `_SOURCE`. No script or check added, so no design.md decision is owed.",
+      "result": "ok"
+    }
+  },
+  "scenario_coverage": []
+}
