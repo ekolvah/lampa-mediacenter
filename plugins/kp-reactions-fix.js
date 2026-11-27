@@ -147,7 +147,7 @@
   // бывает на год раньше TMDB, design.md season-complete-badge, решение 3); без года — только
   // единственный. После сбоя поиска второго нет.
   function searchByTitle(movie, cb) {
-    var tv = movie.type === 'tv';
+    var tv = isTvCard(movie);
     var method = tv ? 'tv' : 'movie';
     var year = releaseDate(movie, tv).slice(0, 4);
     var url = 'search/' + method + '?query=' + encodeURIComponent(cardName(movie));
@@ -195,6 +195,12 @@
     });
   }
 
+  // Сериал ли KP-карточка: решает type, а без него (закладки «Избранного») — original_name, который
+  // kp_source.js даёт только сериалам.
+  function isTvCard(movie) {
+    return movie.type ? movie.type === 'tv' : !!movie.original_name;
+  }
+
   // TMDB-тайтл карточки: по imdb_id (find), без него или при пустом find — по
   // названию. cb(null) — тайтла нет, причина уже в console.warn.
   function resolveTitle(movie, cb) {
@@ -204,7 +210,7 @@
       // Бывает и фильм, и сериал (пустая запись TMDB с тем же imdb_id): берётся тип карточки.
       var film = (found.movie_results || [])[0];
       var tv = (found.tv_results || [])[0];
-      if (tv && (movie.type === 'tv' || !film)) cb({ method: 'tv', id: tv.id });
+      if (tv && (isTvCard(movie) || !film)) cb({ method: 'tv', id: tv.id });
       else if (film) cb({ method: 'movie', id: film.id });
       else searchByTitle(movie, cb);
     }, function () {
@@ -1183,10 +1189,10 @@
     else withTitle({ method: 'tv', id: data.id });
   }
 
-  // Сериал по правилу источника: у KP — type, у tmdb/cub — original_name, как в TimeTable.update ядра.
+  // Сериал по правилу источника: у KP — isTvCard, у tmdb/cub — original_name, как в TimeTable.update ядра.
   // Не isTv из patch(): тот читает записи истории (number_of_seasons/first_air_date), а не карточки.
   function isSeries(data) {
-    if (data.source === 'KP') return data.type === 'tv';
+    if (data.source === 'KP') return isTvCard(data);
     return isCoreSource(data) && !!data.original_name;
   }
 

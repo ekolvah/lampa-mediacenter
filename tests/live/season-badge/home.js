@@ -13,12 +13,9 @@
     };
   }
 
-  function kpSeries() {
-    return SB.cards().filter(function (el) { return el.card_data.source === 'KP' && SB.series(el.card_data); });
-  }
-  var ok = await Live.waitFor(function () { return kpSeries().some(SB.badge); }, 15000);
-  Live.check(ok, 'за 15 с ни одной метки на ' + kpSeries().length + ' KP-сериалах Главной');
+  var ok = await Live.waitFor(function () { return SB.kpSeries().some(SB.badge); }, 15000);
+  Live.check(ok, 'за 15 с ни одной метки на ' + SB.kpSeries().length + ' KP-сериалах Главной');
   var movies = SB.moviesWithBadge();
   Live.check(!movies.length, 'метки на фильмах: ' + movies.join(', '));
-  return 'ok: метки ' + kpSeries().filter(SB.badge).map(SB.badge).join(', ');
+  return 'ok: метки ' + SB.kpSeries().filter(SB.badge).map(SB.badge).join(', ');
 })()
