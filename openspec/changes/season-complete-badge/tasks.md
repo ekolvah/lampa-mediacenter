@@ -17,7 +17,7 @@
 
 ## 2. Плагин
 
-- [ ] 2.1 Раздел «Метка сезона» в `plugins/kp-reactions-fix.js` по design, решения 2–7 (включая
+- [x] 2.1 Раздел «Метка сезона» в `plugins/kp-reactions-fix.js` по design, решения 2–7 (включая
   расширение `lastSeason`, `cb(null, 'error')` у `resolveTitle`/`searchByTitle` и повтор поиска без
   года в `searchByTitle` по delta `kp-card-trailers`), вызов из
   `startPlugin()`, абзац в шапке. Проверка:
