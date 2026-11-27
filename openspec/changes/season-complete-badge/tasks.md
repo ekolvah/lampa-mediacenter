@@ -5,7 +5,7 @@
 
 ## 1. RED
 
-- [ ] 1.1 `tests/js/kp-reactions-fix.test.js`: двойники по design, решение 8 (`Maker.map('Card')`
+- [x] 1.1 `tests/js/kp-reactions-fix.test.js`: двойники по design, решение 8 (`Maker.map('Card')`
   с `Card.onVisible`, пишущим вызовы в `calls.visible`; карточка и `document` — по образцу
   `tests/js/torrent-quality-badge.test.js`), тесты — модульные из «Scenario → test map», которых ещё нет. Прежние тесты `kp-card-trailers` остаются, кроме двух помеченных в карте «(обновить)»:
   `no title match warns with title and year` — ответ поиска по году с результатами без совпадения
@@ -13,7 +13,7 @@
   opens` — в `c.get` только URL с годом.
   `missing card hook fails visibly` — цикл по `drop` для `Maker.map` и `Card.onVisible`; что Главная
   KP и закладки работают, проверяют существующие проверки `patch`/`patchFavorites` в том же `load()`.
-- [ ] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
+- [x] 1.2 `agent-process check_red tests/test_plugin_js.py::test_plugin_js`, коммит RED.
 
 ## 2. Плагин
 
