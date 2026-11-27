@@ -25,7 +25,7 @@
 
 ## 3. Живая проверка
 
-- [ ] 3.1 `tests/live/season-badge/badges.js` и `tests/live/season-badge.sh` по design, решение 8
+- [x] 3.1 `tests/live/season-badge/badges.js` и `tests/live/season-badge.sh` по design, решение 8
   (`restart_lampa`, `step badges` из `tests/live/lib.sh`; `Live.waitFor`, `Live.check` из
   `tests/live/lib.js`; в шапке — когда гонять: перед сменой sha `plugins/kp-reactions-fix.js` и
   после). Только чтение. Коммит.
