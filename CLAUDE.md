@@ -20,6 +20,8 @@
   приставке: свой парсер торрентов (JacRed) вместо публичного `jac.red` и сервис
   русских трейлеров с YouTube для KP-карточек: что развёрнуто, как запускать после
   перезагрузки, как обновлять базу и yt-dlp, как откатить.
+- [docs/hermes-agent-on-ugoos.md](docs/hermes-agent-on-ugoos.md) — проба Hermes Agent
+  (агент с Telegram) в том же chroot: встаёт ли на armv7l, чего не хватает, RAM, откат.
 - [docs/torrserver-tuning.md](docs/torrserver-tuning.md) — текущая настройка
   TorrServer (кэш, лимит соединений, порт пиров) и обязательный метод её
   изменения через API (`get` → правка → `set` полным объектом — частичный
