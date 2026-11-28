@@ -1,4 +1,4 @@
-# Проба Hermes Agent на приставке (Debian-chroot, armv7l)
+# Hermes Agent на приставке (Debian-chroot, armv7l)
 
 Hermes Agent (NousResearch, `github.com/NousResearch/hermes-agent`) проверяли как кандидата для
 личного агента новостей с каналом Telegram. Стоит версия v0.23.5. Gateway работает постоянно
