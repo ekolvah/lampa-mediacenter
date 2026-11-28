@@ -6,10 +6,11 @@ Hermes Agent (NousResearch, `github.com/NousResearch/hermes-agent`) провер
 
 ## Вердикт
 
-**Встаёт в обход официального установщика и работает с Gemini free tier, но с оговорками.**
-Запрос `hermes -z "Ответь одним словом: столица Франции?"` с моделью `gemini-3.1-flash-lite` вернул
-«Париж» за 75 с, включая холодный старт gateway. Однако Hermes официально не поддерживает
-`armv7l`, и часть функций на приставке не работает.
+**Встаёт в обход официального установщика и работает с подпиской ChatGPT Plus и с Gemini free
+tier, но с оговорками.** Сейчас модель — `gpt-6-sol` через ChatGPT Plus (см. ниже): запрос
+`hermes -z "Ответь одним словом: столица Франции?"` вернул «Париж.» за 98 с, включая холодный
+старт gateway. Однако Hermes официально не поддерживает `armv7l`, и часть функций на приставке
+не работает.
 
 - `scripts/install.sh` сразу завершается с ошибкой `unsupported_platform`: для его `uv` есть только
   сборки x64 и arm64.
@@ -26,6 +27,18 @@ Hermes Agent (NousResearch, `github.com/NousResearch/hermes-agent`) провер
   | `psutil`, `cffi`, `httptools` | C | собраны из исходников за 37 с, нужен `gcc` в chroot. `psutil` обязателен: без него не импортируются terminal/delegate tools и падает kanban-диспетчер |
   | `pillow`, `pillow-heif` | C + libjpeg/libheif | не ставились. Используются только в `agent/pet` и `tools/bot_desktop`, а не в основном пути |
   | `firecrawl-anydoc` | Rust (maturin, 186 crate'ов) | не ставился, сборка на приставке дольше лимита. Без него `read_file` не извлекает текст из PDF и Office-документов |
+
+## ChatGPT Plus (`openai-codex`) — текущий провайдер
+
+- Вход по device code, браузер на приставке не нужен:
+  `hermes auth add openai-codex --type oauth --no-browser --label chatgpt-plus`. Команда печатает
+  код. Его вводят на `https://auth.openai.com/codex/device`, войдя в свой аккаунт ChatGPT.
+  Ожидание до 15 минут. Hermes заводит свою OAuth-сессию, Codex CLI и VS Code она не трогает.
+- Затем `hermes config set model.provider openai-codex` и `hermes config set model.default gpt-6-sol`.
+  Список моделей — `DEFAULT_CODEX_MODELS` в `hermes_cli/codex_models.py`.
+- Учётки видны в `hermes auth list`. Токен лежит в `$HERMES_HOME/auth.json` и обновляется сам.
+- Ключ Gemini остаётся второй учёткой в `.env`. Вернуться на Gemini можно двумя командами
+  `config set` из раздела ниже.
 
 ## Gemini free tier
 
@@ -61,7 +74,7 @@ Hermes Agent (NousResearch, `github.com/NousResearch/hermes-agent`) провер
 | CPython 3.14.9 (python-build-standalone) | `/opt/hermes/python`, шим `/root/.local/bin/python3.14` |
 | Исходники v0.23.5 | `/opt/hermes/src` (`git clone --depth 1 --branch v0.23.5`) |
 | venv (editable-установка: сборку wheel `setup.py` запрещает) | `/opt/hermes/venv` |
-| `HERMES_HOME` (config, sessions, memories, `.env` с `GOOGLE_API_KEY`) | `/opt/hermes/home` |
+| `HERMES_HOME` (config, sessions, memories, `.env` с `GOOGLE_API_KEY`, `auth.json` с OAuth ChatGPT) | `/opt/hermes/home` |
 | Сборочные пакеты apt | `gcc`, `libc6-dev`, `libffi-dev` и их зависимости |
 
 ## Установка
@@ -89,6 +102,9 @@ HERMES_HOME=/opt/hermes/home TMPDIR=/tmp ./venv/bin/hermes --version
 `TMPDIR=/tmp` нужно задавать явно: из Android в chroot наследуется `TMPDIR=/data/local/tmp`.
 
 ## Откат
+
+Только ChatGPT: `hermes auth remove openai-codex 1`, затем вернуть `model.provider`/`model.default` на
+Gemini. Сессию также можно отозвать в настройках аккаунта ChatGPT. Hermes целиком:
 
 ```bash
 rm -rf /opt/hermes /root/.local/bin/python3.14
