@@ -1,8 +1,8 @@
-# Проба Hermes Agent на приставке (Debian-chroot, armv7l)
+# Hermes Agent на приставке (Debian-chroot, armv7l)
 
 Hermes Agent (NousResearch, `github.com/NousResearch/hermes-agent`) проверяли как кандидата для
-личного агента новостей с каналом Telegram. Проба прошла 2026-11-28 на версии v0.23.5. Это
-проба, а не развёртывание: нет автозапуска, Telegram не подключён.
+личного агента новостей с каналом Telegram. Стоит версия v0.23.5. Gateway работает постоянно
+(автозапуск через `start.d`) и отвечает в Telegram (см. «Telegram и автозапуск»).
 
 ## Вердикт
 
@@ -54,10 +54,28 @@ tier, но с оговорками.** Сейчас модель — `gpt-6-sol` 
 - `hermes -z` не работает сам по себе: он поднимает фоновый `gateway run --quiet --idle-exit` и
   говорит с ним по WebSocket. Gateway остаётся жить после ответа.
 
+## Telegram и автозапуск
+
+- Бот — тот же, что у kinozal_scraper. Тот бот только шлёт сообщения и не вызывает `getUpdates`,
+  поэтому polling Hermes с ним не конфликтует. Публичный URL не нужен.
+- В `$HERMES_HOME/.env` лежат `TELEGRAM_BOT_TOKEN=<токен>` и `TELEGRAM_ALLOWED_USERS=<chat id>`. Белый
+  список обязателен: без него бот ответит любому.
+- Базовая установка не ставит адаптер, и gateway пишет `Platform 'Telegram' dependencies missing`.
+  Его собственная доустановка на armv7l падает. Ставить вручную по extra `telegram` (шаг в
+  «Установке»): `python-telegram-bot[webhooks]` и `tornado` (собирается из sdist).
+- Автозапуск: [tools/start.d/hermes.sh](../tools/start.d/hermes.sh) кладётся в
+  `/data/debian/root/start.d/`. Он запускает `hermes gateway run` через `chroot-start.sh`
+  (процедура общая для всех сервисов — [jacred-on-ugoos.md](jacred-on-ugoos.md)). Pid —
+  `/opt/hermes/hermes.pid`, stdout — `/opt/hermes/run.log`, логи gateway —
+  `$HERMES_HOME/logs/gateway.log`.
+- Успешный старт: в `gateway.log` строки `Connected to Telegram (polling mode)` и `✓ telegram
+  connected`, примерно через минуту после запуска.
+- Остановка: `start-stop-daemon --stop --retry 60 --pidfile /opt/hermes/hermes.pid --remove-pidfile`.
+
 ## Ресурсы
 
 - Gateway в простое после запроса: **RSS ~170 МБ, CPU ~9,5 % одного ядра** (замер за 2 минуты).
-  Без платформ и без запроса — те же ~160–180 МБ. Сам процесс `hermes -z` держит ~48 МБ.
+  С подключённым Telegram — ~190 МБ. Сам процесс `hermes -z` держит ~48 МБ.
 - Холодный `hermes --version` занимает ~13 с, старт gateway — больше минуты, CPU на одном ядре.
 - Остановка по SIGTERM занимает ~40 с.
 - На диске `/opt/hermes` занимает 738 МБ: Python 3.14, venv, git-checkout и кэш uv.
@@ -74,7 +92,8 @@ tier, но с оговорками.** Сейчас модель — `gpt-6-sol` 
 | CPython 3.14.9 (python-build-standalone) | `/opt/hermes/python`, шим `/root/.local/bin/python3.14` |
 | Исходники v0.23.5 | `/opt/hermes/src` (`git clone --depth 1 --branch v0.23.5`) |
 | venv (editable-установка: сборку wheel `setup.py` запрещает) | `/opt/hermes/venv` |
-| `HERMES_HOME` (config, sessions, memories, `.env` с `GOOGLE_API_KEY`, `auth.json` с OAuth ChatGPT) | `/opt/hermes/home` |
+| `HERMES_HOME` (config, sessions, memories, `.env` с `GOOGLE_API_KEY` и `TELEGRAM_*`, `auth.json` с OAuth ChatGPT) | `/opt/hermes/home` |
+| Скрипт автозапуска gateway | `/root/start.d/hermes.sh` |
 | Сборочные пакеты apt | `gcc`, `libc6-dev`, `libffi-dev` и их зависимости |
 
 ## Установка
@@ -97,16 +116,26 @@ apt-get install -y --no-install-recommends gcc libc6-dev libffi-dev
 ./bin/uv pip install --no-deps cffi==2.1.1 httptools==0.8.0 psutil==7.2.2
 ./bin/uv pip install --no-deps -e ./src
 HERMES_HOME=/opt/hermes/home TMPDIR=/tmp ./venv/bin/hermes --version
+# Telegram: зависимости extra, которых нет в базовом req.txt
+(cd src && ../bin/uv export --frozen --no-dev --no-emit-project --no-hashes --python 3.14 --extra telegram -o /opt/hermes/req-tg.txt)
+grep -vxFf req.txt req-tg.txt > req-tg-new.txt
+./bin/uv pip install --no-deps -r req-tg-new.txt
 ```
+
+Автозапуск: с хоста `adb push tools/start.d/hermes.sh /data/debian/root/start.d/hermes.sh`. Затем
+первый запуск вручную: `adb shell '/system/bin/sh /data/local/tmp/chroot-debian.sh /root/start.d/hermes.sh'`.
 
 `TMPDIR=/tmp` нужно задавать явно: из Android в chroot наследуется `TMPDIR=/data/local/tmp`.
 
 ## Откат
 
 Только ChatGPT: `hermes auth remove openai-codex 1`, затем вернуть `model.provider`/`model.default` на
-Gemini. Сессию также можно отозвать в настройках аккаунта ChatGPT. Hermes целиком:
+Gemini. Сессию также можно отозвать в настройках аккаунта ChatGPT.
+
+Только Telegram и автозапуск: остановить gateway (см. выше), затем `rm /root/start.d/hermes.sh` и
+`sed -i '/^TELEGRAM_/d' /opt/hermes/home/.env`. Hermes целиком:
 
 ```bash
-rm -rf /opt/hermes /root/.local/bin/python3.14
+rm -rf /opt/hermes /root/.local/bin/python3.14 /root/start.d/hermes.sh
 apt-get purge gcc libc6-dev libffi-dev && apt-get autoremove   # сверить со снапшотом dpkg-списка
 ```
